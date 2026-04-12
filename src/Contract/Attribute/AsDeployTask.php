@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasks\Contract\Attribute;
 
+use Soviann\DeployTasks\Contract\DeployTaskInterface;
+
 /**
  * Registers a class as a deploy task with metadata for discovery and execution.
  *
@@ -31,5 +33,23 @@ final class AsDeployTask
         public readonly bool $transactional = false,
         public readonly ?string $description = null,
     ) {
+    }
+
+    /**
+     * Reads the attribute from the given task, or null if not present.
+     */
+    public static function of(DeployTaskInterface $task): ?self
+    {
+        $reflection = new \ReflectionClass($task);
+        $attributes = $reflection->getAttributes(self::class);
+
+        if ([] === $attributes) {
+            return null;
+        }
+
+        /** @var self $attribute */
+        $attribute = $attributes[0]->newInstance();
+
+        return $attribute;
     }
 }
