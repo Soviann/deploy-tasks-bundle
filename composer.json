@@ -1,0 +1,52 @@
+{
+    "name": "soviann/deploy-tasks-bundle",
+    "description": "One-time deploy task runner for Symfony applications",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": ["symfony", "deploy", "tasks", "migration", "bundle"],
+    "require": {
+        "php": ">=8.2",
+        "symfony/config": "^6.4 || ^7.0",
+        "symfony/console": "^6.4 || ^7.0",
+        "symfony/dependency-injection": "^6.4 || ^7.0",
+        "symfony/http-kernel": "^6.4 || ^7.0"
+    },
+    "require-dev": {
+        "doctrine/dbal": "^3.6 || ^4.0",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpunit": "^10.5 || ^11.0",
+        "symfony/event-dispatcher": "^6.4 || ^7.0",
+        "symfony/filesystem": "^6.4 || ^7.0",
+        "symfony/lock": "^6.4 || ^7.0",
+        "symfony/phpunit-bridge": "^6.4 || ^7.0"
+    },
+    "suggest": {
+        "doctrine/dbal": "Required for database storage backend",
+        "symfony/event-dispatcher": "Required for task lifecycle events",
+        "symfony/lock": "Required for concurrent execution protection"
+    },
+    "conflict": {
+        "doctrine/dbal": "<3.6",
+        "symfony/event-dispatcher": "<6.4",
+        "symfony/lock": "<6.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Soviann\\DeployTasks\\": "src/",
+            "Soviann\\DeployTasksBundle\\": "src/Bundle/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Soviann\\DeployTasks\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0.x-dev"
+        }
+    }
+}
