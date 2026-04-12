@@ -13,8 +13,6 @@ interface TaskOrderResolverInterface
      * Returns the tasks sorted in the order they should be executed.
      *
      * @param array<DeployTaskInterface> $tasks
-     *
-     * @return array<DeployTaskInterface>
      */
-    public function resolve(array $tasks): array;
+    public function resolve(array $tasks): OrderedTaskCollection;
 }
