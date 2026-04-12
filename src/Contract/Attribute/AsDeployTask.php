@@ -10,7 +10,7 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
  * Registers a class as a deploy task with metadata for discovery and execution.
  *
  * ```php
- * #[AsDeployTask(id: 'app.2026_04_12.seed_categories', priority: 10)]
+ * #[AsDeployTask(id: 'task_20260412143000_seed_categories', priority: 10)]
  * final class SeedCategoriesTask implements DeployTaskInterface { ... }
  * ```
  */
