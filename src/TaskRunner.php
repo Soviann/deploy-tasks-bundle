@@ -8,6 +8,7 @@ use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\OrderedTaskCollection;
 use Soviann\DeployTasks\Contract\TaskExecution;
+use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskResult;
 use Soviann\DeployTasks\Contract\TaskStatus;
@@ -29,6 +30,7 @@ final class TaskRunner
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
         private readonly TaskOrderResolverInterface $resolver,
+        private readonly TaskIdResolverInterface $idResolver,
         private readonly ?EventDispatcherInterface $dispatcher = null,
         private readonly ?LockFactory $lockFactory = null,
         private readonly int $defaultTimeout = 300,
@@ -99,7 +101,8 @@ final class TaskRunner
         $skipped = 0;
 
         foreach ($tasks as $task) {
-            $execution = $this->storage->get($task->getId());
+            $taskId = $this->idResolver->resolve($task);
+            $execution = $this->storage->get($taskId);
 
             if (null !== $execution && TaskStatus::Failed !== $execution->status) {
                 ++$skipped;
@@ -108,7 +111,7 @@ final class TaskRunner
             }
 
             ++$pending;
-            $output->writeln(\sprintf('  [pending] %s — %s', $task->getId(), $task->getDescription()));
+            $output->writeln(\sprintf('  [pending] %s — %s', $taskId, $task->getDescription()));
         }
 
         return new RunResult(ran: $pending, skipped: $skipped, failed: 0);
@@ -127,7 +130,8 @@ final class TaskRunner
 
         foreach ($tasks as $task) {
             if (!$force) {
-                $execution = $this->storage->get($task->getId());
+                $taskId = $this->idResolver->resolve($task);
+                $execution = $this->storage->get($taskId);
 
                 if (null !== $execution && TaskStatus::Failed !== $execution->status) {
                     ++$skipped;
@@ -157,10 +161,11 @@ final class TaskRunner
      */
     private function executeTask(DeployTaskInterface $task, OutputInterface $output): int
     {
+        $taskId = $this->idResolver->resolve($task);
         $attribute = AsDeployTask::of($task);
         $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
 
-        $this->dispatcher?->dispatch(new BeforeTaskEvent($task));
+        $this->dispatcher?->dispatch(new BeforeTaskEvent($taskId, $task));
 
         $start = \microtime(true);
 
@@ -171,7 +176,7 @@ final class TaskRunner
             if ($duration > $timeout) {
                 $output->writeln(\sprintf(
                     '<comment>Task "%s" exceeded timeout (%ds elapsed, %ds limit).</comment>',
-                    $task->getId(),
+                    $taskId,
                     (int) $duration,
                     $timeout,
                 ));
@@ -180,27 +185,27 @@ final class TaskRunner
             $status = TaskResult::SKIPPED === $result ? TaskStatus::Skipped : TaskStatus::Ran;
 
             $this->storage->save(new TaskExecution(
-                id: $task->getId(),
+                id: $taskId,
                 status: $status,
                 executedAt: new \DateTimeImmutable(),
             ));
 
-            $this->dispatcher?->dispatch(new AfterTaskEvent($task, $result, $duration));
+            $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
 
             return $result;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
             $this->storage->save(new TaskExecution(
-                id: $task->getId(),
+                id: $taskId,
                 status: TaskStatus::Failed,
                 executedAt: new \DateTimeImmutable(),
                 error: $e->getMessage(),
             ));
 
-            $this->dispatcher?->dispatch(new TaskFailedEvent($task, $e, $duration));
+            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
 
-            $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $task->getId(), $e->getMessage()));
+            $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
 
             return TaskResult::FAILURE;
         }

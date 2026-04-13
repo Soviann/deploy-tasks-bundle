@@ -29,7 +29,7 @@ final class LogTaskExecutionListener
 {
     public function __invoke(AfterTaskEvent $event): void
     {
-        // Log task execution: $event->task->getId(), $event->duration
+        // Log task execution: $event->taskId, $event->duration
     }
 }
 ```

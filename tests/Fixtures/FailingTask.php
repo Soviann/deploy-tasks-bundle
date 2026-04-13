@@ -11,11 +11,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'test.failing')]
 final class FailingTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.failing';
-    }
-
     public function getDescription(): string
     {
         return 'A task that always fails';

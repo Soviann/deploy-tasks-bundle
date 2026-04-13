@@ -7,6 +7,7 @@ namespace Soviann\DeployTasks;
 use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\OrderedTaskCollection;
+use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 
 /**
@@ -19,6 +20,11 @@ use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
  */
 final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
 {
+    public function __construct(
+        private readonly TaskIdResolverInterface $idResolver,
+    ) {
+    }
+
     /**
      * Sorts the given tasks according to priority, date, and original order.
      *
@@ -34,7 +40,7 @@ final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
                 return [
                     'task' => $task,
                     'priority' => null !== $attribute ? $attribute->priority : 0,
-                    'date' => $this->extractDate($task->getId()),
+                    'date' => $this->extractDate($this->idResolver->resolve($task)),
                     'index' => $index,
                 ];
             },

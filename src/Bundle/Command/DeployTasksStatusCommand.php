@@ -60,12 +60,12 @@ final class DeployTasksStatusCommand extends Command
 
         $rows = [];
 
-        foreach ($tasks as $task) {
-            $execution = $this->storage->get($task->getId());
+        foreach ($tasks as $id => $task) {
+            $execution = $this->storage->get($id);
 
             if ($noState) {
                 $rows[] = [
-                    $task->getId(),
+                    $id,
                     $task->getDescription(),
                 ];
 
@@ -85,7 +85,7 @@ final class DeployTasksStatusCommand extends Command
             }
 
             $rows[] = [
-                $task->getId(),
+                $id,
                 $task->getDescription(),
                 $status,
                 $executedAt,

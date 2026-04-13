@@ -12,6 +12,8 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 final class AfterTaskEvent
 {
     public function __construct(
+        /** The resolved task ID. */
+        public readonly string $taskId,
         /** The task that was executed. */
         public readonly DeployTaskInterface $task,
         /** The task result code (TaskResult::* constant). */

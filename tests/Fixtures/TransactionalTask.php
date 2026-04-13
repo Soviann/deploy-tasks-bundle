@@ -12,11 +12,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'test.transactional', transactional: true)]
 final class TransactionalTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.transactional';
-    }
-
     public function getDescription(): string
     {
         return 'Transactional task';

@@ -98,11 +98,6 @@ final class DeployTasksGenerateCommand extends Command
             #[AsDeployTask(id: '{$taskId}', description: '{$description}')]
             final class {$className} implements DeployTaskInterface
             {
-                public function getId(): string
-                {
-                    return '{$taskId}';
-                }
-
                 public function getDescription(): string
                 {
                     return '{$description}';
