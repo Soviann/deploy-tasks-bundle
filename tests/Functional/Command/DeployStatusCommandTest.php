@@ -68,6 +68,6 @@ final class DeployStatusCommandTest extends KernelTestCase
     {
         $this->tester->execute([]);
 
-        self::assertStringContainsString('2 task(s) registered', $this->tester->getDisplay());
+        self::assertStringContainsString('5 task(s) registered', $this->tester->getDisplay());
     }
 }
