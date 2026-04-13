@@ -6,6 +6,8 @@ namespace Soviann\DeployTasks\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\Command\DeployTasksStatusCommand;
+use Soviann\DeployTasks\Contract\TaskExecution;
+use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -69,5 +71,23 @@ final class DeployStatusCommandTest extends KernelTestCase
         $this->tester->execute([]);
 
         self::assertStringContainsString('5 task(s) registered', $this->tester->getDisplay());
+    }
+
+    public function testStatusShowsAllExecutionStates(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        // Set up distinct states in storage
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+        $storage->save(new TaskExecution('test.prod_only', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->tester->execute([]);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('ran', $display);
+        self::assertStringContainsString('skipped', $display);
+        // PrioritizedTask, SkippingTask, MultiEnvTask have no record — shown as pending
+        self::assertStringContainsString('pending', $display);
     }
 }

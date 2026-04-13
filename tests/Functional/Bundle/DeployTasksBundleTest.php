@@ -21,7 +21,6 @@ use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Lock\LockFactory;
 
 #[CoversClass(DeployTasksBundle::class)]
