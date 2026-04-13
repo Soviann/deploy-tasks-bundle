@@ -38,8 +38,9 @@ final class TaskRunner
 
     /**
      * Runs all pending tasks in resolved order.
+     * When $force is true, all tasks are executed regardless of their state.
      */
-    public function runAll(OutputInterface $output, bool $dryRun = false): RunResult
+    public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false): RunResult
     {
         if (null === $this->lockFactory) {
             $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
@@ -61,7 +62,7 @@ final class TaskRunner
                 return $this->dryRun($ordered, $output);
             }
 
-            return $this->executeAll($ordered, $output);
+            return $this->executeAll($ordered, $output, $force);
         } finally {
             $lock?->release();
         }
@@ -116,7 +117,7 @@ final class TaskRunner
     /**
      * Executes all ordered tasks, recording results.
      */
-    private function executeAll(OrderedTaskCollection $tasks, OutputInterface $output): RunResult
+    private function executeAll(OrderedTaskCollection $tasks, OutputInterface $output, bool $force = false): RunResult
     {
         $ran = 0;
         $skipped = 0;
@@ -125,12 +126,14 @@ final class TaskRunner
         $errors = [];
 
         foreach ($tasks as $task) {
-            $execution = $this->storage->get($task->getId());
+            if (!$force) {
+                $execution = $this->storage->get($task->getId());
 
-            if (null !== $execution && TaskStatus::Failed !== $execution->status) {
-                ++$skipped;
+                if (null !== $execution && TaskStatus::Failed !== $execution->status) {
+                    ++$skipped;
 
-                continue;
+                    continue;
+                }
             }
 
             $result = $this->executeTask($task, $output);

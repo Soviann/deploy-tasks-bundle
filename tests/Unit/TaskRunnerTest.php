@@ -87,6 +87,24 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
     }
 
+    public function testRunAllForceRerunsAlreadyExecutedTasks(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $runner = $this->createRunner([
+            new SimpleTask('task.1', 'First'),
+            new SimpleTask('task.2', 'Second'),
+        ]);
+
+        $result = $runner->runAll($this->output, force: true);
+
+        self::assertSame(2, $result->ran);
+        self::assertSame(0, $result->skipped);
+        self::assertSame(0, $result->failed);
+        self::assertTrue($result->isSuccessful());
+    }
+
     public function testRunAllWithFailingTask(): void
     {
         $runner = $this->createRunner([
