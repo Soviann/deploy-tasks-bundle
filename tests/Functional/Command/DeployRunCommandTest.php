@@ -6,6 +6,7 @@ namespace Soviann\DeployTasks\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -119,5 +120,43 @@ final class DeployRunCommandTest extends KernelTestCase
         $this->tester->execute([]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('nothing to run', $this->tester->getDisplay());
+    }
+
+    public function testPrioritizedTaskRunsBeforeSimpleTask(): void
+    {
+        $this->tester->execute(['--dry-run' => true]);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('test.prioritized', $display);
+        self::assertStringContainsString('test.simple', $display);
+
+        $prioritizedPos = \strpos($display, 'test.prioritized');
+        $simplePos = \strpos($display, 'test.simple');
+
+        self::assertNotFalse($prioritizedPos);
+        self::assertNotFalse($simplePos);
+        self::assertLessThan($simplePos, $prioritizedPos, 'test.prioritized (priority=10) must appear before test.simple (priority=0)');
+    }
+
+    public function testSkippingTaskIsStoredAsSkipped(): void
+    {
+        $this->tester->execute([]);
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $execution = $storage->get('test.skipping');
+        self::assertNotNull($execution, 'SkippingTask should be stored after run');
+        self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    public function testSkippingTaskIsNotRerunWithoutForce(): void
+    {
+        $this->tester->execute([]); // first run — SkippingTask stored as Skipped
+        $this->tester->execute([]); // second run — should skip it (already executed)
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        // Skipped task is not retried on a normal run
+        self::assertStringNotContainsString('test.skipping ran', $this->tester->getDisplay());
     }
 }
