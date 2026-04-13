@@ -14,6 +14,9 @@ use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
+use Soviann\DeployTasks\Tests\Fixtures\CustomIdResolverFixture;
+use Soviann\DeployTasks\Tests\Fixtures\CustomOrderResolverFixture;
+use Soviann\DeployTasks\Tests\Functional\CustomResolverTestKernel;
 use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
@@ -132,5 +135,25 @@ final class DeployTasksBundleTest extends KernelTestCase
 
         $reflection = new \ReflectionProperty(TaskRunner::class, 'lockFactory');
         self::assertNotNull($reflection->getValue($runner), 'lockFactory must be wired when lock.enabled=true');
+    }
+
+    public function testCustomIdResolverIsUsed(): void
+    {
+        static::$class = CustomResolverTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        $resolver = $container->get(TaskIdResolverInterface::class);
+        self::assertInstanceOf(CustomIdResolverFixture::class, $resolver);
+    }
+
+    public function testCustomOrderResolverIsUsed(): void
+    {
+        static::$class = CustomResolverTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        $resolver = $container->get(TaskOrderResolverInterface::class);
+        self::assertInstanceOf(CustomOrderResolverFixture::class, $resolver);
     }
 }
