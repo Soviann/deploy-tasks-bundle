@@ -14,8 +14,12 @@ use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
+use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
+use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Lock\LockFactory;
 
 #[CoversClass(DeployTasksBundle::class)]
 final class DeployTasksBundleTest extends KernelTestCase
@@ -77,5 +81,56 @@ final class DeployTasksBundleTest extends KernelTestCase
 
         self::assertTrue($registry->has('test.simple'));
         self::assertTrue($registry->has('test.prod_only'));
+    }
+
+    public function testKernelBootsWithEventsEnabled(): void
+    {
+        static::$class = EventsEnabledTestKernel::class;
+        self::bootKernel();
+
+        // If we get here, the kernel compiled without errors with events=true
+        $container = self::getContainer();
+        self::assertTrue($container->has(TaskRunner::class));
+    }
+
+    public function testEventDispatcherIsWiredOnRunner(): void
+    {
+        static::$class = EventsEnabledTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        // The event_dispatcher service must be available and the runner must have it
+        self::assertTrue($container->has('event_dispatcher'));
+
+        // Use reflection to verify the runner received the dispatcher
+        $runner = $container->get(TaskRunner::class);
+        \assert($runner instanceof TaskRunner);
+
+        $reflection = new \ReflectionProperty(TaskRunner::class, 'dispatcher');
+        self::assertNotNull($reflection->getValue($runner), 'dispatcher must be wired when events.enabled=true');
+    }
+
+    public function testKernelBootsWithLockEnabled(): void
+    {
+        static::$class = LockEnabledTestKernel::class;
+        self::bootKernel();
+
+        $container = self::getContainer();
+        self::assertTrue($container->has(TaskRunner::class));
+    }
+
+    public function testLockFactoryIsWiredOnRunner(): void
+    {
+        static::$class = LockEnabledTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertTrue($container->has(LockFactory::class));
+
+        $runner = $container->get(TaskRunner::class);
+        \assert($runner instanceof TaskRunner);
+
+        $reflection = new \ReflectionProperty(TaskRunner::class, 'lockFactory');
+        self::assertNotNull($reflection->getValue($runner), 'lockFactory must be wired when lock.enabled=true');
     }
 }
