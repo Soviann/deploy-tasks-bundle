@@ -27,7 +27,8 @@ final class DeployTasksRunCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them.')
-            ->addOption('force', null, InputOption::VALUE_REQUIRED, 'Force re-execution of a single task by its ID, ignoring its current state.')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force re-execution of all tasks regardless of their current state.')
+            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID.')
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command executes all pending deploy tasks:
 
@@ -37,9 +38,17 @@ final class DeployTasksRunCommand extends Command
 
                     <info>%command.full_name% --dry-run</info>
 
-                To force re-execution of a specific task (even if already ran or skipped):
+                To force re-execution of all tasks regardless of state:
 
-                    <info>%command.full_name% --force=task_20260412143000_seed_categories</info>
+                    <info>%command.full_name% --force</info>
+
+                To run a single task by its ID (only if pending):
+
+                    <info>%command.full_name% --id=task_20260412143000_seed_categories</info>
+
+                To force re-execution of a single task:
+
+                    <info>%command.full_name% --force --id=task_20260412143000_seed_categories</info>
 
                 Tasks are executed in priority order (highest first), then by date extracted
                 from the task ID (oldest first). A lock prevents concurrent execution when
@@ -51,12 +60,13 @@ final class DeployTasksRunCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $force = (bool) $input->getOption('force');
 
-        /** @var string|null $forceId */
-        $forceId = $input->getOption('force');
+        /** @var string|null $taskId */
+        $taskId = $input->getOption('id');
 
-        if (null !== $forceId) {
-            $taskResult = $this->runner->runOne($forceId, $output, force: true);
+        if (null !== $taskId) {
+            $taskResult = $this->runner->runOne($taskId, $output, force: $force);
 
             if (TaskResult::FAILURE === $taskResult) {
                 return Command::FAILURE;
@@ -66,7 +76,7 @@ final class DeployTasksRunCommand extends Command
         }
 
         $dryRun = (bool) $input->getOption('dry-run');
-        $result = $this->runner->runAll($output, dryRun: $dryRun);
+        $result = $this->runner->runAll($output, dryRun: $dryRun, force: $force);
 
         $this->writeSummary($io, $result, $dryRun);
 

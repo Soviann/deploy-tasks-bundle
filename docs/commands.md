@@ -7,7 +7,9 @@ Execute all pending deploy tasks in priority order.
 ```bash
 bin/console deploytasks:run
 bin/console deploytasks:run --dry-run
-bin/console deploytasks:run --force=task_20260412143000_seed_categories
+bin/console deploytasks:run --force
+bin/console deploytasks:run --id=task_20260412143000_seed_categories
+bin/console deploytasks:run --force --id=task_20260412143000_seed_categories
 ```
 
 **Options:**
@@ -15,7 +17,8 @@ bin/console deploytasks:run --force=task_20260412143000_seed_categories
 | Option | Description |
 |---|---|
 | `--dry-run` | List pending tasks without executing them |
-| `--force=<id>` | Force re-execution of a single task regardless of its current state |
+| `--force`, `-f` | Force re-execution of all tasks regardless of their current state |
+| `--id=<id>` | Target a single task by its ID |
 
 **Exit codes:** `0` on success; `1` if at least one task failed or if the run was locked (another process is already executing).
 

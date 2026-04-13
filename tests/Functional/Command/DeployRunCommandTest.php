@@ -64,14 +64,48 @@ final class DeployRunCommandTest extends KernelTestCase
         self::assertEmpty($storage->all());
     }
 
-    public function testForceRerunTask(): void
+    public function testForceRerunsAllTasks(): void
     {
         // First run
         $this->tester->execute([]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
-        // Force re-run
-        $this->tester->execute(['--force' => 'test.simple']);
+        // Force re-run all
+        $this->tester->execute(['--force' => true]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('ran', $this->tester->getDisplay());
+    }
+
+    public function testIdRunsSingleTask(): void
+    {
+        $this->tester->execute(['--id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        self::assertTrue($storage->has('test.simple'));
+    }
+
+    public function testIdSkipsAlreadyExecutedTask(): void
+    {
+        // First run
+        $this->tester->execute(['--id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        // Second run — already executed, skipped
+        $this->tester->execute(['--id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('already been executed', $this->tester->getDisplay());
+    }
+
+    public function testForceWithIdRerunsSingleTask(): void
+    {
+        // First run
+        $this->tester->execute(['--id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        // Force re-run single task
+        $this->tester->execute(['--force' => true, '--id' => 'test.simple']);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
     }
 
