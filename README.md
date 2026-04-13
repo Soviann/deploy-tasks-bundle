@@ -103,7 +103,7 @@ deploy_tasks:
 
 | Command | Description | Options |
 |---|---|---|
-| `deploytasks:run` | Execute pending tasks | `--dry-run`, `--force=<id>` |
+| `deploytasks:run` | Execute pending tasks | `--dry-run`, `--force`, `--id=<id>` |
 | `deploytasks:status` | List tasks with their execution state | `--no-state` |
 | `deploytasks:skip <id>` | Mark a task as skipped | |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | |
