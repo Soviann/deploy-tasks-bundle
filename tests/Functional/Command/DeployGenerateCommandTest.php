@@ -68,7 +68,7 @@ final class DeployGenerateCommandTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
         self::assertStringContainsString('SeedCategories', $display);
-        self::assertStringContainsString('deploytasks:run --force=', $display);
+        self::assertStringContainsString('deploytasks:run --force --id=', $display);
 
         $files = \glob($this->outputDir.'Task*SeedCategories.php');
         self::assertNotFalse($files);
