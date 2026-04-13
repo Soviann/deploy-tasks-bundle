@@ -185,6 +185,11 @@ final class DeployTasksBundle extends AbstractBundle
     public function build(ContainerBuilder $container): void
     {
         parent::build($container);
+
+        $container->registerForAutoconfiguration(DeployTaskInterface::class)
+            ->addTag('deploy_tasks.task')
+        ;
+
         $container->addCompilerPass(new RegisterTasksCompilerPass());
     }
 
