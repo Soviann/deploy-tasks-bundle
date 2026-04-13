@@ -11,6 +11,7 @@ namespace Soviann\DeployTasks\Contract;
  */
 final class TaskResult
 {
+    // see https://tldp.org/LDP/abs/html/exitcodes.html
     public const SUCCESS = 0;
     public const FAILURE = 1;
     public const SKIPPED = 2;
