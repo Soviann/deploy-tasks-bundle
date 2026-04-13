@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasks\Tests\Fixtures;
 
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\OrderedTaskCollection;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 
