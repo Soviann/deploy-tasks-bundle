@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasks\Tests\Functional;
 
+use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
+use Soviann\DeployTasks\Tests\Fixtures\PrioritizedTask;
 use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasks\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\DeployTasksBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -53,6 +56,18 @@ final class TestKernel extends Kernel
         ;
 
         $services->set('test.task.prod_only', ProdOnlyTask::class)
+            ->tag('deploy_tasks.task')
+        ;
+
+        $services->set('test.task.prioritized', PrioritizedTask::class)
+            ->tag('deploy_tasks.task')
+        ;
+
+        $services->set('test.task.skipping', SkippingTask::class)
+            ->tag('deploy_tasks.task')
+        ;
+
+        $services->set('test.task.multi_env', MultiEnvTask::class)
             ->tag('deploy_tasks.task')
         ;
     }
