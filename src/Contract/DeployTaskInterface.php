@@ -16,11 +16,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 interface DeployTaskInterface
 {
     /**
-     * Unique identifier for this task (e.g. "task_20260412143000_seed_categories").
-     */
-    public function getId(): string;
-
-    /**
      * Human-readable description shown in CLI output.
      */
     public function getDescription(): string;

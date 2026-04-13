@@ -11,6 +11,7 @@ use Soviann\DeployTasks\Contract\TaskResult;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
+use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
@@ -243,7 +244,7 @@ final class TaskRunnerTest extends TestCase
         self::assertCount(2, $dispatched);
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
         self::assertInstanceOf(AfterTaskEvent::class, $dispatched[1]);
-        self::assertSame('task.1', $dispatched[0]->task->getId());
+        self::assertSame('task.1', $dispatched[0]->taskId);
         self::assertSame(TaskResult::SUCCESS, $dispatched[1]->result);
     }
 
@@ -315,10 +316,13 @@ final class TaskRunnerTest extends TestCase
             ->willReturnCallback(static fn (\Closure $callback): mixed => $callback());
         $storage->expects(self::once())->method('save');
 
+        $idResolver = new DefaultTaskIdResolver();
+
         $runner = new TaskRunner(
-            new TaskRegistry([new TransactionalTask()]),
+            new TaskRegistry([new TransactionalTask()], $idResolver),
             $storage,
-            new DefaultTaskOrderResolver(),
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
         );
 
         $runner->runAll($this->output);
@@ -342,10 +346,13 @@ final class TaskRunnerTest extends TestCase
         ?TaskStorageInterface $storage = null,
         ?EventDispatcherInterface $dispatcher = null,
     ): TaskRunner {
+        $idResolver = new DefaultTaskIdResolver();
+
         return new TaskRunner(
-            new TaskRegistry($tasks),
+            new TaskRegistry($tasks, $idResolver),
             $storage ?? $this->storage,
-            new DefaultTaskOrderResolver(),
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
             $dispatcher,
         );
     }

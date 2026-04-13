@@ -12,11 +12,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'test.skipping')]
 final class SkippingTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.skipping';
-    }
-
     public function getDescription(): string
     {
         return 'A task that skips itself';

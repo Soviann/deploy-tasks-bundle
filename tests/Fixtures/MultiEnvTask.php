@@ -12,11 +12,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'test.multi_env', env: ['dev', 'test'], description: 'Dev+Test task')]
 final class MultiEnvTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.multi_env';
-    }
-
     public function getDescription(): string
     {
         return 'Dev+Test task';

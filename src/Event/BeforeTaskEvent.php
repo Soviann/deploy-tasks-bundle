@@ -12,6 +12,8 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 final class BeforeTaskEvent
 {
     public function __construct(
+        /** The resolved task ID. */
+        public readonly string $taskId,
         /** The task about to be executed. */
         public readonly DeployTaskInterface $task,
     ) {

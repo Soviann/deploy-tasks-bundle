@@ -6,6 +6,7 @@ namespace Soviann\DeployTasks;
 
 use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Exception\DuplicateTaskIdException;
 use Soviann\DeployTasks\Exception\TaskNotFoundException;
 
@@ -18,12 +19,13 @@ final class TaskRegistry
     private array $tasks = [];
 
     /**
-     * @param iterable<DeployTaskInterface> $tasks Tagged deploy task services
+     * @param iterable<DeployTaskInterface> $tasks      Tagged deploy task services
+     * @param TaskIdResolverInterface       $idResolver Resolves the canonical ID for each task
      */
-    public function __construct(iterable $tasks)
+    public function __construct(iterable $tasks, TaskIdResolverInterface $idResolver)
     {
         foreach ($tasks as $task) {
-            $id = $task->getId();
+            $id = $idResolver->resolve($task);
 
             if (isset($this->tasks[$id])) {
                 throw DuplicateTaskIdException::create($id);
