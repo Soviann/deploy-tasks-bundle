@@ -12,11 +12,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'test.prod_only', env: 'prod', description: 'Prod-only task')]
 final class ProdOnlyTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.prod_only';
-    }
-
     public function getDescription(): string
     {
         return 'Prod-only task';

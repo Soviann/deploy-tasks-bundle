@@ -6,9 +6,11 @@ namespace Soviann\DeployTasks\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\Exception\DuplicateTaskIdException;
 use Soviann\DeployTasks\Exception\TaskNotFoundException;
 use Soviann\DeployTasks\TaskRegistry;
+use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
 use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
@@ -16,12 +18,19 @@ use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 #[CoversClass(TaskRegistry::class)]
 final class TaskRegistryTest extends TestCase
 {
+    private DefaultTaskIdResolver $idResolver;
+
+    protected function setUp(): void
+    {
+        $this->idResolver = new DefaultTaskIdResolver();
+    }
+
     public function testConstructWithTasks(): void
     {
         $task1 = new SimpleTask('task.one');
         $task2 = new SimpleTask('task.two');
 
-        $registry = new TaskRegistry([$task1, $task2]);
+        $registry = new TaskRegistry([$task1, $task2], $this->idResolver);
 
         self::assertTrue($registry->has('task.one'));
         self::assertTrue($registry->has('task.two'));
@@ -34,13 +43,13 @@ final class TaskRegistryTest extends TestCase
 
         self::expectException(DuplicateTaskIdException::class);
 
-        new TaskRegistry([$task1, $task2]);
+        new TaskRegistry([$task1, $task2], $this->idResolver);
     }
 
     public function testGetReturnsTask(): void
     {
         $task = new SimpleTask('task.one', 'My task description');
-        $registry = new TaskRegistry([$task]);
+        $registry = new TaskRegistry([$task], $this->idResolver);
 
         $retrieved = $registry->get('task.one');
 
@@ -49,7 +58,7 @@ final class TaskRegistryTest extends TestCase
 
     public function testGetThrowsForUnknown(): void
     {
-        $registry = new TaskRegistry([]);
+        $registry = new TaskRegistry([], $this->idResolver);
 
         self::expectException(TaskNotFoundException::class);
 
@@ -58,14 +67,14 @@ final class TaskRegistryTest extends TestCase
 
     public function testHasReturnsTrueForRegistered(): void
     {
-        $registry = new TaskRegistry([new SimpleTask('task.one')]);
+        $registry = new TaskRegistry([new SimpleTask('task.one')], $this->idResolver);
 
         self::assertTrue($registry->has('task.one'));
     }
 
     public function testHasReturnsFalseForUnknown(): void
     {
-        $registry = new TaskRegistry([]);
+        $registry = new TaskRegistry([], $this->idResolver);
 
         self::assertFalse($registry->has('task.unknown'));
     }
@@ -74,7 +83,7 @@ final class TaskRegistryTest extends TestCase
     {
         $task1 = new SimpleTask('task.one');
         $task2 = new SimpleTask('task.two');
-        $registry = new TaskRegistry([$task1, $task2]);
+        $registry = new TaskRegistry([$task1, $task2], $this->idResolver);
 
         $all = $registry->all();
 
@@ -89,7 +98,7 @@ final class TaskRegistryTest extends TestCase
         $prodOnly = new ProdOnlyTask();
         $multiEnv = new MultiEnvTask();
 
-        $registry = new TaskRegistry([$simple, $prodOnly, $multiEnv]);
+        $registry = new TaskRegistry([$simple, $prodOnly, $multiEnv], $this->idResolver);
 
         $prodTasks = $registry->all('prod');
         self::assertArrayHasKey('task.simple', $prodTasks);
@@ -113,7 +122,7 @@ final class TaskRegistryTest extends TestCase
         $prodOnly = new ProdOnlyTask();
         $multiEnv = new MultiEnvTask();
 
-        $registry = new TaskRegistry([$simple, $prodOnly, $multiEnv]);
+        $registry = new TaskRegistry([$simple, $prodOnly, $multiEnv], $this->idResolver);
 
         $all = $registry->all(null);
 
@@ -121,5 +130,24 @@ final class TaskRegistryTest extends TestCase
         self::assertArrayHasKey('task.simple', $all);
         self::assertArrayHasKey('test.prod_only', $all);
         self::assertArrayHasKey('test.multi_env', $all);
+    }
+
+    public function testAttributeIdUsedByResolver(): void
+    {
+        $task = new AttributeOnlyTask();
+
+        $registry = new TaskRegistry([$task], $this->idResolver);
+
+        self::assertTrue($registry->has('attribute_only'));
+    }
+
+    public function testConstructWithResolverDetectsDuplicates(): void
+    {
+        $task1 = new SimpleTask('same_id');
+        $task2 = new SimpleTask('same_id');
+
+        self::expectException(DuplicateTaskIdException::class);
+
+        new TaskRegistry([$task1, $task2], $this->idResolver);
     }
 }

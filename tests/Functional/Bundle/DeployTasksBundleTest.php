@@ -6,8 +6,10 @@ namespace Soviann\DeployTasks\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\DeployTasksBundle;
+use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\TaskRegistry;
@@ -38,6 +40,7 @@ final class DeployTasksBundleTest extends KernelTestCase
         self::assertTrue($container->has(TaskRunner::class));
         self::assertTrue($container->has(TaskStorageInterface::class));
         self::assertTrue($container->has(TaskOrderResolverInterface::class));
+        self::assertTrue($container->has(TaskIdResolverInterface::class));
     }
 
     public function testFilesystemStorageIsDefault(): void
@@ -54,6 +57,14 @@ final class DeployTasksBundleTest extends KernelTestCase
         $container = self::getContainer();
 
         self::assertInstanceOf(DefaultTaskOrderResolver::class, $container->get(TaskOrderResolverInterface::class));
+    }
+
+    public function testDefaultIdResolver(): void
+    {
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertInstanceOf(DefaultTaskIdResolver::class, $container->get(TaskIdResolverInterface::class));
     }
 
     public function testRegistryContainsRegisteredTasks(): void

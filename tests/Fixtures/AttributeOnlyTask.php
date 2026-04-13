@@ -9,12 +9,15 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsDeployTask(id: 'test.prioritized', priority: 10)]
-final class PrioritizedTask implements DeployTaskInterface
+/**
+ * Task with no TaskIdProviderInterface, so the resolver should use the attribute id.
+ */
+#[AsDeployTask(id: 'attribute_only')]
+final class AttributeOnlyTask implements DeployTaskInterface
 {
     public function getDescription(): string
     {
-        return 'Prioritized task';
+        return 'Task with attribute ID only';
     }
 
     public function run(OutputInterface $output): int

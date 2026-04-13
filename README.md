@@ -38,11 +38,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'task_20260412_seed_categories', priority: 10)]
 final class SeedCategoriesTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'task_20260412_seed_categories';
-    }
-
     public function getDescription(): string
     {
         return 'Seeds the categories table with initial data.';
@@ -77,6 +72,7 @@ bin/console deploytasks:status
 ```yaml
 # config/packages/deploy_tasks.yaml
 deploy_tasks:
+    id_resolver: ~
     order_resolver: ~
     default_timeout: 300
     storage:

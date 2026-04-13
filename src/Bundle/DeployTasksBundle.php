@@ -6,9 +6,11 @@ namespace Soviann\DeployTasksBundle;
 
 use Doctrine\DBAL\Connection;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
+use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
@@ -41,6 +43,10 @@ final class DeployTasksBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->children()
+                ->scalarNode('id_resolver')
+                    ->defaultNull()
+                    ->info('Service ID of a custom TaskIdResolverInterface, or null for the default resolver.')
+                ->end()
                 ->scalarNode('order_resolver')
                     ->defaultNull()
                     ->info('Service ID of a custom TaskOrderResolverInterface, or null for the default resolver.')
@@ -115,9 +121,15 @@ final class DeployTasksBundle extends AbstractBundle
 
         // TaskRegistry
         $services->set('deploy_tasks.registry', TaskRegistry::class)
-            ->args([tagged_iterator('deploy_tasks.task')])
+            ->args([
+                tagged_iterator('deploy_tasks.task'),
+                service('deploy_tasks.id_resolver'),
+            ])
         ;
         $services->alias(TaskRegistry::class, 'deploy_tasks.registry')->public();
+
+        // ID resolver
+        $this->registerIdResolver($config, $services);
 
         // Storage
         $this->registerStorage($config, $services, $builder);
@@ -139,6 +151,7 @@ final class DeployTasksBundle extends AbstractBundle
                 service('deploy_tasks.registry'),
                 service('deploy_tasks.storage'),
                 service('deploy_tasks.order_resolver'),
+                service('deploy_tasks.id_resolver'),
                 null, // dispatcher — set by compiler pass
                 null, // lock factory — set by compiler pass
                 $config['default_timeout'],
@@ -229,6 +242,23 @@ final class DeployTasksBundle extends AbstractBundle
     /**
      * @param array<string, mixed> $config
      */
+    private function registerIdResolver(array $config, ServicesConfigurator $services): void
+    {
+        /** @var string|null $resolverServiceId */
+        $resolverServiceId = $config['id_resolver'];
+
+        if (null !== $resolverServiceId) {
+            $services->alias('deploy_tasks.id_resolver', $resolverServiceId);
+        } else {
+            $services->set('deploy_tasks.id_resolver', DefaultTaskIdResolver::class);
+        }
+
+        $services->alias(TaskIdResolverInterface::class, 'deploy_tasks.id_resolver')->public();
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
     private function registerOrderResolver(array $config, ServicesConfigurator $services): void
     {
         /** @var string|null $resolverServiceId */
@@ -237,7 +267,9 @@ final class DeployTasksBundle extends AbstractBundle
         if (null !== $resolverServiceId) {
             $services->alias('deploy_tasks.order_resolver', $resolverServiceId);
         } else {
-            $services->set('deploy_tasks.order_resolver', DefaultTaskOrderResolver::class);
+            $services->set('deploy_tasks.order_resolver', DefaultTaskOrderResolver::class)
+                ->args([service('deploy_tasks.id_resolver')])
+            ;
         }
 
         $services->alias(TaskOrderResolverInterface::class, 'deploy_tasks.order_resolver')->public();

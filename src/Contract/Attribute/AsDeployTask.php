@@ -18,7 +18,7 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 final class AsDeployTask
 {
     /**
-     * @param string               $id            Unique task identifier
+     * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or FQCN auto-deduction)
      * @param int                  $priority      Execution priority (higher runs first, default 0)
      * @param string|string[]|null $env           Restrict to specific environment(s), null for all
      * @param int|null             $timeout       Max execution time in seconds, null for default
@@ -26,7 +26,7 @@ final class AsDeployTask
      * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
      */
     public function __construct(
-        public readonly string $id,
+        public readonly string $id = '',
         public readonly int $priority = 0,
         public readonly string|array|null $env = null,
         public readonly ?int $timeout = null,

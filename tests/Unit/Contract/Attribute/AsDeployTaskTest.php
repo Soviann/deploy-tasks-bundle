@@ -83,11 +83,6 @@ final class AsDeployTaskTest extends TestCase
 #[AsDeployTask(id: 'test.attributed', priority: 5, description: 'Test task')]
 final class AttributedTestTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.attributed';
-    }
-
     public function getDescription(): string
     {
         return 'Test task';
@@ -101,11 +96,6 @@ final class AttributedTestTask implements DeployTaskInterface
 
 final class UnattributedTestTask implements DeployTaskInterface
 {
-    public function getId(): string
-    {
-        return 'test.unattributed';
-    }
-
     public function getDescription(): string
     {
         return 'Unattributed test task';

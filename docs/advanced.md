@@ -1,5 +1,34 @@
 # Advanced Usage
 
+## Custom ID Resolver
+
+Implement `TaskIdResolverInterface` to define a custom strategy for resolving task IDs.
+
+```php
+use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
+
+final class MyIdResolver implements TaskIdResolverInterface
+{
+    public function resolve(DeployTaskInterface $task): string
+    {
+        // Your custom ID resolution logic
+        return $task::class; // Your custom ID resolution logic
+    }
+}
+```
+
+Register it in the bundle configuration:
+
+```yaml
+deploy_tasks:
+    id_resolver: App\Deploy\MyIdResolver
+```
+
+When `id_resolver` is `null` (default), the built-in `DefaultTaskIdResolver` is used, which resolves IDs following the precedence: `TaskIdProviderInterface::getTaskId()` > attribute `id` > FQCN auto-deduction. See [Creating Tasks](creating-tasks.md#task-id-resolution) for details.
+
+> **Note:** Compile-time duplicate ID detection only runs when the default resolver is configured. Custom resolvers may rely on runtime logic that cannot be replicated during container compilation — duplicate detection then happens at runtime via the `TaskRegistry`.
+
 ## Custom Order Resolver
 
 Implement `TaskOrderResolverInterface` to define a custom task execution order.
