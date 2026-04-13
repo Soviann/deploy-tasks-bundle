@@ -1,0 +1,102 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Soviann\DeployTasks\Tests\Functional\Command;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use Soviann\DeployTasks\Bundle\Command\DeployTasksResetCommand;
+use Soviann\DeployTasks\Bundle\Command\DeployTasksSkipCommand;
+use Soviann\DeployTasks\Contract\TaskExecution;
+use Soviann\DeployTasks\Contract\TaskStatus;
+use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasks\Tests\Functional\TestKernel;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
+
+#[CoversClass(DeployTasksSkipCommand::class)]
+#[CoversClass(DeployTasksResetCommand::class)]
+final class DeployRunEdgeCasesTest extends KernelTestCase
+{
+    private CommandTester $skipTester;
+    private CommandTester $resetTester;
+    private TaskStorageInterface $storage;
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
+    }
+
+    protected function setUp(): void
+    {
+        self::bootKernel();
+        $application = new Application(self::$kernel);
+        $this->skipTester = new CommandTester($application->find('deploytasks:skip'));
+        $this->resetTester = new CommandTester($application->find('deploytasks:reset'));
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        $this->storage = $storage;
+
+        foreach ($this->storage->all() as $execution) {
+            $this->storage->remove($execution->id);
+        }
+    }
+
+    public function testSkipAlreadySkippedTaskIsIdempotent(): void
+    {
+        $this->skipTester->execute(['id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->skipTester->getStatusCode());
+
+        // Skip the same task a second time — should still succeed
+        $this->skipTester->execute(['id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->skipTester->getStatusCode());
+
+        // Status must remain Skipped
+        $execution = $this->storage->get('test.simple');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    public function testResetFailedTaskMakesItPending(): void
+    {
+        // Manually store a Failed execution
+        $this->storage->save(new TaskExecution(
+            id: 'test.simple',
+            status: TaskStatus::Failed,
+            executedAt: new \DateTimeImmutable(),
+            error: 'Simulated failure',
+        ));
+
+        self::assertTrue($this->storage->has('test.simple'));
+        self::assertSame(TaskStatus::Failed, $this->storage->get('test.simple')?->status);
+
+        // Reset it
+        $this->resetTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->resetTester->getStatusCode());
+        self::assertFalse($this->storage->has('test.simple'), 'After reset, task must be back to pending (no record)');
+    }
+
+    public function testResetRanTaskMakesItPending(): void
+    {
+        $this->storage->save(new TaskExecution(
+            id: 'test.simple',
+            status: TaskStatus::Ran,
+            executedAt: new \DateTimeImmutable(),
+        ));
+
+        $this->resetTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->resetTester->getStatusCode());
+        self::assertFalse($this->storage->has('test.simple'));
+    }
+}
