@@ -21,6 +21,7 @@ use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
@@ -234,6 +235,14 @@ final class DeployTasksBundle extends AbstractBundle
         ;
 
         $services->set('deploy_tasks.command.reset', DeployTasksResetCommand::class)
+            ->args([
+                service('deploy_tasks.registry'),
+                service('deploy_tasks.storage'),
+            ])
+            ->tag('console.command')
+        ;
+
+        $services->set('deploy_tasks.command.rollup', DeployTasksRollupCommand::class)
             ->args([
                 service('deploy_tasks.registry'),
                 service('deploy_tasks.storage'),

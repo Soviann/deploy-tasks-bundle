@@ -35,4 +35,9 @@ interface TaskStorageInterface
      * @return array<string, TaskExecution>
      */
     public function all(): array;
+
+    /**
+     * Removes all execution records from storage.
+     */
+    public function reset(): void;
 }
