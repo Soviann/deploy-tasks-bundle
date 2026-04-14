@@ -168,6 +168,22 @@ final class DbalStorage implements TransactionalStorageInterface
         return $executions;
     }
 
+    /**
+     * Removes all execution records from storage.
+     */
+    public function reset(): void
+    {
+        $this->ensureInitialized();
+
+        try {
+            $this->connection->executeStatement(
+                \sprintf('DELETE FROM %s', $this->configuration->tableName),
+            );
+        } catch (DbalException $e) {
+            throw new StorageException(\sprintf('Failed to reset all tasks: %s', $e->getMessage()), 0, $e);
+        }
+    }
+
     public function transactional(\Closure $callback): mixed
     {
         return $this->connection->transactional(static fn (Connection $connection): mixed => $callback());

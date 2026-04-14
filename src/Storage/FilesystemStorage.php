@@ -119,6 +119,25 @@ final class FilesystemStorage implements TaskStorageInterface
         return $executions;
     }
 
+    /**
+     * Removes all execution records from storage.
+     */
+    public function reset(): void
+    {
+        $pattern = $this->storagePath.'/*.json';
+        $files = \glob($pattern);
+
+        if (false === $files || [] === $files) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            if (!\unlink($file)) {
+                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file));
+            }
+        }
+    }
+
     private function filePath(string $taskId): string
     {
         return $this->storagePath.'/'.$taskId.'.json';

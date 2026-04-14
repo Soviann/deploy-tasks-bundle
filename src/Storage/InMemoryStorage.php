@@ -58,4 +58,12 @@ final class InMemoryStorage implements TaskStorageInterface
     {
         return $this->executions;
     }
+
+    /**
+     * Removes all execution records from storage.
+     */
+    public function reset(): void
+    {
+        $this->executions = [];
+    }
 }

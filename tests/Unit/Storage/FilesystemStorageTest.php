@@ -135,6 +135,24 @@ final class FilesystemStorageTest extends TestCase
         self::assertSame([], $this->storage->all());
     }
 
+    public function testReset(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->storage->reset();
+
+        self::assertSame([], $this->storage->all());
+        self::assertDirectoryExists($this->storagePath);
+    }
+
+    public function testResetWhenDirectoryDoesNotExist(): void
+    {
+        $this->storage->reset();
+
+        self::assertSame([], $this->storage->all());
+    }
+
     public function testPublicPathWarning(): void
     {
         $warningTriggered = false;
