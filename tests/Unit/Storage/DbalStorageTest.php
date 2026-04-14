@@ -166,6 +166,20 @@ final class DbalStorageTest extends TestCase
         self::assertSame([], $this->storage->all());
     }
 
+    public function testTransactionalWrapsExceptionInStorageException(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('transactional')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('connection lost'));
+
+        $storage = new DbalStorage($connection, $this->configuration);
+
+        $this->expectException(\Soviann\DeployTasks\Exception\StorageException::class);
+        $this->expectExceptionMessageMatches('/Transaction failed/');
+
+        $storage->transactional(static fn (): string => 'nope');
+    }
+
     public function testAutoCreatesTableOnFirstUse(): void
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
