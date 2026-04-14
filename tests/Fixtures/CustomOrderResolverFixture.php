@@ -11,6 +11,6 @@ final class CustomOrderResolverFixture implements TaskOrderResolverInterface
 {
     public function resolve(array $tasks): OrderedTaskCollection
     {
-        return new OrderedTaskCollection($tasks);
+        return new OrderedTaskCollection(...$tasks);
     }
 }
