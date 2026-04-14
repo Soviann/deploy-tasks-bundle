@@ -137,9 +137,6 @@ final class TaskRunner
         $ran = 0;
         $skipped = 0;
         $failed = 0;
-        /** @var array<string, \Throwable> $errors */
-        $errors = [];
-
         foreach ($tasks as $task) {
             if (!$force) {
                 $taskId = $this->idResolver->resolve($task);
@@ -163,7 +160,7 @@ final class TaskRunner
             }
         }
 
-        return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, errors: $errors);
+        return new RunResult(ran: $ran, skipped: $skipped, failed: $failed);
     }
 
     /**

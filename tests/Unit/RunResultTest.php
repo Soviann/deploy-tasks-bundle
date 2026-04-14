@@ -13,19 +13,16 @@ final class RunResultTest extends TestCase
 {
     public function testConstruction(): void
     {
-        $error = new \RuntimeException('something went wrong');
         $result = new RunResult(
             ran: 5,
             skipped: 2,
             failed: 1,
-            errors: ['task.foo' => $error],
             locked: true,
         );
 
         self::assertSame(5, $result->ran);
         self::assertSame(2, $result->skipped);
         self::assertSame(1, $result->failed);
-        self::assertSame(['task.foo' => $error], $result->errors);
         self::assertTrue($result->locked);
     }
 
@@ -54,7 +51,6 @@ final class RunResultTest extends TestCase
     {
         $result = new RunResult(ran: 1, skipped: 0, failed: 0);
 
-        self::assertSame([], $result->errors);
         self::assertFalse($result->locked);
     }
 }
