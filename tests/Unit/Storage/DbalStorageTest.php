@@ -149,6 +149,23 @@ final class DbalStorageTest extends TestCase
         self::assertSame(TaskStatus::Failed, $retrieved->status);
     }
 
+    public function testReset(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->storage->reset();
+
+        self::assertSame([], $this->storage->all());
+    }
+
+    public function testResetEmpty(): void
+    {
+        $this->storage->reset();
+
+        self::assertSame([], $this->storage->all());
+    }
+
     public function testAutoCreatesTableOnFirstUse(): void
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
