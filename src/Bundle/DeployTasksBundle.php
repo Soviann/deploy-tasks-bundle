@@ -236,6 +236,7 @@ final class DeployTasksBundle extends AbstractBundle
 
         $services->set('deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
             ->args([
+                service('deploy_tasks.default_id_resolver'),
                 $generateConfig['directory'],
                 $generateConfig['template'],
             ])
@@ -308,10 +309,13 @@ final class DeployTasksBundle extends AbstractBundle
         /** @var string|null $resolverServiceId */
         $resolverServiceId = $config['id_resolver'];
 
+        // Always register DefaultTaskIdResolver — used by DeployTasksGenerateCommand for ID deduction
+        $services->set('deploy_tasks.default_id_resolver', DefaultTaskIdResolver::class);
+
         if (null !== $resolverServiceId) {
             $services->alias('deploy_tasks.id_resolver', $resolverServiceId);
         } else {
-            $services->set('deploy_tasks.id_resolver', DefaultTaskIdResolver::class);
+            $services->alias('deploy_tasks.id_resolver', 'deploy_tasks.default_id_resolver');
         }
 
         $services->alias(TaskIdResolverInterface::class, 'deploy_tasks.id_resolver')->public();

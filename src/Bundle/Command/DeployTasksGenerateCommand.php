@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -16,6 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class DeployTasksGenerateCommand extends Command
 {
     public function __construct(
+        private readonly DefaultTaskIdResolver $idResolver,
         private readonly string $defaultDirectory = 'src/DeployTasks/Task/',
         private readonly ?string $templatePath = null,
     ) {
@@ -78,7 +80,7 @@ final class DeployTasksGenerateCommand extends Command
             $className .= $name;
         }
 
-        $taskId = $this->classNameToId($className);
+        $taskId = $this->idResolver->deduceFromClassName($className);
         $description = null !== $name ? \ucfirst(\str_replace('_', ' ', $this->toSnakeCase($name))) : '';
 
         /** @var string $dir */
@@ -150,20 +152,6 @@ final class DeployTasksGenerateCommand extends Command
         ]);
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Converts a class name like "Task20260412143000SeedCategories" to "task_20260412143000_seed_categories".
-     */
-    private function classNameToId(string $className): string
-    {
-        // Insert underscore before each uppercase letter or digit sequence boundary
-        $id = (string) \preg_replace('/([a-z])([A-Z])/', '$1_$2', $className);
-        $id = (string) \preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1_$2', $id);
-        $id = (string) \preg_replace('/([a-zA-Z])(\d)/', '$1_$2', $id);
-        $id = (string) \preg_replace('/(\d)([a-zA-Z])/', '$1_$2', $id);
-
-        return \strtolower($id);
     }
 
     private function toSnakeCase(string $name): string
