@@ -186,7 +186,11 @@ final class DbalStorage implements TransactionalStorageInterface
 
     public function transactional(\Closure $callback): mixed
     {
-        return $this->connection->transactional(static fn (Connection $connection): mixed => $callback());
+        try {
+            return $this->connection->transactional(static fn (Connection $connection): mixed => $callback());
+        } catch (DbalException $e) {
+            throw new StorageException(\sprintf('Transaction failed: %s', $e->getMessage()), 0, $e);
+        }
     }
 
     private function ensureInitialized(): void
