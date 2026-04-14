@@ -9,6 +9,8 @@ use Soviann\DeployTasks\Contract\TaskStorageInterface;
 
 /**
  * In-memory task storage — intended for testing only.
+ *
+ * @internal
  */
 final class InMemoryStorage implements TaskStorageInterface
 {

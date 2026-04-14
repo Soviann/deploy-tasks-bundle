@@ -12,6 +12,8 @@ use Soviann\DeployTasks\Exception\TaskNotFoundException;
 
 /**
  * In-memory registry of all discovered deploy tasks, keyed by ID.
+ *
+ * @internal
  */
 final class TaskRegistry
 {

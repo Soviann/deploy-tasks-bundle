@@ -8,6 +8,8 @@ namespace Soviann\DeployTasks\Storage;
  * Configuration for DBAL-backed task storage.
  *
  * Mirrors Doctrine\Migrations\Metadata\Storage\TableMetadataStorageConfiguration.
+ *
+ * @internal
  */
 final readonly class DbalStorageConfiguration
 {

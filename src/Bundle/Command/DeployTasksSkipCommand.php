@@ -15,6 +15,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/** @internal */
 #[AsCommand(name: 'deploytasks:skip', description: 'Mark a deploy task as skipped without executing it.')]
 final class DeployTasksSkipCommand extends Command
 {

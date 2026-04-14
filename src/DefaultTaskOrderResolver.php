@@ -17,6 +17,8 @@ use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
  *  1. Priority DESC (higher priority runs first)
  *  2. Date extracted from ID (format YYYY_MM_DD) ASC (older tasks run first)
  *  3. Original registration order preserved for ties (stable sort)
+ *
+ * @internal
  */
 final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
 {
