@@ -161,11 +161,6 @@ final class DeployTasksBundle extends AbstractBundle
     {
         $services = $container->services();
 
-        // Autoconfigure: tag classes implementing DeployTaskInterface
-        $services->instanceof(DeployTaskInterface::class)
-            ->tag('deploy_tasks.task')
-        ;
-
         // TaskRegistry
         $services->set('deploy_tasks.registry', TaskRegistry::class)
             ->args([
