@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
-use Soviann\DeployTasks\DefaultTaskIdResolver;
+use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -17,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class DeployTasksGenerateCommand extends Command
 {
     public function __construct(
-        private readonly DefaultTaskIdResolver $idResolver,
+        private readonly TaskIdGeneratorInterface $idGenerator,
         private readonly string $defaultDirectory = 'src/DeployTasks/Task/',
         private readonly ?string $templatePath = null,
     ) {
@@ -80,7 +80,8 @@ final class DeployTasksGenerateCommand extends Command
             $className .= $name;
         }
 
-        $taskId = $this->idResolver->deduceFromClassName($className);
+        /** @var class-string $className */
+        $taskId = $this->idGenerator->generate($className);
         $description = null !== $name ? \ucfirst(\str_replace('_', ' ', $this->toSnakeCase($name))) : '';
 
         /** @var string $dir */
