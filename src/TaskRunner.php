@@ -35,6 +35,7 @@ final class TaskRunner
         private readonly ?LockFactory $lockFactory = null,
         private readonly int $defaultTimeout = 300,
         private readonly ?string $environment = null,
+        private readonly bool $transactional = true,
     ) {
     }
 
@@ -219,7 +220,9 @@ final class TaskRunner
      */
     private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output): int
     {
-        if (null !== $attribute && $attribute->transactional && $this->storage instanceof TransactionalStorageInterface) {
+        $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
+
+        if ($shouldWrap && $this->storage instanceof TransactionalStorageInterface) {
             /** @var TaskResult::* $result */
             $result = $this->storage->transactional(static fn (): int => $task->run($output));
 
