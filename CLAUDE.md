@@ -25,7 +25,7 @@ Pure PHP interfaces, attributes, and value objects. No Symfony imports except `O
 Storage backends, registry, runner, resolver, and events.
 
 - `Storage\FilesystemStorage` — JSON files, one per task, `LOCK_EX` for write safety
-- `Storage\DbalStorage` — Doctrine DBAL backend, platform-aware upsert, static `getCreateTableSql()`
+- `Storage\DbalStorage` — Doctrine DBAL backend, platform-aware upsert, `getCreateTableSql()` with quoted identifiers
 - `Storage\InMemoryStorage` — array-backed storage for testing
 - `TaskRegistry` — in-memory map of registered tasks, detects duplicate IDs
 - `TaskRunner` — orchestrates execution: ordering, environment filtering, storage tracking, optional events/locking/transactions

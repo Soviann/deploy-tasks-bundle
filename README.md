@@ -104,6 +104,7 @@ deploy_tasks:
 | `deploytasks:skip <id>` | Mark a task as skipped | |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | |
 | `deploytasks:generate [name]` | Generate a blank task class | `--dir` |
+| `deploytasks:create-schema` | Create the DBAL storage table | `--dump-sql` |
 
 ## Documentation
 

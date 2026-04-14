@@ -345,8 +345,8 @@ final class TaskRunnerTest extends TestCase
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         // Pre-create the table outside any transaction — SQLite DDL is transactional,
         // so auto-init inside allOrNothing would roll back the table along with the data.
-        $connection->executeStatement(DbalStorage::getCreateTableSql());
         $storage = new DbalStorage($connection);
+        $connection->executeStatement($storage->getCreateTableSql());
         $idResolver = new DefaultTaskIdResolver();
 
         $runner = new TaskRunner(

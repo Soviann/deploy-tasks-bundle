@@ -19,6 +19,7 @@ use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
+use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
@@ -306,6 +307,11 @@ final class DeployTasksBundle extends AbstractBundle
 
             $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();
             $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->public();
+
+            $services->set('deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
+                ->args([service('deploy_tasks.storage')])
+                ->tag('console.command')
+            ;
         } else {
             $services->set('deploy_tasks.storage', FilesystemStorage::class)
                 ->args([$storageConfig['filesystem']['path']])
