@@ -36,6 +36,7 @@ final class TaskRunner
         private readonly int $defaultTimeout = 300,
         private readonly ?string $environment = null,
         private readonly bool $transactional = true,
+        private readonly bool $allOrNothing = false,
     ) {
     }
 
@@ -63,6 +64,14 @@ final class TaskRunner
 
             if ($dryRun) {
                 return $this->dryRun($ordered, $output);
+            }
+
+            if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
+                try {
+                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($ordered, $output, $force));
+                } catch (\Throwable) {
+                    return new RunResult(ran: 0, skipped: 0, failed: 1);
+                }
             }
 
             return $this->executeAll($ordered, $output, $force);
@@ -197,16 +206,21 @@ final class TaskRunner
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
+            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
+
+            $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
+
+            if ($this->allOrNothing) {
+                // Propagate so the outer transaction rolls everything back
+                throw $e;
+            }
+
             $this->storage->save(new TaskExecution(
                 id: $taskId,
                 status: TaskStatus::Failed,
                 executedAt: new \DateTimeImmutable(),
                 error: $e->getMessage(),
             ));
-
-            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
-
-            $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
 
             return TaskResult::FAILURE;
         }
@@ -220,6 +234,11 @@ final class TaskRunner
      */
     private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output): int
     {
+        // Skip per-task wrapping when allOrNothing already wraps the entire run
+        if ($this->allOrNothing) {
+            return $task->run($output);
+        }
+
         $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
 
         if ($shouldWrap && $this->storage instanceof TransactionalStorageInterface) {
