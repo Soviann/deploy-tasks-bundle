@@ -15,11 +15,18 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:generate', description: 'Generate a blank deploy task class.')]
 final class DeployTasksGenerateCommand extends Command
 {
+    public function __construct(
+        private readonly string $defaultDirectory = 'src/DeployTasks/Task/',
+        private readonly ?string $templatePath = null,
+    ) {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this
             ->addArgument('name', InputArgument::OPTIONAL, 'Optional descriptive suffix for the class name (e.g. SeedCategories).')
-            ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated file.', 'src/DeployTasks/Task/')
+            ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated file.', $this->defaultDirectory)
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command generates a blank deploy task class:
 
@@ -83,34 +90,44 @@ final class DeployTasksGenerateCommand extends Command
 
         $namespace = $this->dirToNamespace($dir);
 
-        $fileContent = <<<PHP
-            <?php
+        if (null !== $this->templatePath && \is_file($this->templatePath)) {
+            $fileContent = (string) \file_get_contents($this->templatePath);
+            $fileContent = \strtr($fileContent, [
+                '{{ namespace }}' => $namespace,
+                '{{ className }}' => $className,
+                '{{ taskId }}' => $taskId,
+                '{{ description }}' => $description,
+            ]);
+        } else {
+            $fileContent = <<<PHP
+                <?php
 
-            declare(strict_types=1);
+                declare(strict_types=1);
 
-            namespace {$namespace};
+                namespace {$namespace};
 
-            use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
-            use Soviann\DeployTasks\Contract\DeployTaskInterface;
-            use Soviann\DeployTasks\Contract\TaskResult;
-            use Symfony\Component\Console\Output\OutputInterface;
+                use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
+                use Soviann\DeployTasks\Contract\DeployTaskInterface;
+                use Soviann\DeployTasks\Contract\TaskResult;
+                use Symfony\Component\Console\Output\OutputInterface;
 
-            #[AsDeployTask(id: '{$taskId}', description: '{$description}')]
-            final class {$className} implements DeployTaskInterface
-            {
-                public function getDescription(): string
+                #[AsDeployTask(id: '{$taskId}', description: '{$description}')]
+                final class {$className} implements DeployTaskInterface
                 {
-                    return '{$description}';
-                }
+                    public function getDescription(): string
+                    {
+                        return '{$description}';
+                    }
 
-                public function run(OutputInterface \$output): int
-                {
-                    // TODO: implement
+                    public function run(OutputInterface \$output): int
+                    {
+                        // TODO: implement
 
-                    return TaskResult::SUCCESS;
+                        return TaskResult::SUCCESS;
+                    }
                 }
-            }
-            PHP;
+                PHP;
+        }
 
         if (!\is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
