@@ -23,19 +23,29 @@ final class DbalStorageTest extends TestCase
     {
         $this->connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         $this->configuration = new DbalStorageConfiguration();
-        $this->connection->executeStatement(DbalStorage::getCreateTableSql($this->configuration));
         $this->storage = new DbalStorage($this->connection, $this->configuration);
+        $this->connection->executeStatement($this->storage->getCreateTableSql());
     }
 
     public function testGetCreateTableSql(): void
     {
-        $sql = DbalStorage::getCreateTableSql();
+        $sql = $this->storage->getCreateTableSql();
 
         self::assertStringContainsStringIgnoringCase('CREATE TABLE', $sql);
         self::assertStringContainsString('deploy_task_executions', $sql);
-        self::assertStringContainsString('id', $sql);
-        self::assertStringContainsString('status', $sql);
-        self::assertStringContainsString('executed_at', $sql);
+    }
+
+    public function testGetCreateTableSqlQuotesIdentifiers(): void
+    {
+        $config = new DbalStorageConfiguration(
+            idColumn: 'task_id',
+            statusColumn: 'task_status',
+        );
+        $storage = new DbalStorage($this->connection, $config);
+        $sql = $storage->getCreateTableSql();
+
+        self::assertStringContainsString('"task_id"', $sql);
+        self::assertStringContainsString('"task_status"', $sql);
     }
 
     public function testSaveAndRetrieve(): void
@@ -203,8 +213,8 @@ final class DbalStorageTest extends TestCase
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         $config = new DbalStorageConfiguration(autoCreateTable: false);
-        $connection->executeStatement(DbalStorage::getCreateTableSql($config));
         $storage = new DbalStorage($connection, $config);
+        $connection->executeStatement($storage->getCreateTableSql());
 
         self::assertFalse($storage->has('task.1'));
     }
@@ -218,8 +228,8 @@ final class DbalStorageTest extends TestCase
             executedAtColumn: 'ran_at',
             errorColumn: 'error_message',
         );
-        $connection->executeStatement(DbalStorage::getCreateTableSql($config));
         $storage = new DbalStorage($connection, $config);
+        $connection->executeStatement($storage->getCreateTableSql());
 
         $execution = new TaskExecution('task.custom', TaskStatus::Ran, new \DateTimeImmutable());
 

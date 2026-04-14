@@ -42,9 +42,21 @@ deploy_tasks:
 
 ### Creating the table
 
-The table is not created automatically. Use one of the following approaches.
+By default, the table is created automatically on first use (`auto_create_table: true`). To create it manually:
 
-**Option 1 — raw SQL:**
+**Option 1 — via command:**
+
+```bash
+# Create the table directly
+bin/console deploytasks:create-schema
+
+# Output SQL only (e.g. for a Doctrine migration)
+bin/console deploytasks:create-schema --dump-sql
+```
+
+The SQL output uses platform-aware identifier quoting (backticks for MySQL, double quotes for PostgreSQL/SQLite).
+
+**Option 2 — raw SQL:**
 
 ```sql
 CREATE TABLE IF NOT EXISTS deploy_task_executions (
@@ -55,17 +67,6 @@ CREATE TABLE IF NOT EXISTS deploy_task_executions (
     PRIMARY KEY (id)
 );
 ```
-
-**Option 2 — via `DbalStorage`:**
-
-```php
-use Soviann\DeployTasks\Storage\DbalStorage;
-
-$sql = DbalStorage::getCreateTableSql('deploy_task_executions');
-$connection->executeStatement($sql);
-```
-
-`getCreateTableSql()` produces a `CREATE TABLE IF NOT EXISTS` statement compatible with SQLite, MySQL, and PostgreSQL.
 
 ### Transactional tasks
 
