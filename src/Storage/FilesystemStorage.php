@@ -140,6 +140,10 @@ final class FilesystemStorage implements TaskStorageInterface
 
     private function filePath(string $taskId): string
     {
+        if (!\preg_match('/^[a-zA-Z0-9._-]+$/', $taskId)) {
+            throw new \InvalidArgumentException(\sprintf('Invalid task ID "%s": must contain only alphanumeric characters, dots, hyphens, and underscores.', $taskId));
+        }
+
         return $this->storagePath.'/'.$taskId.'.json';
     }
 

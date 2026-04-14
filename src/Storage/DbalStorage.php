@@ -29,19 +29,23 @@ final class DbalStorage implements TransactionalStorageInterface
     /**
      * Returns a CREATE TABLE SQL statement compatible with SQLite, MySQL, and PostgreSQL.
      */
-    public static function getCreateTableSql(?DbalStorageConfiguration $configuration = null): string
+    public function getCreateTableSql(): string
     {
-        $configuration ??= new DbalStorageConfiguration();
+        $t = $this->quoteIdentifier($this->configuration->tableName);
+        $id = $this->quoteIdentifier($this->configuration->idColumn);
+        $status = $this->quoteIdentifier($this->configuration->statusColumn);
+        $executedAt = $this->quoteIdentifier($this->configuration->executedAtColumn);
+        $error = $this->quoteIdentifier($this->configuration->errorColumn);
 
         return \sprintf(
             'CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(%d) NOT NULL, %s VARCHAR(16) NOT NULL, %s VARCHAR(32) NOT NULL, %s TEXT DEFAULT NULL, PRIMARY KEY (%s))',
-            $configuration->tableName,
-            $configuration->idColumn,
-            $configuration->idColumnLength,
-            $configuration->statusColumn,
-            $configuration->executedAtColumn,
-            $configuration->errorColumn,
-            $configuration->idColumn,
+            $t,
+            $id,
+            $this->configuration->idColumnLength,
+            $status,
+            $executedAt,
+            $error,
+            $id,
         );
     }
 
@@ -55,7 +59,7 @@ final class DbalStorage implements TransactionalStorageInterface
         try {
             /** @var int|string|false $count */
             $count = $this->connection->fetchOne(
-                \sprintf('SELECT COUNT(*) FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
+                \sprintf('SELECT COUNT(*) FROM %s WHERE %s = ?', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->idColumn)),
                 [$taskId],
             );
 
@@ -74,7 +78,7 @@ final class DbalStorage implements TransactionalStorageInterface
 
         try {
             $row = $this->connection->fetchAssociative(
-                \sprintf('SELECT * FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
+                \sprintf('SELECT * FROM %s WHERE %s = ?', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->idColumn)),
                 [$taskId],
             );
         } catch (DbalException $e) {
@@ -95,21 +99,27 @@ final class DbalStorage implements TransactionalStorageInterface
     {
         $this->ensureInitialized();
 
+        $t = $this->quoteIdentifier($this->configuration->tableName);
+        $id = $this->quoteIdentifier($this->configuration->idColumn);
+        $status = $this->quoteIdentifier($this->configuration->statusColumn);
+        $executedAt = $this->quoteIdentifier($this->configuration->executedAtColumn);
+        $error = $this->quoteIdentifier($this->configuration->errorColumn);
+
         try {
-            $this->connection->transactional(function (Connection $connection) use ($execution): void {
-                $this->connection->executeStatement(
-                    \sprintf('DELETE FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
+            $this->connection->transactional(function (Connection $connection) use ($execution, $t, $id, $status, $executedAt, $error): void {
+                $connection->executeStatement(
+                    \sprintf('DELETE FROM %s WHERE %s = ?', $t, $id),
                     [$execution->id],
                 );
 
-                $this->connection->executeStatement(
+                $connection->executeStatement(
                     \sprintf(
                         'INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)',
-                        $this->configuration->tableName,
-                        $this->configuration->idColumn,
-                        $this->configuration->statusColumn,
-                        $this->configuration->executedAtColumn,
-                        $this->configuration->errorColumn,
+                        $t,
+                        $id,
+                        $status,
+                        $executedAt,
+                        $error,
                     ),
                     [
                         $execution->id,
@@ -133,7 +143,7 @@ final class DbalStorage implements TransactionalStorageInterface
 
         try {
             $this->connection->executeStatement(
-                \sprintf('DELETE FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
+                \sprintf('DELETE FROM %s WHERE %s = ?', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->idColumn)),
                 [$taskId],
             );
         } catch (DbalException $e) {
@@ -152,7 +162,7 @@ final class DbalStorage implements TransactionalStorageInterface
 
         try {
             $rows = $this->connection->fetchAllAssociative(
-                \sprintf('SELECT * FROM %s ORDER BY %s', $this->configuration->tableName, $this->configuration->executedAtColumn),
+                \sprintf('SELECT * FROM %s ORDER BY %s', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->executedAtColumn)),
             );
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to fetch all tasks: %s', $e->getMessage()), 0, $e);
@@ -177,7 +187,7 @@ final class DbalStorage implements TransactionalStorageInterface
 
         try {
             $this->connection->executeStatement(
-                \sprintf('DELETE FROM %s', $this->configuration->tableName),
+                \sprintf('DELETE FROM %s', $this->quoteIdentifier($this->configuration->tableName)),
             );
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to reset all tasks: %s', $e->getMessage()), 0, $e);
@@ -193,6 +203,19 @@ final class DbalStorage implements TransactionalStorageInterface
         }
     }
 
+    /**
+     * Creates the storage table if it does not exist.
+     */
+    public function createSchema(): void
+    {
+        $this->connection->executeStatement($this->getCreateTableSql());
+    }
+
+    private function quoteIdentifier(string $identifier): string
+    {
+        return $this->connection->quoteSingleIdentifier($identifier);
+    }
+
     private function ensureInitialized(): void
     {
         if ($this->initialized) {
@@ -203,7 +226,7 @@ final class DbalStorage implements TransactionalStorageInterface
             $schemaManager = $this->connection->createSchemaManager();
 
             if (!$schemaManager->tablesExist([$this->configuration->tableName])) {
-                $this->connection->executeStatement(self::getCreateTableSql($this->configuration));
+                $this->connection->executeStatement($this->getCreateTableSql());
             }
         }
 

@@ -153,6 +153,27 @@ final class FilesystemStorageTest extends TestCase
         self::assertSame([], $this->storage->all());
     }
 
+    public function testRejectsPathTraversalInTaskId(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid task ID/');
+
+        $this->storage->has('../../etc/passwd');
+    }
+
+    public function testRejectsSlashInTaskId(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->storage->has('some/task');
+    }
+
+    public function testAcceptsValidTaskIdCharacters(): void
+    {
+        // Should not throw — dots, hyphens, underscores are allowed
+        self::assertFalse($this->storage->has('task.seed_categories-v2'));
+    }
+
     public function testPublicPathWarning(): void
     {
         $warningTriggered = false;
