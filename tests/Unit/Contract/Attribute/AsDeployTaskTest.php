@@ -22,7 +22,7 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(0, $attribute->priority);
         self::assertNull($attribute->env);
         self::assertNull($attribute->timeout);
-        self::assertFalse($attribute->transactional);
+        self::assertNull($attribute->transactional);
         self::assertNull($attribute->description);
     }
 

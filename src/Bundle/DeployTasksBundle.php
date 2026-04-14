@@ -13,6 +13,7 @@ use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\DbalStorage;
+use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
@@ -56,6 +57,14 @@ final class DeployTasksBundle extends AbstractBundle
                     ->min(0)
                     ->info('Default task execution timeout in seconds.')
                 ->end()
+                ->booleanNode('transactional')
+                    ->defaultTrue()
+                    ->info('Wrap each task execution in a database transaction (requires DbalStorage). Overridable per-task via #[AsDeployTask(transactional: false)].')
+                ->end()
+                ->booleanNode('all_or_nothing')
+                    ->defaultFalse()
+                    ->info('Wrap the entire run in a single transaction — any failure rolls back all tasks.')
+                ->end()
                 ->arrayNode('storage')
                     ->addDefaultsIfNotSet()
                     ->children()
@@ -79,9 +88,6 @@ final class DeployTasksBundle extends AbstractBundle
                                 ->end()
                                 ->scalarNode('table')
                                     ->defaultValue('deploy_task_executions')
-                                ->end()
-                                ->booleanNode('transaction_wrap')
-                                    ->defaultFalse()
                                 ->end()
                             ->end()
                         ->end()
@@ -156,6 +162,8 @@ final class DeployTasksBundle extends AbstractBundle
                 null, // lock factory — set by compiler pass
                 $config['default_timeout'],
                 param('kernel.environment'),
+                $config['transactional'],
+                $config['all_or_nothing'],
             ])
         ;
         $services->alias(TaskRunner::class, 'deploy_tasks.runner')->public();
@@ -211,7 +219,7 @@ final class DeployTasksBundle extends AbstractBundle
      */
     private function registerStorage(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
     {
-        /** @var array{type: string, filesystem: array{path: string}, database: array{connection: string, table: string, transaction_wrap: bool}} $storageConfig */
+        /** @var array{type: string, filesystem: array{path: string}, database: array{connection: string, table: string}} $storageConfig */
         $storageConfig = $config['storage'];
 
         if ('database' === $storageConfig['type']) {
@@ -220,11 +228,24 @@ final class DeployTasksBundle extends AbstractBundle
             }
 
             $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
+            $dbConfig = $storageConfig['database'];
+
+            $services->set('deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
+                ->args([
+                    true,           // autoCreateTable
+                    'error',        // errorColumn
+                    'executed_at',  // executedAtColumn
+                    'id',           // idColumn
+                    255,            // idColumnLength
+                    'status',       // statusColumn
+                    $dbConfig['table'],  // tableName
+                ])
+            ;
 
             $services->set('deploy_tasks.storage', DbalStorage::class)
                 ->args([
                     service($connectionServiceId),
-                    $storageConfig['database']['table'],
+                    service('deploy_tasks.storage.configuration'),
                 ])
             ;
 

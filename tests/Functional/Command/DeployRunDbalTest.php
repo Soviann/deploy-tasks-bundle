@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasks\Tests\Functional\Command;
 
-use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasks\Contract\TaskStatus;
@@ -37,11 +36,6 @@ final class DeployRunDbalTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-
-        // Create the table on the in-memory SQLite connection
-        $connection = self::getContainer()->get('doctrine.dbal.default_connection');
-        \assert($connection instanceof Connection);
-        $connection->executeStatement(DbalStorage::getCreateTableSql('deploy_task_executions'));
 
         $application = new Application(self::$kernel);
         $this->runTester = new CommandTester($application->find('deploytasks:run'));
