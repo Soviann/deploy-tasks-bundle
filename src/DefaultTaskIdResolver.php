@@ -6,6 +6,7 @@ namespace Soviann\DeployTasks;
 
 use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
 use Soviann\DeployTasks\Contract\TaskIdProviderInterface;
 use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 
@@ -15,13 +16,18 @@ use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
  * Resolution order:
  *  1. TaskIdProviderInterface::getTaskId() (if the task implements it and returns non-empty)
  *  2. #[AsDeployTask] attribute `id` (if present and non-empty)
- *  3. Auto-deduced from FQCN (short class name → snake_case)
+ *  3. Auto-deduced from FQCN via TaskIdGeneratorInterface
  *
  * If both getTaskId() and attribute `id` return non-empty different values,
  * a E_USER_WARNING is triggered and the interface value takes precedence.
  */
 final class DefaultTaskIdResolver implements TaskIdResolverInterface
 {
+    public function __construct(
+        private readonly TaskIdGeneratorInterface $generator = new DefaultTaskIdGenerator(),
+    ) {
+    }
+
     public function resolve(DeployTaskInterface $task): string
     {
         $attributeId = $this->readAttributeId($task);
@@ -47,16 +53,16 @@ final class DefaultTaskIdResolver implements TaskIdResolverInterface
             return $attributeId;
         }
 
-        // 3. Auto-deduce from FQCN
-        return $this->deduceFromClassName($task::class);
+        // 3. Auto-deduce from FQCN via generator
+        return $this->generator->generate($task::class);
     }
 
     /**
      * Resolves a task ID from class metadata only (no instance needed).
      *
      * Compile-time safe subset: checks #[AsDeployTask] attribute via reflection,
-     * then falls back to FQCN auto-deduction. Cannot check TaskIdProviderInterface
-     * since that requires an instantiated task.
+     * then falls back to FQCN auto-deduction via generator. Cannot check
+     * TaskIdProviderInterface since that requires an instantiated task.
      *
      * @param class-string $className
      */
@@ -68,7 +74,7 @@ final class DefaultTaskIdResolver implements TaskIdResolverInterface
             return $attributeId;
         }
 
-        return $this->deduceFromClassName($className);
+        return $this->generator->generate($className);
     }
 
     /**
@@ -91,29 +97,5 @@ final class DefaultTaskIdResolver implements TaskIdResolverInterface
         }
 
         return $attribute->id;
-    }
-
-    /**
-     * Converts a FQCN to a snake_case identifier.
-     *
-     * Example: App\DeployTasks\Task\SeedCategories → seed_categories
-     */
-    public function deduceFromClassName(string $className): string
-    {
-        $shortName = \substr($className, \strrpos($className, '\\') + 1);
-
-        // Remove common suffixes
-        $shortName = \preg_replace('/(?:Task|DeployTask)$/', '', $shortName);
-
-        // If nothing left after stripping, fall back to original short name
-        if ('' === $shortName || null === $shortName) {
-            $shortName = \substr($className, \strrpos($className, '\\') + 1);
-        }
-
-        // CamelCase → snake_case
-        /** @var string $snakeCase */
-        $snakeCase = \preg_replace('/[A-Z]/', '_$0', \lcfirst($shortName));
-
-        return \strtolower($snakeCase);
     }
 }
