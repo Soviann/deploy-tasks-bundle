@@ -49,6 +49,14 @@ final class DeployRunDbalTest extends KernelTestCase
         self::assertInstanceOf(DbalStorage::class, $storage);
     }
 
+    public function testDbalStorageAutoCreatesTable(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertSame([], $storage->all());
+    }
+
     public function testRunCommandWithDbalStorage(): void
     {
         $this->runTester->execute([]);
