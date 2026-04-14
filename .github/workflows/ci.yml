@@ -82,7 +82,9 @@ jobs:
         run: echo "SYMFONY_REQUIRE=${{ matrix.symfony }}" >> $GITHUB_ENV
 
       - name: Install Symfony Flex globally
-        run: composer global require --no-progress --no-scripts --no-plugins symfony/flex
+        run: |
+          composer global config --no-plugins allow-plugins.symfony/flex true
+          composer global require --no-progress --no-scripts --no-plugins symfony/flex
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress ${{ matrix.composer-flags }}
