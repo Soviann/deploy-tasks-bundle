@@ -98,7 +98,7 @@ final class DefaultTaskIdResolver implements TaskIdResolverInterface
      *
      * Example: App\DeployTasks\Task\SeedCategories → seed_categories
      */
-    private function deduceFromClassName(string $className): string
+    public function deduceFromClassName(string $className): string
     {
         $shortName = \substr($className, \strrpos($className, '\\') + 1);
 
