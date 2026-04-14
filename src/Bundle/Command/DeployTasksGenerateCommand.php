@@ -27,29 +27,34 @@ final class DeployTasksGenerateCommand extends Command
         $this
             ->addArgument('name', InputArgument::OPTIONAL, 'Optional descriptive suffix for the class name (e.g. SeedCategories).')
             ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated file.', $this->defaultDirectory)
-            ->setHelp(<<<'EOT'
-                The <info>%command.name%</info> command generates a blank deploy task class:
+            ->setHelp(
+                \sprintf(
+                    <<<'EOT'
+                        The <info>%%command.name%%</info> command generates a blank deploy task class:
 
-                    <info>%command.full_name%</info>
+                            <info>%%command.full_name%%</info>
 
-                This creates a file like <comment>src/DeployTasks/Task/Task20260412143000.php</comment> with:
-                  - A unique ID based on the current timestamp
-                  - The <comment>#[AsDeployTask]</comment> attribute pre-configured
-                  - A stub <comment>run()</comment> method ready to implement
+                        This creates a file like <comment>%sTask20260412143000.php</comment> with:
+                          - A unique ID based on the current timestamp
+                          - The <comment>#[AsDeployTask]</comment> attribute pre-configured
+                          - A stub <comment>run()</comment> method ready to implement
 
-                You can add a descriptive suffix to the class name:
+                        You can add a descriptive suffix to the class name:
 
-                    <info>%command.full_name% SeedCategories</info>
+                            <info>%%command.full_name%% SeedCategories</info>
 
-                This generates <comment>Task20260412143000SeedCategories.php</comment>.
+                        This generates <comment>Task20260412143000SeedCategories.php</comment>.
 
-                You can specify a custom target directory with <comment>--dir</comment>:
+                        You can specify a custom target directory with <comment>--dir</comment>:
 
-                    <info>%command.full_name% SeedCategories --dir=src/Deploy/Task/</info>
+                            <info>%%command.full_name%% SeedCategories --dir=src/Deploy/Task/</info>
 
-                The generated class implements <comment>DeployTaskInterface</comment> and is automatically
-                discovered by the bundle via autoconfiguration.
-                EOT)
+                        The generated class implements <comment>DeployTaskInterface</comment> and is automatically
+                        discovered by the bundle via autoconfiguration.
+                        EOT,
+                    $this->defaultDirectory,
+                )
+            )
         ;
     }
 
