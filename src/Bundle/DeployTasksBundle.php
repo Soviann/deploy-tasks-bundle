@@ -231,7 +231,14 @@ final class DeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
+        /** @var array{directory: string, template: string|null} $generateConfig */
+        $generateConfig = $config['generate'];
+
         $services->set('deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
+            ->args([
+                $generateConfig['directory'],
+                $generateConfig['template'],
+            ])
             ->tag('console.command')
         ;
     }
