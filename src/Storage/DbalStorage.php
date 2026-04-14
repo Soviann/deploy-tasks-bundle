@@ -16,24 +16,30 @@ use Soviann\DeployTasks\Exception\StorageException;
  */
 final class DbalStorage implements TransactionalStorageInterface
 {
-    /**
-     * @param Connection $connection DBAL connection
-     * @param string     $tableName  Target table name
-     */
+    private bool $initialized = false;
+
     public function __construct(
         private readonly Connection $connection,
-        private readonly string $tableName = 'deploy_task_executions',
+        private readonly DbalStorageConfiguration $configuration = new DbalStorageConfiguration(),
     ) {
     }
 
     /**
      * Returns a CREATE TABLE SQL statement compatible with SQLite, MySQL, and PostgreSQL.
      */
-    public static function getCreateTableSql(string $tableName = 'deploy_task_executions'): string
+    public static function getCreateTableSql(?DbalStorageConfiguration $configuration = null): string
     {
+        $configuration ??= new DbalStorageConfiguration();
+
         return \sprintf(
-            'CREATE TABLE IF NOT EXISTS %s (id VARCHAR(255) NOT NULL, status VARCHAR(16) NOT NULL, executed_at VARCHAR(32) NOT NULL, error TEXT DEFAULT NULL, PRIMARY KEY (id))',
-            $tableName,
+            'CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(%d) NOT NULL, %s VARCHAR(16) NOT NULL, %s VARCHAR(32) NOT NULL, %s TEXT DEFAULT NULL, PRIMARY KEY (%s))',
+            $configuration->tableName,
+            $configuration->idColumn,
+            $configuration->idColumnLength,
+            $configuration->statusColumn,
+            $configuration->executedAtColumn,
+            $configuration->errorColumn,
+            $configuration->idColumn,
         );
     }
 
@@ -42,10 +48,12 @@ final class DbalStorage implements TransactionalStorageInterface
      */
     public function has(string $taskId): bool
     {
+        $this->ensureInitialized();
+
         try {
             /** @var int|string|false $count */
             $count = $this->connection->fetchOne(
-                \sprintf('SELECT COUNT(*) FROM %s WHERE id = ?', $this->tableName),
+                \sprintf('SELECT COUNT(*) FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
                 [$taskId],
             );
 
@@ -60,9 +68,11 @@ final class DbalStorage implements TransactionalStorageInterface
      */
     public function get(string $taskId): ?TaskExecution
     {
+        $this->ensureInitialized();
+
         try {
             $row = $this->connection->fetchAssociative(
-                \sprintf('SELECT * FROM %s WHERE id = ?', $this->tableName),
+                \sprintf('SELECT * FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
                 [$taskId],
             );
         } catch (DbalException $e) {
@@ -81,15 +91,24 @@ final class DbalStorage implements TransactionalStorageInterface
      */
     public function save(TaskExecution $execution): void
     {
+        $this->ensureInitialized();
+
         try {
             $this->connection->transactional(function (Connection $connection) use ($execution): void {
                 $this->connection->executeStatement(
-                    \sprintf('DELETE FROM %s WHERE id = ?', $this->tableName),
+                    \sprintf('DELETE FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
                     [$execution->id],
                 );
 
                 $this->connection->executeStatement(
-                    \sprintf('INSERT INTO %s (id, status, executed_at, error) VALUES (?, ?, ?, ?)', $this->tableName),
+                    \sprintf(
+                        'INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)',
+                        $this->configuration->tableName,
+                        $this->configuration->idColumn,
+                        $this->configuration->statusColumn,
+                        $this->configuration->executedAtColumn,
+                        $this->configuration->errorColumn,
+                    ),
                     [
                         $execution->id,
                         $execution->status->value,
@@ -108,9 +127,11 @@ final class DbalStorage implements TransactionalStorageInterface
      */
     public function remove(string $taskId): void
     {
+        $this->ensureInitialized();
+
         try {
             $this->connection->executeStatement(
-                \sprintf('DELETE FROM %s WHERE id = ?', $this->tableName),
+                \sprintf('DELETE FROM %s WHERE %s = ?', $this->configuration->tableName, $this->configuration->idColumn),
                 [$taskId],
             );
         } catch (DbalException $e) {
@@ -125,9 +146,11 @@ final class DbalStorage implements TransactionalStorageInterface
      */
     public function all(): array
     {
+        $this->ensureInitialized();
+
         try {
             $rows = $this->connection->fetchAllAssociative(
-                \sprintf('SELECT * FROM %s ORDER BY executed_at', $this->tableName),
+                \sprintf('SELECT * FROM %s ORDER BY %s', $this->configuration->tableName, $this->configuration->executedAtColumn),
             );
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to fetch all tasks: %s', $e->getMessage()), 0, $e);
@@ -148,19 +171,36 @@ final class DbalStorage implements TransactionalStorageInterface
         return $this->connection->transactional(static fn (Connection $connection): mixed => $callback());
     }
 
+    private function ensureInitialized(): void
+    {
+        if ($this->initialized) {
+            return;
+        }
+
+        if ($this->configuration->autoCreateTable) {
+            $schemaManager = $this->connection->createSchemaManager();
+
+            if (!$schemaManager->tablesExist([$this->configuration->tableName])) {
+                $this->connection->executeStatement(self::getCreateTableSql($this->configuration));
+            }
+        }
+
+        $this->initialized = true;
+    }
+
     /**
      * @param array<string, mixed> $row
      */
     private function hydrate(array $row): TaskExecution
     {
         /** @var string $id */
-        $id = $row['id'] ?? '';
+        $id = $row[$this->configuration->idColumn] ?? '';
         /** @var string $statusRaw */
-        $statusRaw = $row['status'] ?? '';
+        $statusRaw = $row[$this->configuration->statusColumn] ?? '';
         /** @var string $executedAtRaw */
-        $executedAtRaw = $row['executed_at'] ?? '';
+        $executedAtRaw = $row[$this->configuration->executedAtColumn] ?? '';
         /** @var string|null $error */
-        $error = $row['error'] ?? null;
+        $error = $row[$this->configuration->errorColumn] ?? null;
 
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $executedAtRaw);
 
