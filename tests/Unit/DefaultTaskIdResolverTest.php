@@ -6,6 +6,7 @@ namespace Soviann\DeployTasks\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasks\DefaultTaskIdGenerator;
 use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\MismatchedIdTask;
@@ -20,7 +21,7 @@ final class DefaultTaskIdResolverTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->resolver = new DefaultTaskIdResolver();
+        $this->resolver = new DefaultTaskIdResolver(new DefaultTaskIdGenerator());
     }
 
     public function testTaskIdProviderTakesPrecedenceOverAttribute(): void
