@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasks\Tests\Unit;
 
+use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasks\Contract\TaskExecution;
@@ -16,6 +17,7 @@ use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
 use Soviann\DeployTasks\Event\TaskFailedEvent;
+use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
@@ -336,6 +338,59 @@ final class TaskRunnerTest extends TestCase
 
         self::assertSame(TaskResult::FAILURE, $result);
         self::assertSame(TaskStatus::Failed, $this->storage->get('test.failing')?->status);
+    }
+
+    public function testAllOrNothingRollsBackOnFailure(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        // Pre-create the table outside any transaction — SQLite DDL is transactional,
+        // so auto-init inside allOrNothing would roll back the table along with the data.
+        $connection->executeStatement(DbalStorage::getCreateTableSql());
+        $storage = new DbalStorage($connection);
+        $idResolver = new DefaultTaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First'), new FailingTask()], $idResolver),
+            $storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            null,
+            null,
+            300,
+            null,
+            true,
+            true, // allOrNothing
+        );
+
+        $runner->runAll($this->output);
+
+        // All changes must be rolled back — no records saved
+        self::assertSame([], $storage->all());
+    }
+
+    public function testAllOrNothingCommitsOnSuccess(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+        $idResolver = new DefaultTaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First'), new SimpleTask('task.2', 'Second')], $idResolver),
+            $storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            null,
+            null,
+            300,
+            null,
+            true,
+            true, // allOrNothing
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertTrue($storage->has('task.1'));
+        self::assertTrue($storage->has('task.2'));
     }
 
     /**
