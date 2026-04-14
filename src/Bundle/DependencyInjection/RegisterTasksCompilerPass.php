@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\DependencyInjection;
 
+use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
+use Soviann\DeployTasks\DefaultTaskIdGenerator;
 use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -24,8 +27,12 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     /**
      * Validates at compile time that no two tagged tasks resolve to the same ID.
      *
-     * Only runs when the default resolver is configured — custom resolvers may
-     * use runtime logic that cannot be replicated at compile time.
+     * Skipped entirely when a custom resolver is configured, as custom resolvers
+     * may use runtime logic that cannot be replicated at compile time.
+     *
+     * When a custom generator is configured, its generateStatic() is called for
+     * each task without an explicit attribute ID. Returning null opts that task
+     * out of compile-time duplicate detection.
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
     {
@@ -33,7 +40,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             return;
         }
 
-        $resolver = new DefaultTaskIdResolver();
+        $generatorClass = $this->resolveGeneratorClass($container);
         $taggedServices = $container->findTaggedServiceIds('deploy_tasks.task');
 
         /** @var array<string, string> $seenIds resolved task ID → service ID */
@@ -52,7 +59,17 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 continue;
             }
 
-            $taskId = $resolver->resolveFromClass($class);
+            $attributeId = $this->readAttributeId($class);
+
+            if ('' !== $attributeId) {
+                $taskId = $attributeId;
+            } else {
+                $taskId = $generatorClass::generateStatic($class);
+
+                if (null === $taskId) {
+                    continue; // can't know ID at compile time — skip
+                }
+            }
 
             if (isset($seenIds[$taskId])) {
                 throw new \LogicException(\sprintf('Duplicate deploy task ID "%s" found in services "%s" and "%s".', $taskId, $seenIds[$taskId], $serviceId));
@@ -73,6 +90,42 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         }
 
         return DefaultTaskIdResolver::class === $container->getDefinition('deploy_tasks.id_resolver')->getClass();
+    }
+
+    /**
+     * Returns the FQCN of the configured task ID generator.
+     *
+     * @return class-string<TaskIdGeneratorInterface>
+     */
+    private function resolveGeneratorClass(ContainerBuilder $container): string
+    {
+        $definition = $container->findDefinition('deploy_tasks.id_generator');
+        $class = $definition->getClass();
+
+        if (null === $class || !\class_exists($class)) {
+            return DefaultTaskIdGenerator::class;
+        }
+
+        \assert(\is_a($class, TaskIdGeneratorInterface::class, true));
+
+        return $class;
+    }
+
+    /**
+     * Reads the #[AsDeployTask] attribute id from a class, or '' if absent/empty.
+     *
+     * @param class-string $className
+     */
+    private function readAttributeId(string $className): string
+    {
+        $reflection = new \ReflectionClass($className);
+        $attributes = $reflection->getAttributes(AsDeployTask::class);
+
+        if ([] === $attributes) {
+            return '';
+        }
+
+        return $attributes[0]->newInstance()->id;
     }
 
     private function wireOptionalDependencies(ContainerBuilder $container): void
