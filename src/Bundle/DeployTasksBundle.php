@@ -89,6 +89,26 @@ final class DeployTasksBundle extends AbstractBundle
                                 ->scalarNode('table')
                                     ->defaultValue('deploy_task_executions')
                                 ->end()
+                                ->booleanNode('auto_create_table')
+                                    ->defaultTrue()
+                                    ->info('Automatically create the storage table on first use (like Doctrine Migrations).')
+                                ->end()
+                                ->scalarNode('id_column')
+                                    ->defaultValue('id')
+                                ->end()
+                                ->integerNode('id_column_length')
+                                    ->defaultValue(255)
+                                    ->min(1)
+                                ->end()
+                                ->scalarNode('status_column')
+                                    ->defaultValue('status')
+                                ->end()
+                                ->scalarNode('executed_at_column')
+                                    ->defaultValue('executed_at')
+                                ->end()
+                                ->scalarNode('error_column')
+                                    ->defaultValue('error')
+                                ->end()
                             ->end()
                         ->end()
                     ->end()
@@ -106,6 +126,19 @@ final class DeployTasksBundle extends AbstractBundle
                     ->children()
                         ->booleanNode('enabled')
                             ->defaultTrue()
+                        ->end()
+                    ->end()
+                ->end()
+                ->arrayNode('generate')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('directory')
+                            ->defaultValue('src/DeployTasks/Task/')
+                            ->info('Default directory for deploytasks:generate output.')
+                        ->end()
+                        ->scalarNode('template')
+                            ->defaultNull()
+                            ->info('Path to a custom PHP template file for deploytasks:generate.')
                         ->end()
                     ->end()
                 ->end()
@@ -219,7 +252,7 @@ final class DeployTasksBundle extends AbstractBundle
      */
     private function registerStorage(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
     {
-        /** @var array{type: string, filesystem: array{path: string}, database: array{connection: string, table: string}} $storageConfig */
+        /** @var array{type: string, filesystem: array{path: string}, database: array{connection: string, table: string, auto_create_table: bool, id_column: string, id_column_length: int, status_column: string, executed_at_column: string, error_column: string}} $storageConfig */
         $storageConfig = $config['storage'];
 
         if ('database' === $storageConfig['type']) {
@@ -232,13 +265,13 @@ final class DeployTasksBundle extends AbstractBundle
 
             $services->set('deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
                 ->args([
-                    true,           // autoCreateTable
-                    'error',        // errorColumn
-                    'executed_at',  // executedAtColumn
-                    'id',           // idColumn
-                    255,            // idColumnLength
-                    'status',       // statusColumn
-                    $dbConfig['table'],  // tableName
+                    $dbConfig['auto_create_table'],  // autoCreateTable
+                    $dbConfig['error_column'],        // errorColumn
+                    $dbConfig['executed_at_column'],  // executedAtColumn
+                    $dbConfig['id_column'],           // idColumn
+                    $dbConfig['id_column_length'],    // idColumnLength
+                    $dbConfig['status_column'],       // statusColumn
+                    $dbConfig['table'],               // tableName
                 ])
             ;
 
