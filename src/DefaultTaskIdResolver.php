@@ -20,6 +20,8 @@ use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
  *
  * If both getTaskId() and attribute `id` return non-empty different values,
  * a E_USER_WARNING is triggered and the interface value takes precedence.
+ *
+ * @internal
  */
 final class DefaultTaskIdResolver implements TaskIdResolverInterface
 {

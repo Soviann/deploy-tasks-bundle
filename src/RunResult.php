@@ -6,6 +6,8 @@ namespace Soviann\DeployTasks;
 
 /**
  * Result summary of a deploy task run.
+ *
+ * @internal
  */
 final readonly class RunResult
 {

@@ -13,6 +13,8 @@ use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
  *  - App\Tasks\SeedCategoriesTask      → seed_categories
  *  - App\Tasks\SeedCategoriesDeployTask → seed_categories
  *  - App\Tasks\SeedCategories           → seed_categories
+ *
+ * @internal
  */
 final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
 {

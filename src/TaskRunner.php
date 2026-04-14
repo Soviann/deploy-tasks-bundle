@@ -23,6 +23,8 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Executes pending deploy tasks in order, tracking results in storage.
+ *
+ * @internal
  */
 final class TaskRunner
 {

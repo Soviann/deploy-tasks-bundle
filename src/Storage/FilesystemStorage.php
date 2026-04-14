@@ -11,6 +11,8 @@ use Soviann\DeployTasks\Exception\StorageException;
 
 /**
  * Filesystem-backed task storage — stores one JSON file per task execution.
+ *
+ * @internal
  */
 final class FilesystemStorage implements TaskStorageInterface
 {
