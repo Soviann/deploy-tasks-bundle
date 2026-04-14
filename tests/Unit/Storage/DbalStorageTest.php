@@ -10,23 +10,26 @@ use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasks\Contract\TaskExecution;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Storage\DbalStorage;
+use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
 
 #[CoversClass(DbalStorage::class)]
 final class DbalStorageTest extends TestCase
 {
     private \Doctrine\DBAL\Connection $connection;
+    private DbalStorageConfiguration $configuration;
     private DbalStorage $storage;
 
     protected function setUp(): void
     {
         $this->connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $this->connection->executeStatement(DbalStorage::getCreateTableSql('deploy_task_executions'));
-        $this->storage = new DbalStorage($this->connection, 'deploy_task_executions');
+        $this->configuration = new DbalStorageConfiguration();
+        $this->connection->executeStatement(DbalStorage::getCreateTableSql($this->configuration));
+        $this->storage = new DbalStorage($this->connection, $this->configuration);
     }
 
     public function testGetCreateTableSql(): void
     {
-        $sql = DbalStorage::getCreateTableSql('deploy_task_executions');
+        $sql = DbalStorage::getCreateTableSql();
 
         self::assertStringContainsStringIgnoringCase('CREATE TABLE', $sql);
         self::assertStringContainsString('deploy_task_executions', $sql);
@@ -144,5 +147,57 @@ final class DbalStorageTest extends TestCase
         self::assertNotNull($retrieved);
         self::assertSame('Something went wrong', $retrieved->error);
         self::assertSame(TaskStatus::Failed, $retrieved->status);
+    }
+
+    public function testAutoCreatesTableOnFirstUse(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+
+        // Should auto-create and not throw
+        self::assertFalse($storage->has('task.1'));
+    }
+
+    public function testAutoCreateDisabledThrowsWhenTableMissing(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $config = new DbalStorageConfiguration(autoCreateTable: false);
+        $storage = new DbalStorage($connection, $config);
+
+        $this->expectException(\Soviann\DeployTasks\Exception\StorageException::class);
+        $storage->has('task.1');
+    }
+
+    public function testAutoCreateDisabledWorksWhenTableExists(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $config = new DbalStorageConfiguration(autoCreateTable: false);
+        $connection->executeStatement(DbalStorage::getCreateTableSql($config));
+        $storage = new DbalStorage($connection, $config);
+
+        self::assertFalse($storage->has('task.1'));
+    }
+
+    public function testCustomColumnNames(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $config = new DbalStorageConfiguration(
+            idColumn: 'task_id',
+            statusColumn: 'task_status',
+            executedAtColumn: 'ran_at',
+            errorColumn: 'error_message',
+        );
+        $connection->executeStatement(DbalStorage::getCreateTableSql($config));
+        $storage = new DbalStorage($connection, $config);
+
+        $execution = new TaskExecution('task.custom', TaskStatus::Ran, new \DateTimeImmutable());
+
+        $storage->save($execution);
+        self::assertTrue($storage->has('task.custom'));
+
+        $retrieved = $storage->get('task.custom');
+        self::assertNotNull($retrieved);
+        self::assertSame('task.custom', $retrieved->id);
+        self::assertSame(TaskStatus::Ran, $retrieved->status);
     }
 }
