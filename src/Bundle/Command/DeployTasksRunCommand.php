@@ -14,6 +14,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/** @internal */
 #[AsCommand(name: 'deploytasks:run', description: 'Execute all pending deploy tasks in order.')]
 final class DeployTasksRunCommand extends Command
 {

@@ -13,6 +13,8 @@ use Soviann\DeployTasks\Exception\StorageException;
 
 /**
  * DBAL-backed task storage — persists execution records in a database table.
+ *
+ * @internal
  */
 final class DbalStorage implements TransactionalStorageInterface
 {

@@ -15,6 +15,8 @@ use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Validates tagged deploy tasks at compile time and wires optional dependencies.
+ *
+ * @internal
  */
 final class RegisterTasksCompilerPass implements CompilerPassInterface
 {
