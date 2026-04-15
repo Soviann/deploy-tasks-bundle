@@ -5,42 +5,25 @@ declare(strict_types=1);
 namespace Soviann\DeployTasks\Tests\Functional;
 
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use Symfony\Component\HttpKernel\Kernel;
 
-final class LockEnabledTestKernel extends Kernel
+final class LockEnabledTestKernel extends AbstractTestKernel
 {
-    use MicroKernelTrait;
-
-    public function registerBundles(): iterable
+    protected static function kernelName(): string
     {
-        yield new FrameworkBundle();
-        yield new DeployTasksBundle();
+        return 'lock';
     }
 
-    public function getCacheDir(): string
+    protected function frameworkConfig(): array
     {
-        return \sys_get_temp_dir().'/deploy-tasks-lock-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-lock-logs';
+        return \array_merge(parent::frameworkConfig(), [
+            'lock' => true,
+        ]);
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
-        $container->extension('framework', [
-            'test' => true,
-            'secret' => 'test',
-            'http_method_override' => false,
-            'handle_all_throwables' => true,
-            'php_errors' => ['log' => true],
-            'lock' => true, // registers lock.factory service
-        ]);
+        $container->extension('framework', $this->frameworkConfig());
 
         $storagePath = \sys_get_temp_dir().'/deploy-tasks-lock-'.$this->environment;
 
