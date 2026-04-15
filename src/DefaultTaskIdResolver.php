@@ -37,7 +37,7 @@ final class DefaultTaskIdResolver implements TaskIdResolverInterface
 
         // Warn on mismatch when both are non-empty
         if ('' !== $attributeId && '' !== $providerId && $attributeId !== $providerId) {
-            @\trigger_error(\sprintf(
+            \trigger_error(\sprintf(
                 'Task "%s" has mismatched IDs: getTaskId() "%s" differs from attribute id "%s". The interface value takes precedence.',
                 $task::class,
                 $providerId,
