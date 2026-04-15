@@ -10,13 +10,13 @@ use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Tests\Functional\DbalTestKernel;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksRunCommand::class)]
-final class DeployRunDbalTest extends KernelTestCase
+final class DeployRunDbalTest extends FunctionalTestCase
 {
     private CommandTester $runTester;
     private CommandTester $resetTester;
@@ -30,12 +30,6 @@ final class DeployRunDbalTest extends KernelTestCase
         $this->runTester = new CommandTester($application->find('deploytasks:run'));
         $this->resetTester = new CommandTester($application->find('deploytasks:reset'));
         $this->skipTester = new CommandTester($application->find('deploytasks:skip'));
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
     }
 
     public function testDbalStorageIsWired(): void

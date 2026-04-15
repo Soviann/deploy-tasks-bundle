@@ -18,20 +18,14 @@ use Soviann\DeployTasks\Tests\Fixtures\CustomIdResolverFixture;
 use Soviann\DeployTasks\Tests\Fixtures\CustomOrderResolverFixture;
 use Soviann\DeployTasks\Tests\Functional\CustomResolverTestKernel;
 use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Lock\LockFactory;
 
 #[CoversClass(DeployTasksBundle::class)]
-final class DeployTasksBundleTest extends KernelTestCase
+final class DeployTasksBundleTest extends FunctionalTestCase
 {
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     public function testServicesAreRegistered(): void
     {
         self::bootKernel();

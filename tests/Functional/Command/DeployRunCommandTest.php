@@ -8,14 +8,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksRunCommand::class)]
-final class DeployRunCommandTest extends KernelTestCase
+final class DeployRunCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
 
@@ -24,19 +24,7 @@ final class DeployRunCommandTest extends KernelTestCase
         self::bootKernel();
         $application = new Application(self::$kernel);
         $this->tester = new CommandTester($application->find('deploytasks:run'));
-
-        // Clean storage before each test
-        $storage = self::getContainer()->get(TaskStorageInterface::class);
-        \assert($storage instanceof TaskStorageInterface);
-        foreach ($storage->all() as $execution) {
-            $storage->remove($execution->id);
-        }
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
+        $this->cleanStorage();
     }
 
     public function testRunAllTasks(): void
