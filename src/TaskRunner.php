@@ -121,7 +121,7 @@ final class TaskRunner
             }
 
             ++$pending;
-            $output->writeln(\sprintf('  [pending] %s — %s', $taskId, $task->getDescription()));
+            $output->writeln(\sprintf('  [pending] %s - %s', $taskId, $task->getDescription()));
         }
 
         return new RunResult(ran: $pending, skipped: $skipped, failed: 0);
