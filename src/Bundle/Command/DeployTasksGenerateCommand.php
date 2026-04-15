@@ -128,7 +128,7 @@ final class DeployTasksGenerateCommand extends Command
                         return '{$description}';
                     }
 
-                    public function run(OutputInterface \$output): int
+                    public function run(OutputInterface \$output): TaskResult
                     {
                         // TODO: implement
 

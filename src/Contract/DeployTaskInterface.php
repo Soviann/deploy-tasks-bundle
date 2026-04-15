@@ -22,8 +22,6 @@ interface DeployTaskInterface
 
     /**
      * Execute the task logic.
-     *
-     * @return TaskResult::*
      */
-    public function run(OutputInterface $output): int;
+    public function run(OutputInterface $output): TaskResult;
 }

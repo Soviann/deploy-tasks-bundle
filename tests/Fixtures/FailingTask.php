@@ -6,6 +6,7 @@ namespace Soviann\DeployTasks\Tests\Fixtures;
 
 use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasks\Contract\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsDeployTask(id: 'test.failing')]
@@ -16,7 +17,7 @@ final class FailingTask implements DeployTaskInterface
         return 'A task that always fails';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         throw new \RuntimeException('Task failed!');
     }
