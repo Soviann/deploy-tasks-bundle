@@ -3,6 +3,16 @@
     "description": "One-time deploy task runner for Symfony applications",
     "type": "symfony-bundle",
     "license": "MIT",
+    "homepage": "https://github.com/soviann/deploy-tasks-bundle",
+    "authors": [
+        {
+            "name": "Nicolas Vasse"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/soviann/deploy-tasks-bundle/issues",
+        "source": "https://github.com/soviann/deploy-tasks-bundle"
+    },
     "keywords": ["symfony", "deploy", "tasks", "migration", "bundle"],
     "require": {
         "php": ">=8.2",
@@ -42,6 +52,9 @@
         "psr-4": {
             "Soviann\\DeployTasks\\Tests\\": "tests/"
         }
+    },
+    "config": {
+        "sort-packages": true
     },
     "minimum-stability": "stable",
     "extra": {
