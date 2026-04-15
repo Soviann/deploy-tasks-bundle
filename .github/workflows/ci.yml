@@ -22,6 +22,13 @@ jobs:
           extensions: mbstring, xml, ctype, iconv, intl
           coverage: none
 
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.json') }}
+          restore-keys: composer-
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
@@ -42,6 +49,13 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml, ctype, iconv, intl
           coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.json') }}
+          restore-keys: composer-
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
@@ -76,6 +90,15 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite
           coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-
+            composer-php${{ matrix.php }}-
 
       - name: Set Symfony version constraint
         if: matrix.symfony != ''
