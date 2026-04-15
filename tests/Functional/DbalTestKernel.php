@@ -29,6 +29,16 @@ final class DbalTestKernel extends Kernel
         yield new DeployTasksBundle();
     }
 
+    public function getCacheDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-dbal-cache/'.$this->environment;
+    }
+
+    public function getLogDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-dbal-logs';
+    }
+
     protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', [
@@ -68,15 +78,5 @@ final class DbalTestKernel extends Kernel
         $services->set('test.task.transactional', TransactionalTask::class)
             ->tag('deploy_tasks.task')
         ;
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-dbal-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-dbal-logs';
     }
 }

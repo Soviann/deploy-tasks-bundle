@@ -18,11 +18,6 @@ final class DeployGenerateCommandTest extends KernelTestCase
     private CommandTester $tester;
     private string $outputDir;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -105,5 +100,10 @@ final class DeployGenerateCommandTest extends KernelTestCase
         // We can't easily reproduce the same timestamp, so this test verifies
         // the command's early-exit behavior indirectly
         self::assertStringContainsString('Generated', $this->tester->getDisplay());
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }

@@ -22,17 +22,6 @@ final class DeployRunDbalTest extends KernelTestCase
     private CommandTester $resetTester;
     private CommandTester $skipTester;
 
-    protected static function getKernelClass(): string
-    {
-        return DbalTestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -41,6 +30,12 @@ final class DeployRunDbalTest extends KernelTestCase
         $this->runTester = new CommandTester($application->find('deploytasks:run'));
         $this->resetTester = new CommandTester($application->find('deploytasks:reset'));
         $this->skipTester = new CommandTester($application->find('deploytasks:skip'));
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testDbalStorageIsWired(): void
@@ -106,5 +101,10 @@ final class DeployRunDbalTest extends KernelTestCase
         $execution = $storage->get('test.simple');
         self::assertNotNull($execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return DbalTestKernel::class;
     }
 }

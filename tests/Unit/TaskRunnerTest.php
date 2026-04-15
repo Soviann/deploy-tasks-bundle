@@ -230,7 +230,7 @@ final class TaskRunnerTest extends TestCase
         $dispatched = [];
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
         $dispatcher->method('dispatch')
-            ->willReturnCallback(function (object $event) use (&$dispatched): object {
+            ->willReturnCallback(static function (object $event) use (&$dispatched): object {
                 $dispatched[] = $event;
 
                 return $event;
@@ -266,7 +266,7 @@ final class TaskRunnerTest extends TestCase
         $dispatched = [];
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
         $dispatcher->method('dispatch')
-            ->willReturnCallback(function (object $event) use (&$dispatched): object {
+            ->willReturnCallback(static function (object $event) use (&$dispatched): object {
                 $dispatched[] = $event;
 
                 return $event;

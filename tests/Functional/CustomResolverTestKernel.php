@@ -23,6 +23,16 @@ final class CustomResolverTestKernel extends Kernel
         yield new DeployTasksBundle();
     }
 
+    public function getCacheDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-custom-cache/'.$this->environment;
+    }
+
+    public function getLogDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-custom-logs';
+    }
+
     protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', [
@@ -55,15 +65,5 @@ final class CustomResolverTestKernel extends Kernel
             ->args(['test.simple', 'A simple test task'])
             ->tag('deploy_tasks.task')
         ;
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-custom-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-custom-logs';
     }
 }

@@ -20,17 +20,6 @@ final class DeployStatusCommandTest extends KernelTestCase
 {
     private CommandTester $tester;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -43,6 +32,12 @@ final class DeployStatusCommandTest extends KernelTestCase
         foreach ($storage->all() as $execution) {
             $storage->remove($execution->id);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testStatusShowsAllTasks(): void
@@ -89,5 +84,10 @@ final class DeployStatusCommandTest extends KernelTestCase
         self::assertStringContainsString('skipped', $display);
         // PrioritizedTask, SkippingTask, MultiEnvTask have no record — shown as pending
         self::assertStringContainsString('pending', $display);
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }

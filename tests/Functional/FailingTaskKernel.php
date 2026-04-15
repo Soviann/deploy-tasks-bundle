@@ -22,6 +22,16 @@ final class FailingTaskKernel extends Kernel
         yield new DeployTasksBundle();
     }
 
+    public function getCacheDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-failing-cache/'.$this->environment;
+    }
+
+    public function getLogDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-failing-logs';
+    }
+
     protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', [
@@ -53,15 +63,5 @@ final class FailingTaskKernel extends Kernel
         $services->set('test.task.failing', FailingTask::class)
             ->tag('deploy_tasks.task')
         ;
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-failing-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-failing-logs';
     }
 }

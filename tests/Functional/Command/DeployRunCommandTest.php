@@ -19,17 +19,6 @@ final class DeployRunCommandTest extends KernelTestCase
 {
     private CommandTester $tester;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -42,6 +31,12 @@ final class DeployRunCommandTest extends KernelTestCase
         foreach ($storage->all() as $execution) {
             $storage->remove($execution->id);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testRunAllTasks(): void
@@ -158,5 +153,10 @@ final class DeployRunCommandTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         // Skipped task is not retried on a normal run
         self::assertStringNotContainsString('test.skipping ran', $this->tester->getDisplay());
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }

@@ -19,17 +19,6 @@ final class DeploySkipCommandTest extends KernelTestCase
 {
     private CommandTester $tester;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -42,6 +31,12 @@ final class DeploySkipCommandTest extends KernelTestCase
         foreach ($storage->all() as $execution) {
             $storage->remove($execution->id);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testSkipTask(): void
@@ -64,5 +59,10 @@ final class DeploySkipCommandTest extends KernelTestCase
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('not registered', $this->tester->getDisplay());
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }
