@@ -21,6 +21,16 @@ final class EventsEnabledTestKernel extends Kernel
         yield new DeployTasksBundle();
     }
 
+    public function getCacheDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-events-cache/'.$this->environment;
+    }
+
+    public function getLogDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-events-logs';
+    }
+
     protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', [
@@ -47,15 +57,5 @@ final class EventsEnabledTestKernel extends Kernel
             ->args(['test.simple', 'A simple test task'])
             ->tag('deploy_tasks.task')
         ;
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-events-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-events-logs';
     }
 }

@@ -21,17 +21,6 @@ final class DeployRollupCommandTest extends KernelTestCase
     private CommandTester $tester;
     private TaskStorageInterface $storage;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -46,6 +35,12 @@ final class DeployRollupCommandTest extends KernelTestCase
         foreach ($this->storage->all() as $execution) {
             $this->storage->remove($execution->id);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testRollup(): void
@@ -106,5 +101,10 @@ final class DeployRollupCommandTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
         self::assertTrue($this->storage->has('test.simple'));
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }

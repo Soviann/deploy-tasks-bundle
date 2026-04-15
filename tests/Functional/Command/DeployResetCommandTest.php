@@ -21,17 +21,6 @@ final class DeployResetCommandTest extends KernelTestCase
     private CommandTester $tester;
     private TaskStorageInterface $storage;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -46,6 +35,12 @@ final class DeployResetCommandTest extends KernelTestCase
         foreach ($this->storage->all() as $execution) {
             $this->storage->remove($execution->id);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testResetTask(): void
@@ -97,5 +92,10 @@ final class DeployResetCommandTest extends KernelTestCase
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('not registered', $this->tester->getDisplay());
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }

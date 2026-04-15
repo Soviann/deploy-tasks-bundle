@@ -106,7 +106,7 @@ final class DbalStorage implements TransactionalStorageInterface
         $error = $this->quoteIdentifier($this->configuration->errorColumn);
 
         try {
-            $this->connection->transactional(function (Connection $connection) use ($execution, $t, $id, $status, $executedAt, $error): void {
+            $this->connection->transactional(static function (Connection $connection) use ($execution, $t, $id, $status, $executedAt, $error): void {
                 $connection->executeStatement(
                     \sprintf('DELETE FROM %s WHERE %s = ?', $t, $id),
                     [$execution->id],
