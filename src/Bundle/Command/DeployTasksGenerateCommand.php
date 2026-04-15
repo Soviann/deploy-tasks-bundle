@@ -21,6 +21,7 @@ final class DeployTasksGenerateCommand extends Command
         private readonly TaskIdGeneratorInterface $idGenerator,
         private readonly string $defaultDirectory = 'src/DeployTasks/Task/',
         private readonly ?string $templatePath = null,
+        private readonly ?string $projectDir = null,
     ) {
         parent::__construct();
     }
@@ -88,6 +89,17 @@ final class DeployTasksGenerateCommand extends Command
         /** @var string $dir */
         $dir = $input->getOption('dir');
         $dir = \rtrim($dir, '/').'/';
+
+        if (null !== $this->projectDir) {
+            $absoluteDir = \str_starts_with($dir, '/') ? $dir : $this->projectDir.'/'.$dir;
+            $normalized = $this->normalizePath($absoluteDir);
+
+            if (!\str_starts_with($normalized, $this->projectDir)) {
+                $io->error(\sprintf('Directory "%s" is outside the project root.', $dir));
+
+                return Command::FAILURE;
+            }
+        }
 
         $filePath = $dir.$className.'.php';
 
@@ -161,6 +173,29 @@ final class DeployTasksGenerateCommand extends Command
         $snake = (string) \preg_replace('/[A-Z]/', '_$0', $name);
 
         return \strtolower(\ltrim($snake, '_'));
+    }
+
+    /**
+     * Resolves `.` and `..` segments without requiring the path to exist.
+     */
+    private function normalizePath(string $path): string
+    {
+        $parts = \explode('/', $path);
+        $normalized = [];
+
+        foreach ($parts as $part) {
+            if ('.' === $part || '' === $part) {
+                continue;
+            }
+
+            if ('..' === $part) {
+                \array_pop($normalized);
+            } else {
+                $normalized[] = $part;
+            }
+        }
+
+        return '/'.\implode('/', $normalized);
     }
 
     private function dirToNamespace(string $dir): string

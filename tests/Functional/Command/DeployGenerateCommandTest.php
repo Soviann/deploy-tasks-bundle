@@ -23,7 +23,7 @@ final class DeployGenerateCommandTest extends KernelTestCase
         self::bootKernel();
         $application = new Application(self::$kernel);
         $this->tester = new CommandTester($application->find('deploytasks:generate'));
-        $this->outputDir = \sys_get_temp_dir().'/deploy-tasks-generate-test-'.\uniqid().'/';
+        $this->outputDir = \dirname(__DIR__, 3).'/var/generate-test-'.\uniqid().'/';
     }
 
     protected function tearDown(): void
@@ -100,6 +100,44 @@ final class DeployGenerateCommandTest extends KernelTestCase
         // We can't easily reproduce the same timestamp, so this test verifies
         // the command's early-exit behavior indirectly
         self::assertStringContainsString('Generated', $this->tester->getDisplay());
+    }
+
+    public function testGenerateRejectsAbsolutePathOutsideProjectRoot(): void
+    {
+        $this->tester->execute(['--dir' => '/tmp/outside-project/']);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('outside the project root', $this->tester->getDisplay());
+    }
+
+    public function testGenerateAllowsTraversalWithinProjectRoot(): void
+    {
+        $uniqueId = \uniqid();
+        $dir = \dirname(__DIR__, 3).'/var/nested/deep/../generate-test-'.$uniqueId.'/';
+        $this->tester->execute(['--dir' => $dir]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
+
+        // The command normalizes the path, so clean up at the resolved location
+        $resolvedDir = \dirname(__DIR__, 3).'/var/nested/generate-test-'.$uniqueId.'/';
+        $files = \glob($resolvedDir.'Task*.php');
+        self::assertNotFalse($files);
+
+        foreach ($files as $file) {
+            \unlink($file);
+        }
+
+        \rmdir($resolvedDir);
+        @\rmdir(\dirname($resolvedDir));
+    }
+
+    public function testGenerateRejectsTraversalOutsideProjectRoot(): void
+    {
+        $this->tester->execute(['--dir' => 'src/../../../../../../tmp/evil/']);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('outside the project root', $this->tester->getDisplay());
     }
 
     protected static function getKernelClass(): string
