@@ -9,14 +9,14 @@ use Soviann\DeployTasks\Bundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasks\Contract\TaskExecution;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksResetCommand::class)]
-final class DeployResetCommandTest extends KernelTestCase
+final class DeployResetCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
     private TaskStorageInterface $storage;
@@ -31,16 +31,7 @@ final class DeployResetCommandTest extends KernelTestCase
         \assert($storage instanceof TaskStorageInterface);
         $this->storage = $storage;
 
-        // Clean storage
-        foreach ($this->storage->all() as $execution) {
-            $this->storage->remove($execution->id);
-        }
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
+        $this->cleanStorage();
     }
 
     public function testResetTask(): void

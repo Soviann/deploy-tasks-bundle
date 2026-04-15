@@ -6,14 +6,14 @@ namespace Soviann\DeployTasks\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\Command\DeployTasksGenerateCommand;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksGenerateCommand::class)]
-final class DeployGenerateCommandTest extends KernelTestCase
+final class DeployGenerateCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
     private string $outputDir;
@@ -29,7 +29,6 @@ final class DeployGenerateCommandTest extends KernelTestCase
     protected function tearDown(): void
     {
         parent::tearDown();
-        \restore_exception_handler();
 
         if (\is_dir($this->outputDir)) {
             $files = new \RecursiveIteratorIterator(

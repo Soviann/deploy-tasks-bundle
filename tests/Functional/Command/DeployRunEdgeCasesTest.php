@@ -10,15 +10,15 @@ use Soviann\DeployTasks\Bundle\Command\DeployTasksSkipCommand;
 use Soviann\DeployTasks\Contract\TaskExecution;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksSkipCommand::class)]
 #[CoversClass(DeployTasksResetCommand::class)]
-final class DeployRunEdgeCasesTest extends KernelTestCase
+final class DeployRunEdgeCasesTest extends FunctionalTestCase
 {
     private CommandTester $skipTester;
     private CommandTester $resetTester;
@@ -35,15 +35,7 @@ final class DeployRunEdgeCasesTest extends KernelTestCase
         \assert($storage instanceof TaskStorageInterface);
         $this->storage = $storage;
 
-        foreach ($this->storage->all() as $execution) {
-            $this->storage->remove($execution->id);
-        }
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
+        $this->cleanStorage();
     }
 
     public function testSkipAlreadySkippedTaskIsIdempotent(): void

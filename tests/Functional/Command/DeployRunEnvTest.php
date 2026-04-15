@@ -9,22 +9,16 @@ use Soviann\DeployTasks\Bundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Tests\Functional\FailingTaskKernel;
+use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksRunCommand::class)]
-final class DeployRunEnvTest extends KernelTestCase
+final class DeployRunEnvTest extends FunctionalTestCase
 {
     private CommandTester $tester;
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
 
     // --- Failing task tests ---
 
@@ -124,11 +118,6 @@ final class DeployRunEnvTest extends KernelTestCase
         self::bootKernel($options);
         $application = new Application(self::$kernel);
         $this->tester = new CommandTester($application->find('deploytasks:run'));
-
-        $storage = self::getContainer()->get(TaskStorageInterface::class);
-        \assert($storage instanceof TaskStorageInterface);
-        foreach ($storage->all() as $execution) {
-            $storage->remove($execution->id);
-        }
+        $this->cleanStorage();
     }
 }
