@@ -35,7 +35,7 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsDeployTask(id: 'task_20260412_seed_categories', priority: 10)]
+#[AsDeployTask(id: 'task_20260412143000_seed_categories', priority: 10)]
 final class SeedCategoriesTask implements DeployTaskInterface
 {
     public function getDescription(): string
@@ -72,21 +72,31 @@ bin/console deploytasks:status
 ```yaml
 # config/packages/deploy_tasks.yaml
 deploy_tasks:
-    id_resolver: ~
-    order_resolver: ~
-    default_timeout: 300
+    id_generator: ~              # service ID of a custom TaskIdGeneratorInterface
+    order_resolver: ~            # service ID of a custom TaskOrderResolverInterface
+    default_timeout: 300         # seconds
+    transactional: true          # wrap each task in a DB transaction (requires DbalStorage)
+    all_or_nothing: false        # wrap the entire run in a single transaction
     storage:
-        type: filesystem  # filesystem | database
+        type: filesystem         # filesystem | database
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
         database:
             connection: default
             table: deploy_task_executions
-            transaction_wrap: false
+            auto_create_table: true
+            id_column: id
+            id_column_length: 255
+            status_column: status
+            executed_at_column: executed_at
+            error_column: error
     events:
         enabled: true
     lock:
         enabled: true
+    generate:
+        directory: src/DeployTasks/Task/
+        template: ~              # path to a custom PHP template
 ```
 
 ## Storage Backends
@@ -104,6 +114,7 @@ deploy_tasks:
 | `deploytasks:skip <id>` | Mark a task as skipped | |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | |
 | `deploytasks:generate [name]` | Generate a blank task class | `--dir` |
+| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction` |
 | `deploytasks:create-schema` | Create the DBAL storage table | `--dump-sql` |
 
 ## Documentation

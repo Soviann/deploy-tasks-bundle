@@ -70,6 +70,6 @@ CI runs automatically on every pull request. All checks (PHPStan, CS Fixer, test
 
 ## Adding a Storage Backend
 
-1. Create a class implementing `TaskStorageInterface` (or `TransactionalStorageInterface` for transaction support).
+1. Create a class implementing `Soviann\DeployTasks\Contract\TaskStorageInterface` (or `Soviann\DeployTasks\Contract\TransactionalStorageInterface` for transaction support).
 2. Add unit tests in `tests/Unit/Storage/`.
-3. Register the class as a tagged service in the bundle's DI configuration.
+3. Register the service and alias `TaskStorageInterface` (and `deploy_tasks.storage`) to it. See [storage.md](docs/storage.md#custom-storage) for an example.
