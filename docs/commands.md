@@ -120,3 +120,37 @@ bin/console deploytasks:generate SeedCategories --dir=src/Task/
 The generated class name is `Task<YYYYMMDDHHmmss>[Name].php` and the task ID follows the convention `task_<YYYYMMDDHHmmss>[_name]`. The namespace is derived from the target directory by converting path segments to `PascalCase` (e.g. `src/DeployTasks/Task/` becomes `App\DeployTasks\Task`).
 
 The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute pre-configured with the generated ID, and provides a stub `run()` method.
+
+---
+
+## deploytasks:rollup
+
+Clear all execution records and mark every registered task as executed. Useful for fresh environments where the current state already incorporates all task effects, or for cleaning up stale history after old tasks have been removed.
+
+```bash
+bin/console deploytasks:rollup
+bin/console deploytasks:rollup --no-interaction
+```
+
+You are prompted for confirmation before proceeding. Use `--no-interaction` to skip the prompt (e.g. in CI).
+
+If the storage backend implements `TransactionalStorageInterface`, the reset and re-mark operations are wrapped in a single transaction.
+
+---
+
+## deploytasks:create-schema
+
+Create the database table used by the DBAL storage backend. Only available when `storage.type: database` is configured.
+
+```bash
+bin/console deploytasks:create-schema
+bin/console deploytasks:create-schema --dump-sql
+```
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--dump-sql` | Output the SQL statement instead of executing it (e.g. for use in a Doctrine migration) |
+
+If the table already exists, this command is a no-op (`CREATE TABLE IF NOT EXISTS`). The SQL output uses platform-aware identifier quoting.
