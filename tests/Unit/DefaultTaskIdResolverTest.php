@@ -11,7 +11,7 @@ use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\MismatchedIdTask;
 use Soviann\DeployTasks\Tests\Fixtures\NoAttributeSeedCategoriesTask;
-use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
+use Soviann\DeployTasks\Tests\Fixtures\ProviderAndAttributeTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 
 #[CoversClass(DefaultTaskIdResolver::class)]
@@ -24,13 +24,13 @@ final class DefaultTaskIdResolverTest extends TestCase
         $this->resolver = new DefaultTaskIdResolver(new DefaultTaskIdGenerator());
     }
 
-    public function testTaskIdProviderTakesPrecedenceOverAttribute(): void
+    public function testProviderTakesPrecedenceOverAttribute(): void
     {
-        $task = new ProdOnlyTask();
+        $task = new ProviderAndAttributeTask();
 
-        // ProdOnlyTask has #[AsDeployTask(id: 'test.prod_only')] and getTaskId() returns 'test.prod_only'
-        // Both match, so no conflict — interface value is used
-        self::assertSame('test.prod_only', $this->resolver->resolve($task));
+        // ProviderAndAttributeTask implements TaskIdProviderInterface and has #[AsDeployTask(id: 'matching_id')]
+        // Provider value is used when both are present
+        self::assertSame('matching_id', $this->resolver->resolve($task));
     }
 
     public function testAttributeFallbackWhenNoProvider(): void
