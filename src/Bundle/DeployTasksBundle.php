@@ -254,6 +254,7 @@ final class DeployTasksBundle extends AbstractBundle
                 service('deploy_tasks.id_generator'),
                 $generateConfig['directory'],
                 $generateConfig['template'],
+                '%kernel.project_dir%',
             ])
             ->tag('console.command')
         ;
