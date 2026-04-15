@@ -25,6 +25,16 @@ final class TestKernel extends Kernel
         yield new DeployTasksBundle();
     }
 
+    public function getCacheDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-bundle-cache/'.$this->environment;
+    }
+
+    public function getLogDir(): string
+    {
+        return \sys_get_temp_dir().'/deploy-tasks-bundle-logs';
+    }
+
     protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', [
@@ -70,15 +80,5 @@ final class TestKernel extends Kernel
         $services->set('test.task.multi_env', MultiEnvTask::class)
             ->tag('deploy_tasks.task')
         ;
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-bundle-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-bundle-logs';
     }
 }

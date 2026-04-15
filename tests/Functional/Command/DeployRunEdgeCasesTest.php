@@ -24,17 +24,6 @@ final class DeployRunEdgeCasesTest extends KernelTestCase
     private CommandTester $resetTester;
     private TaskStorageInterface $storage;
 
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        \restore_exception_handler();
-    }
-
     protected function setUp(): void
     {
         self::bootKernel();
@@ -49,6 +38,12 @@ final class DeployRunEdgeCasesTest extends KernelTestCase
         foreach ($this->storage->all() as $execution) {
             $this->storage->remove($execution->id);
         }
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        \restore_exception_handler();
     }
 
     public function testSkipAlreadySkippedTaskIsIdempotent(): void
@@ -98,5 +93,10 @@ final class DeployRunEdgeCasesTest extends KernelTestCase
 
         self::assertSame(Command::SUCCESS, $this->resetTester->getStatusCode());
         self::assertFalse($this->storage->has('test.simple'));
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }

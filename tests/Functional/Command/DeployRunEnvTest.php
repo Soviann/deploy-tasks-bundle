@@ -26,20 +26,6 @@ final class DeployRunEnvTest extends KernelTestCase
         \restore_exception_handler();
     }
 
-    private function bootAndBuildTester(string $kernelClass, array $options = []): void
-    {
-        static::$class = $kernelClass;
-        self::bootKernel($options);
-        $application = new Application(self::$kernel);
-        $this->tester = new CommandTester($application->find('deploytasks:run'));
-
-        $storage = self::getContainer()->get(TaskStorageInterface::class);
-        \assert($storage instanceof TaskStorageInterface);
-        foreach ($storage->all() as $execution) {
-            $storage->remove($execution->id);
-        }
-    }
-
     // --- Failing task tests ---
 
     public function testRunWithFailingTaskReturnsFailure(): void
@@ -130,5 +116,19 @@ final class DeployRunEnvTest extends KernelTestCase
         \assert($storage instanceof TaskStorageInterface);
 
         self::assertFalse($storage->has('test.multi_env'), 'Multi-env task (dev+test) must not run in prod env');
+    }
+
+    private function bootAndBuildTester(string $kernelClass, array $options = []): void
+    {
+        static::$class = $kernelClass;
+        self::bootKernel($options);
+        $application = new Application(self::$kernel);
+        $this->tester = new CommandTester($application->find('deploytasks:run'));
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        foreach ($storage->all() as $execution) {
+            $storage->remove($execution->id);
+        }
     }
 }

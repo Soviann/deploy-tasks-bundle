@@ -138,7 +138,7 @@ final class DeployTasksGenerateCommand extends Command
                 PHP;
         }
 
-        if (!\is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        if (!\is_dir($dir) && !\mkdir($dir, 0755, true) && !\is_dir($dir)) {
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
         }
 

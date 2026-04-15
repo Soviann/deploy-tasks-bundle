@@ -26,11 +26,6 @@ use Symfony\Component\Lock\LockFactory;
 #[CoversClass(DeployTasksBundle::class)]
 final class DeployTasksBundleTest extends KernelTestCase
 {
-    protected static function getKernelClass(): string
-    {
-        return TestKernel::class;
-    }
-
     protected function tearDown(): void
     {
         parent::tearDown();
@@ -154,5 +149,10 @@ final class DeployTasksBundleTest extends KernelTestCase
 
         $resolver = $container->get(TaskOrderResolverInterface::class);
         self::assertInstanceOf(CustomOrderResolverFixture::class, $resolver);
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 }
