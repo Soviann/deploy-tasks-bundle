@@ -86,19 +86,16 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testGenerateFileAlreadyExists(): void
     {
-        // First generation
-        $this->tester->execute(['name' => 'Duplicate', '--dir' => $this->outputDir]);
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        // Pre-create the file the command will try to generate (same-second timestamp)
+        $timestamp = \date('YmdHis');
+        $expectedFile = $this->outputDir.'Task'.$timestamp.'Existing.php';
+        \mkdir($this->outputDir, 0755, true);
+        \file_put_contents($expectedFile, '<?php // placeholder');
 
-        // Overwrite the file with a known name to simulate duplicate
-        $files = \glob($this->outputDir.'Task*Duplicate.php');
-        self::assertNotFalse($files);
-        self::assertNotEmpty($files);
-        $existingFile = \basename($files[0], '.php');
+        $this->tester->execute(['name' => 'Existing', '--dir' => $this->outputDir]);
 
-        // We can't easily reproduce the same timestamp, so this test verifies
-        // the command's early-exit behavior indirectly
-        self::assertStringContainsString('Generated', $this->tester->getDisplay());
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('File already exists', $this->tester->getDisplay());
     }
 
     public function testGenerateRejectsAbsolutePathOutsideProjectRoot(): void
