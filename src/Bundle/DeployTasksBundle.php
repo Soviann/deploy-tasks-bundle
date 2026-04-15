@@ -210,7 +210,7 @@ final class DeployTasksBundle extends AbstractBundle
 
         // Commands
         $services->set('deploy_tasks.command.run', DeployTasksRunCommand::class)
-            ->args([service('deploy_tasks.runner')])
+            ->args([service('deploy_tasks.registry'), service('deploy_tasks.runner')])
             ->tag('console.command')
         ;
 

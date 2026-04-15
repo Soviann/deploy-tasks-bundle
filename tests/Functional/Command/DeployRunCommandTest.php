@@ -82,6 +82,14 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringContainsString('already been executed', $this->tester->getDisplay());
     }
 
+    public function testIdWithUnregisteredTaskFails(): void
+    {
+        $this->tester->execute(['--id' => 'nonexistent.task']);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('not registered', $this->tester->getDisplay());
+    }
+
     public function testForceWithIdRerunsSingleTask(): void
     {
         // First run
