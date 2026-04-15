@@ -17,7 +17,7 @@ final class MultiEnvTask implements DeployTaskInterface
         return 'Dev+Test task';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

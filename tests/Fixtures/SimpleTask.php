@@ -26,7 +26,7 @@ final class SimpleTask implements TaskIdProviderInterface
         return $this->description;
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

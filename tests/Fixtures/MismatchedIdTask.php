@@ -25,7 +25,7 @@ final class MismatchedIdTask implements TaskIdProviderInterface
         return 'Task with mismatched IDs';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

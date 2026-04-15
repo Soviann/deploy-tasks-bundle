@@ -43,7 +43,7 @@ final class SeedCategoriesTask implements DeployTaskInterface
         return 'Seeds the categories table with initial data.';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         // Your task logic here
         $output->writeln('Categories seeded.');

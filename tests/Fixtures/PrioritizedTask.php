@@ -17,7 +17,7 @@ final class PrioritizedTask implements DeployTaskInterface
         return 'Prioritized task';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

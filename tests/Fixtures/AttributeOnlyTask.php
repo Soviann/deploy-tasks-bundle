@@ -20,7 +20,7 @@ final class AttributeOnlyTask implements DeployTaskInterface
         return 'Task with attribute ID only';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

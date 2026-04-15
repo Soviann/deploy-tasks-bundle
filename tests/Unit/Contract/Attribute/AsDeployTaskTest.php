@@ -88,7 +88,7 @@ final class AttributedTestTask implements DeployTaskInterface
         return 'Test task';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }
@@ -101,7 +101,7 @@ final class UnattributedTestTask implements DeployTaskInterface
         return 'Unattributed test task';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

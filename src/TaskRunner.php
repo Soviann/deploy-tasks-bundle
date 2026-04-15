@@ -84,10 +84,8 @@ final class TaskRunner
 
     /**
      * Runs a single task by ID, optionally forcing re-execution.
-     *
-     * @return TaskResult::*
      */
-    public function runOne(string $taskId, OutputInterface $output, bool $force = false): int
+    public function runOne(string $taskId, OutputInterface $output, bool $force = false): TaskResult
     {
         $task = $this->registry->get($taskId);
 
@@ -165,10 +163,8 @@ final class TaskRunner
 
     /**
      * Executes a single task with event dispatching, timeout check, and storage recording.
-     *
-     * @return TaskResult::*
      */
-    private function executeTask(DeployTaskInterface $task, OutputInterface $output): int
+    private function executeTask(DeployTaskInterface $task, OutputInterface $output): TaskResult
     {
         $taskId = $this->idResolver->resolve($task);
         $attribute = AsDeployTask::of($task);
@@ -228,10 +224,8 @@ final class TaskRunner
     /**
      * Wraps task execution in a database transaction if the task is marked as transactional
      * and the storage backend supports it.
-     *
-     * @return TaskResult::*
      */
-    private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output): int
+    private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output): TaskResult
     {
         // Skip per-task wrapping when allOrNothing already wraps the entire run
         if ($this->allOrNothing) {
@@ -241,8 +235,7 @@ final class TaskRunner
         $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
 
         if ($shouldWrap && $this->storage instanceof TransactionalStorageInterface) {
-            /** @var TaskResult::* $result */
-            $result = $this->storage->transactional(static fn (): int => $task->run($output));
+            $result = $this->storage->transactional(static fn (): TaskResult => $task->run($output));
 
             return $result;
         }
