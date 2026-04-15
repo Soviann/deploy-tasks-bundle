@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasks\Contract\TaskResult;
 use Soviann\DeployTasks\RunResult;
+use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -19,6 +20,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class DeployTasksRunCommand extends Command
 {
     public function __construct(
+        private readonly TaskRegistry $registry,
         private readonly TaskRunner $runner,
     ) {
         parent::__construct();
@@ -67,6 +69,12 @@ final class DeployTasksRunCommand extends Command
         $taskId = $input->getOption('id');
 
         if (null !== $taskId) {
+            if (!$this->registry->has($taskId)) {
+                $io->error(\sprintf('Task "%s" is not registered. Run deploytasks:status to see available tasks.', $taskId));
+
+                return Command::FAILURE;
+            }
+
             $taskResult = $this->runner->runOne($taskId, $output, force: $force);
 
             if (TaskResult::FAILURE === $taskResult) {
