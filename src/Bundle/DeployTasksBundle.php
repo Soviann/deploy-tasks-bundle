@@ -288,13 +288,13 @@ final class DeployTasksBundle extends AbstractBundle
 
             $services->set('deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
                 ->args([
-                    $dbConfig['auto_create_table'],  // autoCreateTable
-                    $dbConfig['error_column'],        // errorColumn
-                    $dbConfig['executed_at_column'],  // executedAtColumn
-                    $dbConfig['id_column'],           // idColumn
-                    $dbConfig['id_column_length'],    // idColumnLength
-                    $dbConfig['status_column'],       // statusColumn
-                    $dbConfig['table'],               // tableName
+                    '$autoCreateTable' => $dbConfig['auto_create_table'],
+                    '$errorColumn' => $dbConfig['error_column'],
+                    '$executedAtColumn' => $dbConfig['executed_at_column'],
+                    '$idColumn' => $dbConfig['id_column'],
+                    '$idColumnLength' => $dbConfig['id_column_length'],
+                    '$statusColumn' => $dbConfig['status_column'],
+                    '$tableName' => $dbConfig['table'],
                 ])
             ;
 
