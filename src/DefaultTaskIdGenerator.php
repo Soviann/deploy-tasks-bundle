@@ -20,7 +20,7 @@ final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
 {
     public function generate(string $className): string
     {
-        return static::generateStatic($className);
+        return self::generateStatic($className);
     }
 
     public static function generateStatic(string $className): string
