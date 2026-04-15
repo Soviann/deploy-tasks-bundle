@@ -80,24 +80,14 @@ final class DefaultTaskIdResolver implements TaskIdResolverInterface
     }
 
     /**
-     * Reads the #[AsDeployTask] attribute id from a class, or '' if absent/empty.
+     * Reads the #[AsDeployTask] attribute id from a class or task instance, or '' if absent/empty.
      *
      * @param class-string|DeployTaskInterface $classOrTask
      */
     private function readAttributeId(string|DeployTaskInterface $classOrTask): string
     {
-        if ($classOrTask instanceof DeployTaskInterface) {
-            $attribute = AsDeployTask::of($classOrTask);
-        } else {
-            $reflection = new \ReflectionClass($classOrTask);
-            $attributes = $reflection->getAttributes(AsDeployTask::class);
-            $attribute = [] !== $attributes ? $attributes[0]->newInstance() : null;
-        }
+        $attribute = AsDeployTask::of($classOrTask);
 
-        if (null === $attribute) {
-            return '';
-        }
-
-        return $attribute->id;
+        return null !== $attribute ? $attribute->id : '';
     }
 }
