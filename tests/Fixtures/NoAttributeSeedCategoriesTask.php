@@ -19,7 +19,7 @@ final class NoAttributeSeedCategoriesTask implements DeployTaskInterface
         return 'Seed categories (no attribute)';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

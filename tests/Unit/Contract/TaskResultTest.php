@@ -11,18 +11,18 @@ use Soviann\DeployTasks\Contract\TaskResult;
 #[CoversClass(TaskResult::class)]
 final class TaskResultTest extends TestCase
 {
-    public function testSuccessConstantValue(): void
+    public function testSuccessBackingValue(): void
     {
-        self::assertSame(0, TaskResult::SUCCESS);
+        self::assertSame(0, TaskResult::SUCCESS->value);
     }
 
-    public function testFailureConstantValue(): void
+    public function testFailureBackingValue(): void
     {
-        self::assertSame(1, TaskResult::FAILURE);
+        self::assertSame(1, TaskResult::FAILURE->value);
     }
 
-    public function testSkippedConstantValue(): void
+    public function testSkippedBackingValue(): void
     {
-        self::assertSame(2, TaskResult::SKIPPED);
+        self::assertSame(2, TaskResult::SKIPPED->value);
     }
 }

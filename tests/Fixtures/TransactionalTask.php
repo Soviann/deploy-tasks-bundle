@@ -17,7 +17,7 @@ final class TransactionalTask implements DeployTaskInterface
         return 'Transactional task';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         $output->writeln('Transactional task executed');
 

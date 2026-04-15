@@ -32,7 +32,7 @@ final class SeedCategoriesTask implements DeployTaskInterface
         return 'Seed categories';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         // Your logic here
         $output->writeln('Seeding categories...');
@@ -75,7 +75,7 @@ Tasks whose `env` does not match the current environment are silently skipped at
 
 ## Return values
 
-`run()` must return one of the `TaskResult` constants:
+`run()` must return one of the `TaskResult` enum cases:
 
 | Constant | Value | Meaning |
 |---|---|---|

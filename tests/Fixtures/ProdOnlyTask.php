@@ -17,7 +17,7 @@ final class ProdOnlyTask implements DeployTaskInterface
         return 'Prod-only task';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SUCCESS;
     }

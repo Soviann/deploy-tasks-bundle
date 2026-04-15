@@ -17,7 +17,7 @@ final class SkippingTask implements DeployTaskInterface
         return 'A task that skips itself';
     }
 
-    public function run(OutputInterface $output): int
+    public function run(OutputInterface $output): TaskResult
     {
         return TaskResult::SKIPPED;
     }
