@@ -10,6 +10,7 @@ namespace Soviann\DeployTasks;
 final readonly class RunResult
 {
     public function __construct(
+        /** Number of tasks executed. In dry-run mode, holds the number of pending tasks instead. */
         public int $ran,
         public int $skipped,
         public int $failed,
