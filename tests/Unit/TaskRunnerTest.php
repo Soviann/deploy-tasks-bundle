@@ -17,6 +17,7 @@ use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
 use Soviann\DeployTasks\Event\TaskFailedEvent;
+use Soviann\DeployTasks\Exception\TaskNotFoundException;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
 use Soviann\DeployTasks\TaskRegistry;
@@ -26,6 +27,8 @@ use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasks\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasks\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\SharedLockInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 #[CoversClass(TaskRunner::class)]
@@ -391,6 +394,41 @@ final class TaskRunnerTest extends TestCase
 
         self::assertTrue($storage->has('task.1'));
         self::assertTrue($storage->has('task.2'));
+    }
+
+    public function testRunOneNonExistentIdThrowsTaskNotFoundException(): void
+    {
+        $runner = $this->createRunner([
+            new SimpleTask('task.1', 'First'),
+        ]);
+
+        $this->expectException(TaskNotFoundException::class);
+
+        $runner->runOne('nonexistent.task', $this->output);
+    }
+
+    public function testRunAllWithLockFailureReturnsLockedResult(): void
+    {
+        $lock = $this->createMock(SharedLockInterface::class);
+        $lock->method('acquire')->willReturn(false);
+
+        $lockFactory = $this->createMock(LockFactory::class);
+        $lockFactory->method('createLock')->willReturn($lock);
+
+        $idResolver = new DefaultTaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            $this->storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            null,
+            $lockFactory,
+        );
+
+        $result = $runner->runAll($this->output);
+
+        self::assertTrue($result->locked);
     }
 
     /**

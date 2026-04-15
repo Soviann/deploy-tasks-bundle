@@ -81,4 +81,16 @@ final class DefaultTaskIdResolverTest extends TestCase
         self::assertStringContainsString('attribute_id', (string) $warning);
         self::assertStringContainsString('method_id', (string) $warning);
     }
+
+    public function testResolveFromClassUsesAttributeId(): void
+    {
+        // AttributeOnlyTask has #[AsDeployTask(id: 'attribute_only')]
+        self::assertSame('attribute_only', $this->resolver->resolveFromClass(AttributeOnlyTask::class));
+    }
+
+    public function testResolveFromClassFallsBackToFqcn(): void
+    {
+        // NoAttributeSeedCategoriesTask has no attribute → deduce from FQCN
+        self::assertSame('no_attribute_seed_categories', $this->resolver->resolveFromClass(NoAttributeSeedCategoriesTask::class));
+    }
 }

@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasks\Contract\TaskExecution;
 use Soviann\DeployTasks\Contract\TaskStatus;
+use Soviann\DeployTasks\Exception\StorageException;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 
 #[CoversClass(FilesystemStorage::class)]
@@ -195,5 +196,29 @@ final class FilesystemStorageTest extends TestCase
         }
 
         self::assertTrue($warningTriggered);
+    }
+
+    public function testCorruptJsonThrowsJsonException(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents($this->storagePath.'/task.corrupt.json', 'not-valid-json');
+
+        $this->expectException(\JsonException::class);
+
+        $this->storage->get('task.corrupt');
+    }
+
+    public function testInvalidDateThrowsStorageException(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents(
+            $this->storagePath.'/task.baddate.json',
+            \json_encode(['id' => 'task.baddate', 'status' => 'ran', 'executed_at' => 'not-a-date', 'error' => null]),
+        );
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Invalid executed_at/');
+
+        $this->storage->get('task.baddate');
     }
 }

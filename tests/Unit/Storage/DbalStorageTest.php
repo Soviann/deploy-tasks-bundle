@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasks\Contract\TaskExecution;
 use Soviann\DeployTasks\Contract\TaskStatus;
+use Soviann\DeployTasks\Exception\StorageException;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
 
@@ -184,7 +185,7 @@ final class DbalStorageTest extends TestCase
 
         $storage = new DbalStorage($connection, $this->configuration);
 
-        $this->expectException(\Soviann\DeployTasks\Exception\StorageException::class);
+        $this->expectException(StorageException::class);
         $this->expectExceptionMessageMatches('/Transaction failed/');
 
         $storage->transactional(static fn (): string => 'nope');
@@ -205,7 +206,7 @@ final class DbalStorageTest extends TestCase
         $config = new DbalStorageConfiguration(autoCreateTable: false);
         $storage = new DbalStorage($connection, $config);
 
-        $this->expectException(\Soviann\DeployTasks\Exception\StorageException::class);
+        $this->expectException(StorageException::class);
         $storage->has('task.1');
     }
 
@@ -240,5 +241,23 @@ final class DbalStorageTest extends TestCase
         self::assertNotNull($retrieved);
         self::assertSame('task.custom', $retrieved->id);
         self::assertSame(TaskStatus::Ran, $retrieved->status);
+    }
+
+    public function testInvalidDateInRowThrowsStorageException(): void
+    {
+        $this->connection->insert(
+            'deploy_task_executions',
+            [
+                'id' => 'task.baddate',
+                'status' => 'ran',
+                'executed_at' => 'not-a-date',
+                'error' => null,
+            ],
+        );
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Invalid executed_at/');
+
+        $this->storage->get('task.baddate');
     }
 }
