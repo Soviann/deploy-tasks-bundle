@@ -9,13 +9,13 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 /**
  * Dispatched before a deploy task is executed.
  */
-final class BeforeTaskEvent
+final readonly class BeforeTaskEvent
 {
     public function __construct(
         /** The resolved task ID. */
-        public readonly string $taskId,
+        public string $taskId,
         /** The task about to be executed. */
-        public readonly DeployTaskInterface $task,
+        public DeployTaskInterface $task,
     ) {
     }
 }

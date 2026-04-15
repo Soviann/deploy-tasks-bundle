@@ -10,17 +10,17 @@ use Soviann\DeployTasks\Contract\TaskResult;
 /**
  * Dispatched after a deploy task has completed without exception (result may be SUCCESS or SKIPPED).
  */
-final class AfterTaskEvent
+final readonly class AfterTaskEvent
 {
     public function __construct(
         /** The resolved task ID. */
-        public readonly string $taskId,
+        public string $taskId,
         /** The task that was executed. */
-        public readonly DeployTaskInterface $task,
+        public DeployTaskInterface $task,
         /** The task result. */
-        public readonly TaskResult $result,
+        public TaskResult $result,
         /** Execution duration in seconds. */
-        public readonly float $duration,
+        public float $duration,
     ) {
     }
 }
