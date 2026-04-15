@@ -77,7 +77,7 @@ jobs:
             symfony: '6.4.*'
             prefer-lowest: true
             composer-flags: '--prefer-lowest --prefer-stable'
-          - php: '8.4'
+          - php: '8.4' # Tests against latest Symfony without version constraint
             symfony: ''
 
     steps:
