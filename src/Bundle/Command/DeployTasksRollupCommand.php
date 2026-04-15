@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /** @internal */
-#[AsCommand(name: 'deploytasks:rollup', description: 'Clear execution history and mark all registered tasks as ran.')]
+#[AsCommand(name: 'deploytasks:rollup', description: 'Clear execution history and mark all registered tasks as run.')]
 final class DeployTasksRollupCommand extends Command
 {
     public function __construct(
@@ -30,7 +30,7 @@ final class DeployTasksRollupCommand extends Command
     {
         $this
             ->setHelp(<<<'EOT'
-                The <info>%command.name%</info> command clears all execution records and marks every registered task as ran, establishing the current codebase as the baseline:
+                The <info>%command.name%</info> command clears all execution records and marks every registered task as run, establishing the current codebase as the baseline:
 
                     <info>%command.full_name%</info>
 
@@ -60,7 +60,7 @@ final class DeployTasksRollupCommand extends Command
 
         $io->text(\sprintf('%d task(s) registered, %d execution record(s) in storage.', \count($tasks), \count($existingRecords)));
 
-        if (!$io->confirm(\sprintf('This will clear all execution records and mark all %d task(s) as ran. Continue?', \count($tasks)))) {
+        if (!$io->confirm(\sprintf('This will clear all execution records and mark all %d task(s) as run. Continue?', \count($tasks)))) {
             $io->note('Aborted.');
 
             return Command::SUCCESS;
@@ -83,7 +83,7 @@ final class DeployTasksRollupCommand extends Command
             $rollup();
         }
 
-        $io->success(\sprintf('Rolled up: cleared %d record(s), marked %d task(s) as ran.', \count($existingRecords), \count($tasks)));
+        $io->success(\sprintf('Rolled up: cleared %d record(s), marked %d task(s) as run.', \count($existingRecords), \count($tasks)));
 
         return Command::SUCCESS;
     }
