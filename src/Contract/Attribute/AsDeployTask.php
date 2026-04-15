@@ -36,11 +36,13 @@ final class AsDeployTask
     }
 
     /**
-     * Reads the attribute from the given task, or null if not present.
+     * Reads the attribute from the given task or class, or null if not present.
+     *
+     * @param class-string|DeployTaskInterface $classOrTask
      */
-    public static function of(DeployTaskInterface $task): ?self
+    public static function of(string|DeployTaskInterface $classOrTask): ?self
     {
-        $reflection = new \ReflectionClass($task);
+        $reflection = new \ReflectionClass($classOrTask);
         $attributes = $reflection->getAttributes(self::class);
 
         if ([] === $attributes) {

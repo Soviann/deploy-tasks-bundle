@@ -120,14 +120,9 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function readAttributeId(string $className): string
     {
-        $reflection = new \ReflectionClass($className);
-        $attributes = $reflection->getAttributes(AsDeployTask::class);
+        $attribute = AsDeployTask::of($className);
 
-        if ([] === $attributes) {
-            return '';
-        }
-
-        return $attributes[0]->newInstance()->id;
+        return null !== $attribute ? $attribute->id : '';
     }
 
     private function wireOptionalDependencies(ContainerBuilder $container): void
