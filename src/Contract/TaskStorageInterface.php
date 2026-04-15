@@ -32,6 +32,8 @@ interface TaskStorageInterface
     /**
      * Returns all stored execution records, keyed by task ID.
      *
+     * No particular order is guaranteed; task ordering is handled by TaskOrderResolverInterface.
+     *
      * @return array<string, TaskExecution>
      */
     public function all(): array;
