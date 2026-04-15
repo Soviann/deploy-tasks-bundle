@@ -8,46 +8,23 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasks\Tests\Fixtures\TransactionalTask;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use Symfony\Component\HttpKernel\Kernel;
 
-final class DbalTestKernel extends Kernel
+final class DbalTestKernel extends AbstractTestKernel
 {
-    use MicroKernelTrait;
-
     public static function createConnection(): Connection
     {
         return DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
     }
 
-    public function registerBundles(): iterable
+    protected static function kernelName(): string
     {
-        yield new FrameworkBundle();
-        yield new DeployTasksBundle();
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-dbal-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-dbal-logs';
+        return 'dbal';
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
-        $container->extension('framework', [
-            'test' => true,
-            'secret' => 'test',
-            'http_method_override' => false,
-            'handle_all_throwables' => true,
-            'php_errors' => ['log' => true],
-        ]);
+        $container->extension('framework', $this->frameworkConfig());
 
         $container->extension('deploy_tasks', [
             'storage' => [

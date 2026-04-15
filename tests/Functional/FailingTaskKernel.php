@@ -6,41 +6,18 @@ namespace Soviann\DeployTasks\Tests\Functional;
 
 use Soviann\DeployTasks\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use Symfony\Component\HttpKernel\Kernel;
 
-final class FailingTaskKernel extends Kernel
+final class FailingTaskKernel extends AbstractTestKernel
 {
-    use MicroKernelTrait;
-
-    public function registerBundles(): iterable
+    protected static function kernelName(): string
     {
-        yield new FrameworkBundle();
-        yield new DeployTasksBundle();
-    }
-
-    public function getCacheDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-failing-cache/'.$this->environment;
-    }
-
-    public function getLogDir(): string
-    {
-        return \sys_get_temp_dir().'/deploy-tasks-failing-logs';
+        return 'failing';
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
-        $container->extension('framework', [
-            'test' => true,
-            'secret' => 'test',
-            'http_method_override' => false,
-            'handle_all_throwables' => true,
-            'php_errors' => ['log' => true],
-        ]);
+        $container->extension('framework', $this->frameworkConfig());
 
         $storagePath = \sys_get_temp_dir().'/deploy-tasks-failing-'.$this->environment;
 
