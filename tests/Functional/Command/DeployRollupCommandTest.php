@@ -46,7 +46,7 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
 
-        // All registered tasks should be marked as ran
+        // All registered tasks should be marked as run
         self::assertTrue($this->storage->has('test.simple'));
         self::assertSame(TaskStatus::Ran, $this->storage->get('test.simple')?->status);
 
@@ -75,7 +75,7 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
 
-        // All registered tasks should be marked as ran
+        // All registered tasks should be marked as run
         self::assertTrue($this->storage->has('test.simple'));
         self::assertSame(TaskStatus::Ran, $this->storage->get('test.simple')?->status);
     }
