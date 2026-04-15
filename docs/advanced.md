@@ -1,34 +1,5 @@
 # Advanced Usage
 
-## Custom ID Resolver
-
-Implement `TaskIdResolverInterface` to define a custom strategy for resolving task IDs.
-
-```php
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
-
-final class MyIdResolver implements TaskIdResolverInterface
-{
-    public function resolve(DeployTaskInterface $task): string
-    {
-        // Your custom ID resolution logic
-        return $task::class; // Your custom ID resolution logic
-    }
-}
-```
-
-Register it in the bundle configuration:
-
-```yaml
-deploy_tasks:
-    id_resolver: App\Deploy\MyIdResolver
-```
-
-When `id_resolver` is `null` (default), the built-in `DefaultTaskIdResolver` is used, which resolves IDs following the precedence: `TaskIdProviderInterface::getTaskId()` > attribute `id` > FQCN auto-deduction. See [Creating Tasks](creating-tasks.md#task-id-resolution) for details.
-
-> **Note:** Compile-time duplicate ID detection only runs when the default resolver is configured. Custom resolvers may rely on runtime logic that cannot be replicated during container compilation — duplicate detection then happens at runtime via the `TaskRegistry`.
-
 ## Custom Order Resolver
 
 Implement `TaskOrderResolverInterface` to define a custom task execution order.
@@ -100,3 +71,36 @@ For tasks that require database transaction support, set `transactional: true` o
 This requires a storage backend implementing `TransactionalStorageInterface`. The built-in `DbalStorage` supports this out of the box. The task's `run()` method and the storage `save()` call are wrapped in a single transaction. If the task fails, both the data changes and the execution record are rolled back.
 
 If the active storage does not implement `TransactionalStorageInterface`, `transactional: true` is silently ignored.
+
+## Custom ID Generator
+
+Implement `TaskIdGeneratorInterface` to customize how task IDs are derived from class names. The default generator (`DefaultTaskIdGenerator`) produces IDs like `task_20260412143000_seed_categories`.
+
+```php
+use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
+
+final class MyIdGenerator implements TaskIdGeneratorInterface
+{
+    public function generate(string $className): string
+    {
+        // Your custom ID generation logic
+    }
+
+    public static function generateStatic(string $className): ?string
+    {
+        // Static variant for compile-time duplicate detection.
+        // Return null if the ID requires runtime context.
+    }
+}
+```
+
+Register it in the bundle configuration:
+
+```yaml
+deploy_tasks:
+    id_generator: App\Deploy\MyIdGenerator
+```
+
+When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is used by `DefaultTaskIdResolver` for FQCN auto-deduction and by `deploytasks:generate` for new task IDs.
+
+> **Note:** `generateStatic()` is called at compile time by the compiler pass for duplicate ID detection. If your implementation requires runtime context (e.g. injected services), return `null` to opt out of compile-time detection — duplicates will then be caught at runtime by the `TaskRegistry`.

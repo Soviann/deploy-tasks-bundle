@@ -37,7 +37,7 @@ deploy_tasks:
         database:
             connection: default              # Doctrine DBAL connection name
             table: deploy_task_executions    # Table name
-            transaction_wrap: false          # See "Transactional tasks" below
+            auto_create_table: true          # Create table on first use
 ```
 
 ### Creating the table
@@ -70,17 +70,18 @@ CREATE TABLE IF NOT EXISTS deploy_task_executions (
 
 ### Transactional tasks
 
-Set `transaction_wrap: true` to enable wrapping task execution in a database transaction. This only takes effect for tasks that declare `transactional: true` in their `#[AsDeployTask]` attribute.
+Transaction wrapping is configured via two **top-level** keys (not under `storage`):
 
 ```yaml
 deploy_tasks:
-    storage:
-        type: database
-        database:
-            transaction_wrap: true
+    transactional: true       # default — wrap each task in a DB transaction
+    all_or_nothing: false     # default — wrap the entire run in a single transaction
 ```
 
-If `transaction_wrap` is `false` (the default) and a task sets `transactional: true`, the transactional flag is silently ignored.
+- **`transactional: true`** (default): each task's `run()` and storage `save()` are wrapped in a database transaction. Individual tasks can override this via `#[AsDeployTask(transactional: false)]`. When `transactional` is `null` on the attribute, the global setting applies.
+- **`all_or_nothing: true`**: the entire run is wrapped in a single transaction — any failure rolls back all tasks. Per-task wrapping is skipped when this is enabled.
+
+Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). With `FilesystemStorage`, transactional flags are silently ignored.
 
 ## InMemoryStorage
 

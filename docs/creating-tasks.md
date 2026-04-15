@@ -54,7 +54,7 @@ If you do not need the metadata provided by the attribute, you can implement `De
 | `priority` | `int` | `0` | Higher value runs first |
 | `env` | `string\|string[]\|null` | `null` | Restrict execution to one or more environments; `null` runs everywhere |
 | `timeout` | `?int` | `null` | Override the bundle's `default_timeout` for this task (seconds) |
-| `transactional` | `bool` | `false` | Wrap execution in a database transaction (requires `DbalStorage`) |
+| `transactional` | `?bool` | `null` | Wrap execution in a database transaction (requires `DbalStorage`). `null` defers to the global `transactional` config (default: `true`). |
 | `description` | `?string` | `null` | Override the value returned by `getDescription()` |
 
 ## Environment filtering
@@ -81,7 +81,7 @@ Tasks whose `env` does not match the current environment are silently skipped at
 |---|---|---|
 | `TaskResult::SUCCESS` | `0` | Task completed successfully; recorded as `ran` |
 | `TaskResult::FAILURE` | `1` | Task failed; recorded as `failed` and will be retried on the next run |
-| `TaskResult::SKIPPED` | `2` | Task decided to skip itself; not recorded in storage |
+| `TaskResult::SKIPPED` | `2` | Task decided to skip itself; recorded as `skipped` in storage |
 
 ## Task ID resolution
 
@@ -111,6 +111,6 @@ final class DynamicIdTask implements TaskIdProviderInterface
 }
 ```
 
-Task IDs must be unique across the entire application. When using the default ID resolver, duplicate IDs are detected at container compilation and cause a `LogicException`. With a [custom ID resolver](advanced.md#custom-id-resolver), duplicate detection happens at runtime.
+Task IDs must be unique across the entire application. Duplicate IDs are detected at container compilation and cause a `LogicException`.
 
 Recommended naming convention: `task_YYYYMMDDHHMMSS_<description_in_snake_case>`.
