@@ -64,7 +64,7 @@ The `src/Contract/` layer must not import any Symfony class, with the sole excep
 - One feature or fix per PR.
 - Include tests covering the new behavior.
 - Run PHPStan and PHP CS Fixer before submitting.
-- Use clear commit messages in `type(scope): description` format (e.g. `feat(storage): adds Redis backend`).
+- Use clear commit messages in `type: description` format (e.g. `feat: adds Redis storage backend`). Types: `feat`, `fix`, `chore`, `refactor`, `docs`, `test`, `ci`. No `(scope)` — the whole repo is one bundle. English, 3rd-person present-tense imperative (`adds`, `fixes`, `removes`).
 
 CI runs automatically on every pull request. All checks (PHPStan, CS Fixer, test matrix) must pass before a PR can be merged.
 

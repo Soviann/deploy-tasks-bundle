@@ -117,13 +117,24 @@ deploy_tasks:
 
 | Command | Description | Options |
 |---|---|---|
-| `deploytasks:run` | Execute pending tasks | `--dry-run`, `--force`, `--id=<id>` |
-| `deploytasks:status` | List tasks with their execution state | `--no-state` |
-| `deploytasks:skip <id>` | Mark a task as skipped | |
-| `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | |
+| `deploytasks:run` | Execute pending tasks | `--dry-run`, `--force`, `--id=<id>`, `--group=<name>` (repeatable) |
+| `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable) |
+| `deploytasks:skip <id>` | Mark a task as skipped | `--group=<name>` |
+| `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>` |
 | `deploytasks:generate [name]` | Generate a blank task class | `--dir` |
-| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction` |
+| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable) |
 | `deploytasks:create-schema` | Create the DBAL storage table | `--dump-sql` |
+
+## Task Groups
+
+Tasks can be assigned to one or more groups (e.g. `predeploy`, `postdeploy`) to split a deploy into named stages. Without `--group`, only ungrouped tasks run; with `--group=<name>`, only tasks declaring that group run, and a multi-group task records one row per matching slot.
+
+```php
+#[AsDeployTask(id: 'task_...', groups: 'predeploy')]
+#[AsDeployTask(id: 'task_...', groups: ['predeploy', 'postdeploy'])]
+```
+
+See [`docs/creating-tasks.md`](docs/creating-tasks.md#group-filtering) and [`docs/commands.md`](docs/commands.md) for details.
 
 ## Documentation
 
