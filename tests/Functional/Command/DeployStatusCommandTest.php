@@ -53,7 +53,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
     {
         $this->tester->execute([]);
 
-        self::assertStringContainsString('5 task(s) registered', $this->tester->getDisplay());
+        self::assertStringContainsString('7 task(s) registered', $this->tester->getDisplay());
     }
 
     public function testStatusShowsAllExecutionStates(): void
@@ -72,6 +72,36 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringContainsString('skipped', $display);
         // PrioritizedTask, SkippingTask, MultiEnvTask have no record — shown as pending
         self::assertStringContainsString('pending', $display);
+    }
+
+    public function testShowsOneRowPerTaskGroup(): void
+    {
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+
+        // Multi-group task should appear twice (once per declared slot)
+        self::assertStringContainsString('test.multi_group', $display);
+        self::assertStringContainsString('test.predeploy', $display);
+        self::assertStringContainsString('predeploy', $display);
+        self::assertStringContainsString('postdeploy', $display);
+
+        // 5 default slots + 1 predeploy + 2 multi_group = 8 slots displayed
+        self::assertStringContainsString('8 slot(s) displayed', $display);
+    }
+
+    public function testGroupFilterRestrictsDisplay(): void
+    {
+        $this->tester->execute(['--group' => ['predeploy']]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+
+        self::assertStringContainsString('test.predeploy', $display);
+        self::assertStringContainsString('test.multi_group', $display);
+        // Only predeploy slots: 2 slots
+        self::assertStringContainsString('2 slot(s) displayed', $display);
     }
 
     protected static function getKernelClass(): string

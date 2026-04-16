@@ -14,6 +14,10 @@ use Soviann\DeployTasks\Exception\StorageException;
 /**
  * DBAL-backed task storage — persists execution records in a database table.
  *
+ * Records are keyed by a composite primary key (id, task_group) so a task that
+ * belongs to multiple groups can have one row per slot. The group column stores
+ * the empty string for the default slot because SQL forbids NULL in a primary key.
+ *
  * @internal
  */
 final class DbalStorage implements TransactionalStorageInterface
@@ -33,34 +37,40 @@ final class DbalStorage implements TransactionalStorageInterface
     {
         $t = $this->quoteIdentifier($this->configuration->tableName);
         $id = $this->quoteIdentifier($this->configuration->idColumn);
+        $group = $this->quoteIdentifier($this->configuration->groupColumn);
         $status = $this->quoteIdentifier($this->configuration->statusColumn);
         $executedAt = $this->quoteIdentifier($this->configuration->executedAtColumn);
         $error = $this->quoteIdentifier($this->configuration->errorColumn);
 
         return \sprintf(
-            'CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(%d) NOT NULL, %s VARCHAR(16) NOT NULL, %s VARCHAR(32) NOT NULL, %s TEXT DEFAULT NULL, PRIMARY KEY (%s))',
+            'CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(%d) NOT NULL, %s VARCHAR(%d) NOT NULL DEFAULT \'\', %s VARCHAR(16) NOT NULL, %s VARCHAR(32) NOT NULL, %s TEXT DEFAULT NULL, PRIMARY KEY (%s, %s))',
             $t,
             $id,
             $this->configuration->idColumnLength,
+            $group,
+            $this->configuration->groupColumnLength,
             $status,
             $executedAt,
             $error,
             $id,
+            $group,
         );
     }
 
-    /**
-     * Whether an execution record exists for the given task ID.
-     */
-    public function has(string $taskId): bool
+    public function has(string $taskId, ?string $group = null): bool
     {
         $this->ensureInitialized();
 
         try {
             /** @var int|string|false $count */
             $count = $this->connection->fetchOne(
-                \sprintf('SELECT COUNT(*) FROM %s WHERE %s = ?', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->idColumn)),
-                [$taskId],
+                \sprintf(
+                    'SELECT COUNT(*) FROM %s WHERE %s = ? AND %s = ?',
+                    $this->quoteIdentifier($this->configuration->tableName),
+                    $this->quoteIdentifier($this->configuration->idColumn),
+                    $this->quoteIdentifier($this->configuration->groupColumn),
+                ),
+                [$taskId, $group ?? ''],
             );
 
             return false !== $count && (int) $count > 0;
@@ -69,17 +79,19 @@ final class DbalStorage implements TransactionalStorageInterface
         }
     }
 
-    /**
-     * Returns the execution record for the given task ID, or null if not found.
-     */
-    public function get(string $taskId): ?TaskExecution
+    public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
         $this->ensureInitialized();
 
         try {
             $row = $this->connection->fetchAssociative(
-                \sprintf('SELECT * FROM %s WHERE %s = ?', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->idColumn)),
-                [$taskId],
+                \sprintf(
+                    'SELECT * FROM %s WHERE %s = ? AND %s = ?',
+                    $this->quoteIdentifier($this->configuration->tableName),
+                    $this->quoteIdentifier($this->configuration->idColumn),
+                    $this->quoteIdentifier($this->configuration->groupColumn),
+                ),
+                [$taskId, $group ?? ''],
             );
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to fetch task "%s": %s', $taskId, $e->getMessage()), 0, $e);
@@ -92,37 +104,37 @@ final class DbalStorage implements TransactionalStorageInterface
         return $this->hydrate($row);
     }
 
-    /**
-     * Saves or updates an execution record.
-     */
     public function save(TaskExecution $execution): void
     {
         $this->ensureInitialized();
 
         $t = $this->quoteIdentifier($this->configuration->tableName);
         $id = $this->quoteIdentifier($this->configuration->idColumn);
+        $group = $this->quoteIdentifier($this->configuration->groupColumn);
         $status = $this->quoteIdentifier($this->configuration->statusColumn);
         $executedAt = $this->quoteIdentifier($this->configuration->executedAtColumn);
         $error = $this->quoteIdentifier($this->configuration->errorColumn);
 
         try {
-            $this->connection->transactional(static function (Connection $connection) use ($execution, $t, $id, $status, $executedAt, $error): void {
+            $this->connection->transactional(static function (Connection $connection) use ($execution, $t, $id, $group, $status, $executedAt, $error): void {
                 $connection->executeStatement(
-                    \sprintf('DELETE FROM %s WHERE %s = ?', $t, $id),
-                    [$execution->id],
+                    \sprintf('DELETE FROM %s WHERE %s = ? AND %s = ?', $t, $id, $group),
+                    [$execution->id, $execution->group ?? ''],
                 );
 
                 $connection->executeStatement(
                     \sprintf(
-                        'INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)',
+                        'INSERT INTO %s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)',
                         $t,
                         $id,
+                        $group,
                         $status,
                         $executedAt,
                         $error,
                     ),
                     [
                         $execution->id,
+                        $execution->group ?? '',
                         $execution->status->value,
                         $execution->executedAt->format(\DateTimeInterface::ATOM),
                         $execution->error,
@@ -134,16 +146,36 @@ final class DbalStorage implements TransactionalStorageInterface
         }
     }
 
-    /**
-     * Removes the execution record for the given task ID.
-     */
-    public function remove(string $taskId): void
+    public function remove(string $taskId, ?string $group = null): void
     {
         $this->ensureInitialized();
 
         try {
             $this->connection->executeStatement(
-                \sprintf('DELETE FROM %s WHERE %s = ?', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->idColumn)),
+                \sprintf(
+                    'DELETE FROM %s WHERE %s = ? AND %s = ?',
+                    $this->quoteIdentifier($this->configuration->tableName),
+                    $this->quoteIdentifier($this->configuration->idColumn),
+                    $this->quoteIdentifier($this->configuration->groupColumn),
+                ),
+                [$taskId, $group ?? ''],
+            );
+        } catch (DbalException $e) {
+            throw new StorageException(\sprintf('Failed to remove task "%s": %s', $taskId, $e->getMessage()), 0, $e);
+        }
+    }
+
+    public function removeAll(string $taskId): void
+    {
+        $this->ensureInitialized();
+
+        try {
+            $this->connection->executeStatement(
+                \sprintf(
+                    'DELETE FROM %s WHERE %s = ?',
+                    $this->quoteIdentifier($this->configuration->tableName),
+                    $this->quoteIdentifier($this->configuration->idColumn),
+                ),
                 [$taskId],
             );
         } catch (DbalException $e) {
@@ -152,9 +184,7 @@ final class DbalStorage implements TransactionalStorageInterface
     }
 
     /**
-     * Returns all stored execution records, keyed by task ID.
-     *
-     * @return array<string, TaskExecution>
+     * @return list<TaskExecution>
      */
     public function all(): array
     {
@@ -162,7 +192,11 @@ final class DbalStorage implements TransactionalStorageInterface
 
         try {
             $rows = $this->connection->fetchAllAssociative(
-                \sprintf('SELECT * FROM %s ORDER BY %s', $this->quoteIdentifier($this->configuration->tableName), $this->quoteIdentifier($this->configuration->executedAtColumn)),
+                \sprintf(
+                    'SELECT * FROM %s ORDER BY %s',
+                    $this->quoteIdentifier($this->configuration->tableName),
+                    $this->quoteIdentifier($this->configuration->executedAtColumn),
+                ),
             );
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to fetch all tasks: %s', $e->getMessage()), 0, $e);
@@ -171,16 +205,12 @@ final class DbalStorage implements TransactionalStorageInterface
         $executions = [];
 
         foreach ($rows as $row) {
-            $execution = $this->hydrate($row);
-            $executions[$execution->id] = $execution;
+            $executions[] = $this->hydrate($row);
         }
 
         return $executions;
     }
 
-    /**
-     * Removes all execution records from storage.
-     */
     public function reset(): void
     {
         $this->ensureInitialized();
@@ -246,6 +276,8 @@ final class DbalStorage implements TransactionalStorageInterface
         $executedAtRaw = $row[$this->configuration->executedAtColumn] ?? '';
         /** @var string|null $error */
         $error = $row[$this->configuration->errorColumn] ?? null;
+        /** @var string $groupRaw */
+        $groupRaw = $row[$this->configuration->groupColumn] ?? '';
 
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $executedAtRaw);
 
@@ -258,6 +290,7 @@ final class DbalStorage implements TransactionalStorageInterface
             status: TaskStatus::from($statusRaw),
             executedAt: $executedAt,
             error: $error,
+            group: '' === $groupRaw ? null : $groupRaw,
         );
     }
 }

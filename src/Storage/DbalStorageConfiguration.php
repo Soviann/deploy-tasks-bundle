@@ -17,6 +17,8 @@ final readonly class DbalStorageConfiguration
         public bool $autoCreateTable = true,
         public string $errorColumn = 'error',
         public string $executedAtColumn = 'executed_at',
+        public string $groupColumn = 'task_group',
+        public int $groupColumnLength = 128,
         public string $idColumn = 'id',
         public int $idColumnLength = 255,
         public string $statusColumn = 'status',

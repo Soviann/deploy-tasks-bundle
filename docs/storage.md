@@ -24,7 +24,7 @@ The directory is created automatically on the first write. Add it to `.gitignore
 /var/deploy-tasks/
 ```
 
-Each file is named `<task-id>.json` and contains the task ID, status, execution timestamp, and any error message.
+Each file is named `<task-id>.json` for the default slot, or `<task-id>@<group>.json` for a group slot (e.g. `task_foo@predeploy.json`). Group names with characters outside `[a-zA-Z0-9._-]` are slugified to `_`. The file contains the task ID, status, execution timestamp, group, and any error message.
 
 ## Database
 
@@ -67,12 +67,15 @@ The SQL output uses platform-aware identifier quoting (backticks for MySQL, doub
 ```sql
 CREATE TABLE IF NOT EXISTS deploy_task_executions (
     id          VARCHAR(255) NOT NULL,
+    task_group  VARCHAR(128) NOT NULL DEFAULT '',
     status      VARCHAR(16)  NOT NULL,
     executed_at VARCHAR(32)  NOT NULL,
     error       TEXT         DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id, task_group)
 );
 ```
+
+The `task_group` column stores the empty string for the default slot (SQL forbids `NULL` in a primary key), and the declared group name for grouped slots. The composite primary key `(id, task_group)` allows one row per `(task, group)` slot — a task declared in multiple groups therefore records one row per slot.
 
 ### Transactional tasks
 

@@ -151,6 +151,100 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString('test.skipping ran', $this->tester->getDisplay());
     }
 
+    public function testNoFlagRunsOnlyDefaultTasks(): void
+    {
+        $this->tester->execute([]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.simple'));
+        self::assertFalse($storage->has('test.predeploy', 'predeploy'));
+        self::assertFalse($storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testGroupFlagRunsOnlyMatchingTasks(): void
+    {
+        $this->tester->execute(['--group' => ['predeploy']]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.predeploy', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($storage->has('test.simple'));
+        self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testMultipleGroupFlagsUnion(): void
+    {
+        $this->tester->execute(['--group' => ['predeploy', 'postdeploy']]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.predeploy', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testMultiGroupTaskTwoSeparateCalls(): void
+    {
+        $this->tester->execute(['--group' => ['predeploy']]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $this->tester->execute(['--group' => ['postdeploy']]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testMultiGroupTaskOneCombinedCall(): void
+    {
+        $this->tester->execute(['--group' => ['predeploy', 'postdeploy']]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testGroupNoMatchStillSuccess(): void
+    {
+        $this->tester->execute(['--group' => ['nonexistent']]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+    }
+
+    public function testIdOnlyOnGroupedTaskFailsInvalid(): void
+    {
+        $this->tester->execute(['--id' => 'test.predeploy']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+    }
+
+    public function testIdWithGroupRunsSingleSlot(): void
+    {
+        $this->tester->execute(['--id' => 'test.multi_group', '--group' => ['predeploy']]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
+use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskExecution;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
@@ -12,6 +14,7 @@ use Soviann\DeployTasks\TaskRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -29,10 +32,17 @@ final class DeployTasksRollupCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only roll up these group slot(s) (repeatable); without this flag every slot is rolled up and the whole table is reset.')
             ->setHelp(<<<'EOT'
-                The <info>%command.name%</info> command clears all execution records and marks every registered task as run, establishing the current codebase as the baseline:
+                The <info>%command.name%</info> command clears all execution records and marks every (task, group) slot as run, establishing the current codebase as the baseline:
 
                     <info>%command.full_name%</info>
+
+                Restrict the rollup to specific group(s) with <comment>--group</comment> (repeatable).
+                This preserves records for other slots and only marks the matching slots as run:
+
+                    <info>%command.full_name% --group=predeploy</info>
+                    <info>%command.full_name% --group=predeploy --group=postdeploy</info>
 
                 This is useful for fresh environments where the current state already incorporates all task effects, or for cleaning up stale execution history after old tasks have been removed.
 
@@ -49,8 +59,10 @@ final class DeployTasksRollupCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $tasks = $this->registry->all();
-        $existingRecords = $this->storage->all();
+        /** @var list<string> $groupFilter */
+        $groupFilter = \array_values((array) $input->getOption('group'));
+
+        $tasks = $this->registry->allRegistered();
 
         if ([] === $tasks) {
             $io->warning('No tasks registered.');
@@ -58,22 +70,44 @@ final class DeployTasksRollupCommand extends Command
             return Command::SUCCESS;
         }
 
-        $io->text(\sprintf('%d task(s) registered, %d execution record(s) in storage.', \count($tasks), \count($existingRecords)));
+        /** @var list<array{id: string, task: DeployTaskInterface, slot: ?string}> $targets */
+        $targets = [];
 
-        if (!$io->confirm(\sprintf('This will clear all execution records and mark all %d task(s) as run. Continue?', \count($tasks)))) {
+        foreach ($tasks as $id => $task) {
+            foreach (self::slotsFor($task, $groupFilter) as $slot) {
+                $targets[] = ['id' => $id, 'task' => $task, 'slot' => $slot];
+            }
+        }
+
+        if ([] === $targets) {
+            $io->warning('No task slots matched the requested group(s).');
+
+            return Command::SUCCESS;
+        }
+
+        $existingRecords = $this->storage->all();
+        $io->text(\sprintf('%d task(s) registered, %d slot(s) targeted, %d execution record(s) in storage.', \count($tasks), \count($targets), \count($existingRecords)));
+
+        $prompt = [] === $groupFilter
+            ? \sprintf('This will clear all execution records and mark %d slot(s) as run. Continue?', \count($targets))
+            : \sprintf('This will mark %d slot(s) as run for group(s) [%s], preserving other slots. Continue?', \count($targets), \implode(', ', $groupFilter));
+
+        if (!$io->confirm($prompt)) {
             $io->note('Aborted.');
 
             return Command::SUCCESS;
         }
 
-        $taskIds = \array_keys($tasks);
-        $rollup = function () use ($taskIds): void {
-            $this->storage->reset();
+        $resetAll = [] === $groupFilter;
+        $rollup = function () use ($targets, $resetAll): void {
+            if ($resetAll) {
+                $this->storage->reset();
+            }
 
             $now = new \DateTimeImmutable();
 
-            foreach ($taskIds as $id) {
-                $this->storage->save(new TaskExecution($id, TaskStatus::Ran, $now));
+            foreach ($targets as $target) {
+                $this->storage->save(new TaskExecution($target['id'], TaskStatus::Ran, $now, null, $target['slot']));
             }
         };
 
@@ -83,8 +117,36 @@ final class DeployTasksRollupCommand extends Command
             $rollup();
         }
 
-        $io->success(\sprintf('Rolled up: cleared %d record(s), marked %d task(s) as run.', \count($existingRecords), \count($tasks)));
+        $io->success($resetAll
+            ? \sprintf('Rolled up: cleared %d record(s), marked %d slot(s) as run across %d task(s).', \count($existingRecords), \count($targets), \count($tasks))
+            : \sprintf('Rolled up: marked %d slot(s) as run for group(s) [%s].', \count($targets), \implode(', ', $groupFilter)));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param list<string> $groupFilter
+     *
+     * @return list<?string>
+     */
+    private static function slotsFor(DeployTaskInterface $task, array $groupFilter): array
+    {
+        $declared = AsDeployTask::groupsOf($task);
+
+        if (null === $declared) {
+            return [] === $groupFilter ? [null] : [];
+        }
+
+        if ([] === $groupFilter) {
+            /** @var list<?string> $slots */
+            $slots = $declared;
+
+            return $slots;
+        }
+
+        /** @var list<?string> $slots */
+        $slots = \array_values(\array_intersect($declared, $groupFilter));
+
+        return $slots;
     }
 }

@@ -16,6 +16,8 @@ use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
 use Soviann\DeployTasks\Event\TaskFailedEvent;
+use Soviann\DeployTasks\Exception\TaskGroupMismatchException;
+use Soviann\DeployTasks\Exception\TaskGroupRequiredException;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -43,9 +45,15 @@ final class TaskRunner
 
     /**
      * Runs all pending tasks in resolved order.
-     * When $force is true, all tasks are executed regardless of their state.
+     *
+     * When `$groups` is empty only default-slot tasks run; when it lists one or more
+     * group names, only tasks declaring any of those groups run, and a multi-group
+     * task executes once per invocation writing one storage row per matching slot.
+     * When `$force` is true, all matching slots are re-executed regardless of state.
+     *
+     * @param list<string> $groups
      */
-    public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false): RunResult
+    public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): RunResult
     {
         if (null === $this->lockFactory) {
             $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
@@ -60,100 +68,133 @@ final class TaskRunner
         }
 
         try {
-            $tasks = \array_values($this->registry->all($this->environment));
+            $tasks = \array_values($this->registry->all($this->environment, $groups));
             $ordered = $this->resolver->resolve($tasks);
+            /** @var list<?string> $effectiveGroups */
+            $effectiveGroups = [] === $groups ? [null] : $groups;
 
             if ($dryRun) {
-                return $this->dryRun($ordered, $output);
+                return $this->dryRun($ordered, $output, $effectiveGroups);
             }
 
             if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
                 try {
-                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($ordered, $output, $force));
+                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($ordered, $output, $force, $effectiveGroups));
                 } catch (\Throwable) {
                     return new RunResult(ran: 0, skipped: 0, failed: 1);
                 }
             }
 
-            return $this->executeAll($ordered, $output, $force);
+            return $this->executeAll($ordered, $output, $force, $effectiveGroups);
         } finally {
             $lock?->release();
         }
     }
 
     /**
-     * Runs a single task by ID, optionally forcing re-execution.
+     * Runs a single task by ID, recording one storage row per target slot.
+     *
+     * Slot resolution:
+     * - `$groups === []` and task has no declared groups → single default slot.
+     * - `$groups === []` and task declares groups → throws {@see TaskGroupRequiredException}.
+     * - `$groups !== []` and task has no declared groups → throws {@see TaskGroupMismatchException}.
+     * - `$groups !== []` → slots are the requested groups; any undeclared group throws
+     *   {@see TaskGroupMismatchException}.
+     *
+     * @param list<string> $groups
+     *
+     * @throws TaskGroupRequiredException
+     * @throws TaskGroupMismatchException
      */
-    public function runOne(string $taskId, OutputInterface $output, bool $force = false): TaskResult
+    public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
     {
         $task = $this->registry->get($taskId);
+        $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
+        $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
 
-        if (!$force && $this->storage->has($taskId)) {
-            $execution = $this->storage->get($taskId);
+        if ([] === $pendingSlots) {
+            $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
 
-            if (null !== $execution && TaskStatus::Failed !== $execution->status) {
-                $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
-
-                return TaskResult::SKIPPED;
-            }
+            return TaskResult::SKIPPED;
         }
 
-        return $this->executeTask($task, $output);
+        $outcome = $this->executeTask($task, $output);
+
+        $this->persistOutcome($taskId, $outcome, $pendingSlots);
+
+        return $outcome->result;
     }
 
     /**
-     * Lists pending tasks without executing them.
+     * Lists pending (task, slot) pairs without executing them.
+     *
+     * @param list<?string> $effectiveGroups
      */
-    private function dryRun(OrderedTaskCollection $tasks, OutputInterface $output): RunResult
+    private function dryRun(OrderedTaskCollection $tasks, OutputInterface $output, array $effectiveGroups): RunResult
     {
         $pending = 0;
         $skipped = 0;
 
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
-            $execution = $this->storage->get($taskId);
+            $slots = self::computeSlots($task, $effectiveGroups);
 
-            if (null !== $execution && TaskStatus::Failed !== $execution->status) {
-                ++$skipped;
-
-                continue;
-            }
-
-            ++$pending;
-            $output->writeln(\sprintf('  [pending] %s - %s', $taskId, $task->getDescription()));
-        }
-
-        return new RunResult(ran: $pending, skipped: $skipped, failed: 0);
-    }
-
-    /**
-     * Executes all ordered tasks, recording results.
-     */
-    private function executeAll(OrderedTaskCollection $tasks, OutputInterface $output, bool $force = false): RunResult
-    {
-        $ran = 0;
-        $skipped = 0;
-        $failed = 0;
-        foreach ($tasks as $task) {
-            if (!$force) {
-                $taskId = $this->idResolver->resolve($task);
-                $execution = $this->storage->get($taskId);
+            foreach ($slots as $slot) {
+                $execution = $this->storage->get($taskId, $slot);
 
                 if (null !== $execution && TaskStatus::Failed !== $execution->status) {
                     ++$skipped;
 
                     continue;
                 }
+
+                ++$pending;
+                $label = null === $slot ? $taskId : $taskId.'@'.$slot;
+                $output->writeln(\sprintf('  [pending] %s - %s', $label, $task->getDescription()));
+            }
+        }
+
+        return new RunResult(ran: $pending, skipped: $skipped, failed: 0);
+    }
+
+    /**
+     * Executes all ordered tasks, recording one storage row per matching slot.
+     *
+     * @param list<?string> $effectiveGroups
+     */
+    private function executeAll(OrderedTaskCollection $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
+    {
+        $ran = 0;
+        $skipped = 0;
+        $failed = 0;
+
+        foreach ($tasks as $task) {
+            $taskId = $this->idResolver->resolve($task);
+            $slots = self::computeSlots($task, $effectiveGroups);
+
+            if ([] === $slots) {
+                continue;
             }
 
-            $result = $this->executeTask($task, $output);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
 
-            if (TaskResult::FAILURE === $result) {
-                ++$failed;
-            } elseif (TaskResult::SKIPPED === $result) {
-                ++$skipped;
+            if ([] === $pendingSlots) {
+                $skipped += \count($slots);
+
+                continue;
+            }
+
+            $outcome = $this->executeTask($task, $output);
+            $this->persistOutcome($taskId, $outcome, $pendingSlots);
+
+            $count = \count($pendingSlots);
+
+            if (TaskResult::FAILURE === $outcome->result) {
+                $failed += $count;
+            } elseif (TaskResult::SKIPPED === $outcome->result) {
+                $skipped += $count;
             } else {
-                ++$ran;
+                $ran += $count;
             }
         }
 
@@ -161,9 +202,11 @@ final class TaskRunner
     }
 
     /**
-     * Executes a single task with event dispatching, timeout check, and storage recording.
+     * Executes a single task with event dispatching, timeout check, and transactional wrapping.
+     *
+     * Storage writes are performed by the caller (one row per matching slot).
      */
-    private function executeTask(DeployTaskInterface $task, OutputInterface $output): TaskResult
+    private function executeTask(DeployTaskInterface $task, OutputInterface $output): TaskOutcome
     {
         $taskId = $this->idResolver->resolve($task);
         $attribute = AsDeployTask::of($task);
@@ -188,15 +231,13 @@ final class TaskRunner
 
             $status = TaskResult::SKIPPED === $result ? TaskStatus::Skipped : TaskStatus::Ran;
 
-            $this->storage->save(new TaskExecution(
-                id: $taskId,
-                status: $status,
-                executedAt: new \DateTimeImmutable(),
-            ));
-
             $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
 
-            return $result;
+            return new TaskOutcome(
+                result: $result,
+                status: $status,
+                executedAt: new \DateTimeImmutable(),
+            );
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
@@ -209,14 +250,12 @@ final class TaskRunner
                 throw $e;
             }
 
-            $this->storage->save(new TaskExecution(
-                id: $taskId,
+            return new TaskOutcome(
+                result: TaskResult::FAILURE,
                 status: TaskStatus::Failed,
                 executedAt: new \DateTimeImmutable(),
                 error: $e->getMessage(),
-            ));
-
-            return TaskResult::FAILURE;
+            );
         }
     }
 
@@ -234,11 +273,108 @@ final class TaskRunner
         $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
 
         if ($shouldWrap && $this->storage instanceof TransactionalStorageInterface) {
-            $result = $this->storage->transactional(static fn (): TaskResult => $task->run($output));
-
-            return $result;
+            return $this->storage->transactional(static fn (): TaskResult => $task->run($output));
         }
 
         return $task->run($output);
+    }
+
+    /**
+     * @param list<string> $groups
+     *
+     * @return list<?string>
+     */
+    private function resolveSlotsForRunOne(string $taskId, DeployTaskInterface $task, array $groups): array
+    {
+        $declared = AsDeployTask::groupsOf($task);
+
+        if ([] === $groups) {
+            if (null !== $declared) {
+                throw TaskGroupRequiredException::create($taskId, $declared);
+            }
+
+            return [null];
+        }
+
+        if (null === $declared) {
+            throw TaskGroupMismatchException::create($taskId, $groups, []);
+        }
+
+        $undeclared = \array_values(\array_diff($groups, $declared));
+
+        if ([] !== $undeclared) {
+            throw TaskGroupMismatchException::create($taskId, $undeclared, $declared);
+        }
+
+        /** @var list<?string> $slots */
+        $slots = $groups;
+
+        return $slots;
+    }
+
+    /**
+     * @param list<?string> $slots
+     *
+     * @return list<?string>
+     */
+    private function filterPendingSlots(string $taskId, array $slots, bool $force): array
+    {
+        if ($force) {
+            return $slots;
+        }
+
+        $pending = [];
+
+        foreach ($slots as $slot) {
+            $existing = $this->storage->get($taskId, $slot);
+
+            if (null === $existing || TaskStatus::Failed === $existing->status) {
+                $pending[] = $slot;
+            }
+        }
+
+        return $pending;
+    }
+
+    /**
+     * @param list<?string> $pendingSlots
+     */
+    private function persistOutcome(string $taskId, TaskOutcome $outcome, array $pendingSlots): void
+    {
+        foreach ($pendingSlots as $slot) {
+            $this->storage->save(new TaskExecution(
+                id: $taskId,
+                status: $outcome->status,
+                executedAt: $outcome->executedAt,
+                error: $outcome->error,
+                group: $slot,
+            ));
+        }
+    }
+
+    /**
+     * Computes the slots a task participates in for the current invocation.
+     *
+     * @param list<?string> $effectiveGroups null means the default slot is requested
+     *
+     * @return list<?string>
+     */
+    private static function computeSlots(DeployTaskInterface $task, array $effectiveGroups): array
+    {
+        $declared = AsDeployTask::groupsOf($task);
+
+        if (null === $declared) {
+            return \in_array(null, $effectiveGroups, true) ? [null] : [];
+        }
+
+        $slots = [];
+
+        foreach ($effectiveGroups as $group) {
+            if (null !== $group && \in_array($group, $declared, true)) {
+                $slots[] = $group;
+            }
+        }
+
+        return $slots;
     }
 }
