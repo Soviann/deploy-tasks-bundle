@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit;
+namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\DefaultTaskOrderResolver;
-use Soviann\DeployTasks\TaskIdResolver;
-use Soviann\DeployTasks\Tests\Fixtures\PrioritizedTask;
-use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
+use Soviann\DeployTasksBundle\Tests\Fixtures\PrioritizedTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 
 #[CoversClass(DefaultTaskOrderResolver::class)]
 final class DefaultTaskOrderResolverTest extends TestCase

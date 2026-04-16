@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Exception;
+namespace Soviann\DeployTasksBundle\Exception;
 
 /**
  * Thrown when a storage read or write operation fails for a deploy task.

@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit;
+namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Exception\DuplicateTaskIdException;
-use Soviann\DeployTasks\Exception\TaskNotFoundException;
-use Soviann\DeployTasks\TaskIdResolver;
-use Soviann\DeployTasks\TaskRegistry;
-use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
-use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
-use Soviann\DeployTasks\Tests\Fixtures\MultiGroupTask;
-use Soviann\DeployTasks\Tests\Fixtures\PredeployTask;
-use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
-use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasksBundle\Exception\DuplicateTaskIdException;
+use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Runner\TaskRegistry;
+use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\MultiEnvTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 
 #[CoversClass(TaskRegistry::class)]
 final class TaskRegistryTest extends TestCase

@@ -44,13 +44,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Soviann\\DeployTasks\\": "src/",
-            "Soviann\\DeployTasksBundle\\": "src/Bundle/"
+            "Soviann\\DeployTasksBundle\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Soviann\\DeployTasks\\Tests\\": "tests/"
+            "Soviann\\DeployTasksBundle\\Tests\\": "tests/"
         }
     },
     "config": {

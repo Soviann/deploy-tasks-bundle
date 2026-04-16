@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Event;
+namespace Soviann\DeployTasksBundle\Event;
 
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 
 /**
  * Dispatched after a deploy task has completed without exception (result may be SUCCESS or SKIPPED).

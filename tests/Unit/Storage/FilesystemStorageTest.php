@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Storage;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Contract\TaskExecution;
-use Soviann\DeployTasks\Contract\TaskStatus;
-use Soviann\DeployTasks\Exception\StorageException;
-use Soviann\DeployTasks\Storage\FilesystemStorage;
+use Soviann\DeployTasksBundle\Exception\StorageException;
+use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
 
 #[CoversClass(FilesystemStorage::class)]
 final class FilesystemStorageTest extends TestCase
