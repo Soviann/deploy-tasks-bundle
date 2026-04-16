@@ -9,14 +9,20 @@ use Soviann\DeployTasks\Bundle\DeployTasksBundle;
 use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
+use Soviann\DeployTasks\Storage\InMemoryStorage;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 use Soviann\DeployTasks\Tests\Fixtures\CustomIdResolverFixture;
 use Soviann\DeployTasks\Tests\Fixtures\CustomOrderResolverFixture;
+use Soviann\DeployTasks\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasks\Tests\Functional\CustomResolverTestKernel;
+use Soviann\DeployTasks\Tests\Functional\CustomStorageMissingServiceTestKernel;
+use Soviann\DeployTasks\Tests\Functional\CustomStorageTestKernel;
+use Soviann\DeployTasks\Tests\Functional\CustomTransactionalStorageTestKernel;
 use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
@@ -143,6 +149,44 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
         $resolver = $container->get(TaskOrderResolverInterface::class);
         self::assertInstanceOf(CustomOrderResolverFixture::class, $resolver);
+    }
+
+    public function testCustomStorageIsAliased(): void
+    {
+        static::$class = CustomStorageTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertInstanceOf(InMemoryStorage::class, $container->get(TaskStorageInterface::class));
+    }
+
+    public function testCustomStorageWithoutTransactionalInterfaceIsNotAliasedAsTransactional(): void
+    {
+        static::$class = CustomStorageTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertFalse($container->has(TransactionalStorageInterface::class));
+    }
+
+    public function testCustomStorageWithTransactionalInterfaceIsAliasedAsTransactional(): void
+    {
+        static::$class = CustomTransactionalStorageTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertInstanceOf(TransactionalInMemoryStorageFixture::class, $container->get(TaskStorageInterface::class));
+        self::assertInstanceOf(TransactionalInMemoryStorageFixture::class, $container->get(TransactionalStorageInterface::class));
+    }
+
+    public function testCustomStorageWithoutServiceThrows(): void
+    {
+        static::$class = CustomStorageMissingServiceTestKernel::class;
+
+        self::expectException(\InvalidArgumentException::class);
+        self::expectExceptionMessage('"deploy_tasks.storage.custom.service" must be set when "deploy_tasks.storage.type" is "custom".');
+
+        self::bootKernel();
     }
 
     protected static function getKernelClass(): string

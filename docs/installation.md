@@ -40,7 +40,7 @@ To customise the storage backend or other options, publish a configuration file:
 deploy_tasks:
     default_timeout: 300          # seconds; 0 = no timeout
     storage:
-        type: filesystem           # or: database
+        type: filesystem           # or: database, custom
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
     events:

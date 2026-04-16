@@ -352,7 +352,16 @@ final class DeployTasksBundle extends AbstractBundle
 
                 break;
             case 'custom':
-                throw new \LogicException('Storage type "custom" is not yet implemented.');
+                $customServiceId = $storageConfig['custom']['service'];
+
+                if (null === $customServiceId) {
+                    throw new \InvalidArgumentException('"deploy_tasks.storage.custom.service" must be set when "deploy_tasks.storage.type" is "custom".');
+                }
+
+                $services->alias('deploy_tasks.storage', $customServiceId);
+                $builder->setParameter('deploy_tasks.storage.custom_service_id', $customServiceId);
+
+                break;
         }
 
         $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();

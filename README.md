@@ -111,6 +111,8 @@ deploy_tasks:
 
 **Database**: stores execution records in a database table. Requires `doctrine/dbal`.
 
+**Custom**: plug in any `TaskStorageInterface` implementation via `storage.type: custom`. See [`docs/storage.md`](docs/storage.md).
+
 ## Commands
 
 | Command | Description | Options |
