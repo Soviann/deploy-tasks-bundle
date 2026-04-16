@@ -563,6 +563,76 @@ final class TaskRunnerTest extends TestCase
         self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
     }
 
+    public function testRunOneAcquiresLock(): void
+    {
+        $lock = $this->createMock(SharedLockInterface::class);
+        $lock->method('acquire')->willReturn(false);
+
+        $lockFactory = $this->createMock(LockFactory::class);
+        $lockFactory->method('createLock')->willReturn($lock);
+
+        $idResolver = new TaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            $this->storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            null,
+            $lockFactory,
+        );
+
+        $result = $runner->runOne('task.1', $this->output);
+
+        self::assertSame(TaskResult::LOCKED, $result);
+        self::assertStringContainsString('Another deploytasks:run process is already running', $this->output->fetch());
+        self::assertFalse($this->storage->has('task.1'));
+    }
+
+    public function testRunOneWithoutLockFactoryWarns(): void
+    {
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
+
+        $result = $runner->runOne('task.1', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('No lock factory configured', $this->output->fetch());
+    }
+
+    public function testTimeoutExceededLogsWarningWithoutFailing(): void
+    {
+        $idResolver = new TaskIdResolver();
+
+        // Negative timeout guarantees the warning fires regardless of how fast the task runs;
+        // it would otherwise depend on microsecond-level scheduling and flake under load.
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            $this->storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            defaultTimeout: -1,
+        );
+
+        $result = $runner->runOne('task.1', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('exceeded timeout', $this->output->fetch());
+        self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
+    }
+
+    public function testTransactionalTaskWithNonTransactionalStorageRunsUnwrapped(): void
+    {
+        $runner = $this->createRunner([new TransactionalTask()]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->ran);
+        self::assertSame(0, $result->failed);
+        self::assertTrue($this->storage->has('test.transactional'));
+        self::assertSame(TaskStatus::Ran, $this->storage->get('test.transactional')?->status);
+        self::assertStringContainsString('Transactional task executed', $this->output->fetch());
+    }
+
     /**
      * @param array<\Soviann\DeployTasks\Contract\DeployTaskInterface> $tasks
      */
