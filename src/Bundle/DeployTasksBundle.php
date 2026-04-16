@@ -66,19 +66,11 @@ final class DeployTasksBundle extends AbstractBundle
                     ->min(0)
                     ->info('Default task execution timeout in seconds.')
                 ->end()
-                ->booleanNode('transactional')
-                    ->defaultTrue()
-                    ->info('Wrap each task execution in a database transaction (requires DbalStorage). Overridable per-task via #[AsDeployTask(transactional: false)].')
-                ->end()
-                ->booleanNode('all_or_nothing')
-                    ->defaultFalse()
-                    ->info('Wrap the entire run in a single transaction — any failure rolls back all tasks.')
-                ->end()
                 ->arrayNode('storage')
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->enumNode('type')
-                            ->values(['filesystem', 'database'])
+                            ->values(['filesystem', 'database', 'custom'])
                             ->defaultValue('filesystem')
                         ->end()
                         ->arrayNode('filesystem')
@@ -86,6 +78,14 @@ final class DeployTasksBundle extends AbstractBundle
                             ->children()
                                 ->scalarNode('path')
                                     ->defaultValue('%kernel.project_dir%/var/deploy-tasks')
+                                ->end()
+                                ->booleanNode('transactional')
+                                    ->defaultFalse()
+                                    ->info('Wrap each task execution in a transaction. Filesystem storage does not support transactions; this is ignored.')
+                                ->end()
+                                ->booleanNode('all_or_nothing')
+                                    ->defaultFalse()
+                                    ->info('Wrap the entire run in a single transaction. Filesystem storage does not support transactions; this is ignored.')
                                 ->end()
                             ->end()
                         ->end()
@@ -117,6 +117,31 @@ final class DeployTasksBundle extends AbstractBundle
                                 ->end()
                                 ->scalarNode('error_column')
                                     ->defaultValue('error')
+                                ->end()
+                                ->booleanNode('transactional')
+                                    ->defaultTrue()
+                                    ->info('Wrap each task execution in a database transaction. Overridable per-task via #[AsDeployTask(transactional: false)].')
+                                ->end()
+                                ->booleanNode('all_or_nothing')
+                                    ->defaultTrue()
+                                    ->info('Wrap the entire run in a single transaction — any failure rolls back all tasks.')
+                                ->end()
+                            ->end()
+                        ->end()
+                        ->arrayNode('custom')
+                            ->addDefaultsIfNotSet()
+                            ->children()
+                                ->scalarNode('service')
+                                    ->defaultNull()
+                                    ->info('Service ID of a custom TaskStorageInterface implementation.')
+                                ->end()
+                                ->booleanNode('transactional')
+                                    ->defaultFalse()
+                                    ->info('Wrap each task execution in a transaction (requires the custom storage to implement TransactionalStorageInterface).')
+                                ->end()
+                                ->booleanNode('all_or_nothing')
+                                    ->defaultFalse()
+                                    ->info('Wrap the entire run in a single transaction (requires the custom storage to implement TransactionalStorageInterface).')
                                 ->end()
                             ->end()
                         ->end()
@@ -191,7 +216,12 @@ final class DeployTasksBundle extends AbstractBundle
         $builder->setParameter('deploy_tasks.events.enabled', $eventsConfig['enabled']);
         $builder->setParameter('deploy_tasks.lock.enabled', $lockConfig['enabled']);
 
-        // TaskRunner
+        // TaskRunner — transactional/all_or_nothing come from the active storage sub-config
+        /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
+        $storageConfig = $config['storage'];
+        /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
+        $activeStorage = $storageConfig[$storageConfig['type']];
+
         $services->set('deploy_tasks.runner', TaskRunner::class)
             ->args([
                 service('deploy_tasks.registry'),
@@ -202,8 +232,8 @@ final class DeployTasksBundle extends AbstractBundle
                 null, // lock factory — set by compiler pass
                 $config['default_timeout'],
                 param('kernel.environment'),
-                $config['transactional'],
-                $config['all_or_nothing'],
+                $activeStorage['transactional'],
+                $activeStorage['all_or_nothing'],
             ])
         ;
         $services->alias(TaskRunner::class, 'deploy_tasks.runner')->public();
@@ -276,50 +306,56 @@ final class DeployTasksBundle extends AbstractBundle
      */
     private function registerStorage(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
     {
-        /** @var array{type: string, filesystem: array{path: string}, database: array{connection: string, table: string, auto_create_table: bool, id_column: string, id_column_length: int, status_column: string, executed_at_column: string, error_column: string}} $storageConfig */
+        /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{connection: string, table: string, auto_create_table: bool, id_column: string, id_column_length: int, status_column: string, executed_at_column: string, error_column: string, transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
         $storageConfig = $config['storage'];
 
-        if ('database' === $storageConfig['type']) {
-            if (!\class_exists(Connection::class)) {
-                throw new \LogicException('Storage type "database" requires doctrine/dbal. Run "composer require doctrine/dbal".');
-            }
+        switch ($storageConfig['type']) {
+            case 'database':
+                if (!\class_exists(Connection::class)) {
+                    throw new \LogicException('Storage type "database" requires doctrine/dbal. Run "composer require doctrine/dbal".');
+                }
 
-            $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
-            $dbConfig = $storageConfig['database'];
+                $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
+                $dbConfig = $storageConfig['database'];
 
-            $services->set('deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
-                ->args([
-                    '$autoCreateTable' => $dbConfig['auto_create_table'],
-                    '$errorColumn' => $dbConfig['error_column'],
-                    '$executedAtColumn' => $dbConfig['executed_at_column'],
-                    '$idColumn' => $dbConfig['id_column'],
-                    '$idColumnLength' => $dbConfig['id_column_length'],
-                    '$statusColumn' => $dbConfig['status_column'],
-                    '$tableName' => $dbConfig['table'],
-                ])
-            ;
+                $services->set('deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
+                    ->args([
+                        '$autoCreateTable' => $dbConfig['auto_create_table'],
+                        '$errorColumn' => $dbConfig['error_column'],
+                        '$executedAtColumn' => $dbConfig['executed_at_column'],
+                        '$idColumn' => $dbConfig['id_column'],
+                        '$idColumnLength' => $dbConfig['id_column_length'],
+                        '$statusColumn' => $dbConfig['status_column'],
+                        '$tableName' => $dbConfig['table'],
+                    ])
+                ;
 
-            $services->set('deploy_tasks.storage', DbalStorage::class)
-                ->args([
-                    service($connectionServiceId),
-                    service('deploy_tasks.storage.configuration'),
-                ])
-            ;
+                $services->set('deploy_tasks.storage', DbalStorage::class)
+                    ->args([
+                        service($connectionServiceId),
+                        service('deploy_tasks.storage.configuration'),
+                    ])
+                ;
 
-            $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();
-            $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->public();
+                $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->public();
 
-            $services->set('deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
-                ->args([service('deploy_tasks.storage')])
-                ->tag('console.command')
-            ;
-        } else {
-            $services->set('deploy_tasks.storage', FilesystemStorage::class)
-                ->args([$storageConfig['filesystem']['path']])
-            ;
+                $services->set('deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
+                    ->args([service('deploy_tasks.storage')])
+                    ->tag('console.command')
+                ;
 
-            $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();
+                break;
+            case 'filesystem':
+                $services->set('deploy_tasks.storage', FilesystemStorage::class)
+                    ->args([$storageConfig['filesystem']['path']])
+                ;
+
+                break;
+            case 'custom':
+                throw new \LogicException('Storage type "custom" is not yet implemented.');
         }
+
+        $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();
     }
 
     /**
