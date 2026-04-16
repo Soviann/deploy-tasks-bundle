@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Soviann\DeployTasks\Tests\Functional;
 
 use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
+use Soviann\DeployTasks\Tests\Fixtures\MultiGroupTask;
+use Soviann\DeployTasks\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasks\Tests\Fixtures\PrioritizedTask;
 use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
@@ -55,6 +57,14 @@ final class TestKernel extends AbstractTestKernel
         ;
 
         $services->set('test.task.multi_env', MultiEnvTask::class)
+            ->tag('deploy_tasks.task')
+        ;
+
+        $services->set('test.task.predeploy', PredeployTask::class)
+            ->tag('deploy_tasks.task')
+        ;
+
+        $services->set('test.task.multi_group', MultiGroupTask::class)
             ->tag('deploy_tasks.task')
         ;
     }

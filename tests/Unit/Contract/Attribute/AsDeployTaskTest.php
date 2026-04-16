@@ -78,6 +78,75 @@ final class AsDeployTaskTest extends TestCase
 
         self::assertNull($attribute);
     }
+
+    public function testGroupsDefaultsToNull(): void
+    {
+        $attribute = new AsDeployTask(id: 'task.default');
+
+        self::assertNull($attribute->groups);
+    }
+
+    public function testGroupsAcceptsString(): void
+    {
+        $attribute = new AsDeployTask(id: 'task.pre', groups: 'predeploy');
+
+        self::assertSame('predeploy', $attribute->groups);
+    }
+
+    public function testGroupsAcceptsArray(): void
+    {
+        $attribute = new AsDeployTask(id: 'task.both', groups: ['predeploy', 'postdeploy']);
+
+        self::assertSame(['predeploy', 'postdeploy'], $attribute->groups);
+    }
+
+    public function testGroupsOfReturnsNullWhenAttributeMissing(): void
+    {
+        self::assertNull(AsDeployTask::groupsOf(new UnattributedTestTask()));
+    }
+
+    public function testGroupsOfReturnsNullWhenAttributeHasNoGroups(): void
+    {
+        self::assertNull(AsDeployTask::groupsOf(new AttributedTestTask()));
+    }
+
+    public function testGroupsOfNormalisesStringToList(): void
+    {
+        self::assertSame(['predeploy'], AsDeployTask::groupsOf(new SingleGroupTestTask()));
+    }
+
+    public function testGroupsOfReturnsList(): void
+    {
+        self::assertSame(['predeploy', 'postdeploy'], AsDeployTask::groupsOf(new MultiGroupTestTask()));
+    }
+}
+
+#[AsDeployTask(id: 'test.single_group', groups: 'predeploy')]
+final class SingleGroupTestTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Single group';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+#[AsDeployTask(id: 'test.multi_group', groups: ['predeploy', 'postdeploy'])]
+final class MultiGroupTestTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Multi group';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
 }
 
 #[AsDeployTask(id: 'test.attributed', priority: 5, description: 'Test task')]

@@ -56,6 +56,7 @@ If you do not need the metadata provided by the attribute, you can implement `De
 | `timeout` | `?int` | `null` | Override the bundle's `default_timeout` for this task (seconds) |
 | `transactional` | `?bool` | `null` | Wrap execution in a transaction (requires a storage implementing `TransactionalStorageInterface`). `null` defers to the active storage's `transactional` setting (database default: `true`, filesystem default: `false`). |
 | `description` | `?string` | `null` | Override the value returned by `getDescription()` |
+| `groups` | `string\|string[]\|null` | `null` | Group(s) the task belongs to; `null` = default slot (runs when `deploytasks:run` is called without `--group`) |
 
 ## Environment filtering
 
@@ -66,6 +67,25 @@ If you do not need the metadata provided by the attribute, you can implement `De
 ```
 
 Tasks whose `env` does not match the current environment are silently skipped at runtime.
+
+## Group filtering
+
+Groups split a deploy into named stages. Typical use cases: a `predeploy` group that runs before switching traffic to the new code, and a `postdeploy` group that runs after.
+
+```php
+#[AsDeployTask(id: 'task_...', groups: 'predeploy')]                  // single group
+#[AsDeployTask(id: 'task_...', groups: ['predeploy', 'postdeploy'])]  // multiple groups
+#[AsDeployTask(id: 'task_...', groups: null)]                         // default slot (omit --group to run)
+```
+
+Execution is scoped per `(task, group)` slot:
+
+- A task with `groups: null` only runs when `deploytasks:run` is called without `--group`.
+- A task with `groups: 'predeploy'` only runs when `--group=predeploy` is passed.
+- A multi-group task records one row per slot it belongs to, so running `--group=predeploy --group=postdeploy` executes the task twice (once per slot) and stores two rows. Running `--group=predeploy` later only re-runs the predeploy slot.
+- `--group=postdeploy` leaves default-slot tasks untouched; `--group` with no declared match is a success (nothing to run).
+
+`deploytasks:skip` and `deploytasks:reset` require `--group` when the task declares groups. `deploytasks:status` always shows one row per declared slot, and `deploytasks:rollup` marks every slot as run unless `--group` narrows the scope.
 
 ## Execution order
 
