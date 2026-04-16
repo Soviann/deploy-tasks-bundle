@@ -243,7 +243,7 @@ final class DbalStorage implements TransactionalStorageInterface
 
     private function quoteIdentifier(string $identifier): string
     {
-        return $this->connection->quoteSingleIdentifier($identifier);
+        return $this->connection->getDatabasePlatform()->quoteSingleIdentifier($identifier);
     }
 
     private function ensureInitialized(): void
