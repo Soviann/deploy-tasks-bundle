@@ -43,34 +43,21 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
-    public function testGenerateWithoutName(): void
+    public function testGenerate(): void
     {
         $this->tester->execute(['--dir' => $this->outputDir]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
-        self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
-
-        $files = \glob($this->outputDir.'Task*.php');
-        self::assertNotFalse($files);
-        self::assertCount(1, $files);
-    }
-
-    public function testGenerateWithName(): void
-    {
-        $this->tester->execute(['name' => 'SeedCategories', '--dir' => $this->outputDir]);
-
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
-        self::assertStringContainsString('SeedCategories', $display);
+        self::assertStringContainsString('Generated new deploy task class', $display);
         self::assertStringContainsString('deploytasks:run --force --id=', $display);
 
-        $files = \glob($this->outputDir.'Task*SeedCategories.php');
+        $files = \glob($this->outputDir.'DeployTask*.php');
         self::assertNotFalse($files);
         self::assertCount(1, $files);
 
         $content = \file_get_contents($files[0]);
         self::assertNotFalse($content);
-        self::assertStringContainsString('Seed categories', $content);
         self::assertStringContainsString('DeployTaskInterface', $content);
     }
 
@@ -88,11 +75,11 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         // Pre-create the file the command will try to generate (same-second timestamp)
         $timestamp = \date('YmdHis');
-        $expectedFile = $this->outputDir.'Task'.$timestamp.'Existing.php';
+        $expectedFile = $this->outputDir.'DeployTask'.$timestamp.'.php';
         \mkdir($this->outputDir, 0755, true);
         \file_put_contents($expectedFile, '<?php // placeholder');
 
-        $this->tester->execute(['name' => 'Existing', '--dir' => $this->outputDir]);
+        $this->tester->execute(['--dir' => $this->outputDir]);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('File already exists', $this->tester->getDisplay());
@@ -117,7 +104,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         // The command normalizes the path, so clean up at the resolved location
         $resolvedDir = \dirname(__DIR__, 3).'/var/nested/generate-test-'.$uniqueId.'/';
-        $files = \glob($resolvedDir.'Task*.php');
+        $files = \glob($resolvedDir.'DeployTask*.php');
         self::assertNotFalse($files);
 
         foreach ($files as $file) {
