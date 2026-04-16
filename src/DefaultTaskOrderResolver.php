@@ -14,7 +14,7 @@ use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
  *
  * Sorting rules (applied in order):
  *  1. Priority DESC (higher priority runs first)
- *  2. Date extracted from ID (format YYYY_MM_DD) ASC (older tasks run first)
+ *  2. Date extracted from ID (8 consecutive digits, YYYYMMDD) ASC (older tasks run first)
  *  3. Original registration order preserved for ties (stable sort)
  *
  * @internal
@@ -70,11 +70,11 @@ final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
     }
 
     /**
-     * Extracts a date string (YYYY_MM_DD) from an ID, or returns null if none found.
+     * Extracts a date string (8 consecutive digits, YYYYMMDD) from an ID, or returns null if none found.
      */
     private function extractDate(string $id): ?string
     {
-        if (1 === \preg_match('/(\d{4}_\d{2}_\d{2})/', $id, $matches)) {
+        if (1 === \preg_match('/(\d{8})/', $id, $matches)) {
             return $matches[1];
         }
 
