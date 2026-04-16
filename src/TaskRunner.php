@@ -55,19 +55,7 @@ final class TaskRunner
      */
     public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): RunResult
     {
-        if (null === $this->lockFactory) {
-            $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
-        }
-
-        $lock = $this->lockFactory?->createLock('deploy_tasks_run', 3600);
-
-        if (null !== $lock && !$lock->acquire()) {
-            $output->writeln('<error>Another deploytasks:run process is already running.</error>');
-
-            return new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
-        }
-
-        try {
+        $result = $this->withLock($output, function () use ($output, $dryRun, $force, $groups): RunResult {
             $tasks = \array_values($this->registry->all($this->environment, $groups));
             $ordered = $this->resolver->resolve($tasks);
             /** @var list<?string> $effectiveGroups */
@@ -86,9 +74,9 @@ final class TaskRunner
             }
 
             return $this->executeAll($ordered, $output, $force, $effectiveGroups);
-        } finally {
-            $lock?->release();
-        }
+        });
+
+        return $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
     }
 
     /**
@@ -108,21 +96,58 @@ final class TaskRunner
      */
     public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
     {
-        $task = $this->registry->get($taskId);
-        $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
-        $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
+        $result = $this->withLock($output, function () use ($taskId, $output, $force, $groups): TaskResult {
+            $task = $this->registry->get($taskId);
+            $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
 
-        if ([] === $pendingSlots) {
-            $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
+            if ([] === $pendingSlots) {
+                $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
 
-            return TaskResult::SKIPPED;
+                return TaskResult::SKIPPED;
+            }
+
+            $outcome = $this->executeTask($task, $output);
+
+            $this->persistOutcome($taskId, $outcome, $pendingSlots);
+
+            return $outcome->result;
+        });
+
+        return $result ?? TaskResult::LOCKED;
+    }
+
+    /**
+     * Acquires the shared run lock, executes the operation, and releases on the way out.
+     *
+     * Returns null when the lock is already held by another process — caller must map that
+     * to its own sentinel (RunResult::$locked or TaskResult::LOCKED).
+     *
+     * @template T
+     *
+     * @param \Closure(): T $operation
+     *
+     * @return T|null
+     */
+    private function withLock(OutputInterface $output, \Closure $operation): mixed
+    {
+        if (null === $this->lockFactory) {
+            $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
         }
 
-        $outcome = $this->executeTask($task, $output);
+        $lock = $this->lockFactory?->createLock('deploy_tasks_run', 3600);
 
-        $this->persistOutcome($taskId, $outcome, $pendingSlots);
+        if (null !== $lock && !$lock->acquire()) {
+            $output->writeln('<error>Another deploytasks:run process is already running.</error>');
 
-        return $outcome->result;
+            return null;
+        }
+
+        try {
+            return $operation();
+        } finally {
+            $lock?->release();
+        }
     }
 
     /**
