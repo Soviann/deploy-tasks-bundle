@@ -24,7 +24,7 @@ Three layers, dependency flows inward only: Contract ← Component ← Bundle.
 ## Service Registration
 
 - Tasks tagged `deploy_tasks.task` via autoconfiguration on `DeployTaskInterface`
-- `#[AsDeployTask(id, priority, env, timeout, transactional, description)]` carries task metadata; `AsDeployTask::of()` is the **single attribute reader**
+- `#[AsDeployTask(id, priority, env, timeout, transactional, description, groups)]` carries task metadata; `AsDeployTask::of()` is the **single attribute reader**, `AsDeployTask::groupsOf()` returns declared groups
 - Autowirable aliases: `TaskStorageInterface`, `TransactionalStorageInterface`, `TaskIdGeneratorInterface`, `TaskOrderResolverInterface`, `TaskRegistry`, `TaskRunner`
 
 ## Console Commands

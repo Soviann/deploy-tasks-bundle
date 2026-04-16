@@ -36,7 +36,6 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_iterator;
 
-/** @internal */
 final class DeployTasksBundle extends AbstractBundle
 {
     public function getPath(): string
