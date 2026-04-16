@@ -285,12 +285,20 @@ final class DbalStorage implements TransactionalStorageInterface
             throw new StorageException(\sprintf('Invalid executed_at value "%s" in storage row.', $executedAtRaw));
         }
 
+        $group = '' === $groupRaw ? null : $groupRaw;
+
+        try {
+            $status = TaskStatus::from($statusRaw);
+        } catch (\ValueError $e) {
+            throw StorageException::corruptedRow($id, $group, $statusRaw, $e);
+        }
+
         return new TaskExecution(
             id: $id,
-            status: TaskStatus::from($statusRaw),
+            status: $status,
             executedAt: $executedAt,
             error: $error,
-            group: '' === $groupRaw ? null : $groupRaw,
+            group: $group,
         );
     }
 }
