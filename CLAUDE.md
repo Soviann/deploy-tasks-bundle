@@ -17,13 +17,13 @@ Pure PHP interfaces, attributes, enums, and value objects. No Symfony imports ex
 - `TaskIdProviderInterface` — opt-in on tasks to supply a dynamic ID via `getTaskId(): string`
 - `TaskIdGeneratorInterface` — service: `generate(class-string): string` plus static `generateStatic()` for compile time
 - `TaskOrderResolverInterface` — controls task execution order via `resolve(array): OrderedTaskCollection`
-- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `all()`
+- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`.
 - `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
 - `OrderedTaskCollection` — immutable, variadic-typed collection of `DeployTaskInterface`
-- `TaskExecution` — readonly value object: id, status, executedAt, error
+- `TaskExecution` — readonly value object: id, status, executedAt, error, group
 - `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
-- `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`
-- `Attribute\AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description). Static `AsDeployTask::of()` is the **single attribute reader**.
+- `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`, `LOCKED`
+- `Attribute\AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
 
 ### Component Layer (`src/`)
 Storage backends, registry, runner, resolvers, events. Framework-agnostic.
@@ -33,9 +33,9 @@ Storage backends, registry, runner, resolvers, events. Framework-agnostic.
 - `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
 - `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` suffix)
 - `DefaultTaskOrderResolver` — sort: priority DESC → date-from-id ASC → stable original order
-- `RunResult` — readonly: `$ran`, `$skipped`, `$failed`, `$errors`, `$locked`. `isSuccessful()`.
-- `Storage\FilesystemStorage` — JSON file per task with `LOCK_EX`. Warns if path traverses `/public/`.
-- `Storage\DbalStorage` — implements `TransactionalStorageInterface`. Static `getCreateTableSql()`. SQLite/MySQL/PostgreSQL.
+- `RunResult` — readonly: `$ran`, `$skipped`, `$failed`, `$locked`. `isSuccessful()`.
+- `Storage\FilesystemStorage` — JSON file per `(task, group)` slot with `LOCK_EX`. Default slot → `<id>.json`; grouped slot → `<id>@<slug>.json`. Warns if path traverses `/public/`.
+- `Storage\DbalStorage` — implements `TransactionalStorageInterface`. Instance `getCreateTableSql()`, `createSchema()`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
 - `Storage\DbalStorageConfiguration` — table/column names DTO
 - `Storage\InMemoryStorage` — array-backed storage for tests
 - `Event\BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` — all carry `string $taskId`
