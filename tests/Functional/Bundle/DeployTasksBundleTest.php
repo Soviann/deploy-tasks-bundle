@@ -10,6 +10,7 @@ use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
+use Soviann\DeployTasks\Exception\IncompatibleStorageException;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
 use Soviann\DeployTasks\TaskIdResolver;
@@ -23,6 +24,7 @@ use Soviann\DeployTasks\Tests\Functional\CustomStorageTestKernel;
 use Soviann\DeployTasks\Tests\Functional\CustomTransactionalStorageTestKernel;
 use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasks\Tests\Functional\IncompatibleAllOrNothingTestKernel;
 use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
 use Soviann\DeployTasks\Tests\Functional\TestKernel;
 use Symfony\Component\Lock\LockFactory;
@@ -172,6 +174,16 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
         self::expectException(\InvalidArgumentException::class);
         self::expectExceptionMessage('"deploy_tasks.storage.custom.service" must be set when "deploy_tasks.storage.type" is "custom".');
+
+        self::bootKernel();
+    }
+
+    public function testBootFailsWhenAllOrNothingWithNonTransactionalStorage(): void
+    {
+        static::$class = IncompatibleAllOrNothingTestKernel::class;
+
+        self::expectException(IncompatibleStorageException::class);
+        self::expectExceptionMessage(FilesystemStorage::class);
 
         self::bootKernel();
     }
