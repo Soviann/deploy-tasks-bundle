@@ -18,7 +18,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksSkipCommand::class)]
 #[CoversClass(DeployTasksResetCommand::class)]
-final class DeployRunEdgeCasesTest extends FunctionalTestCase
+final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
 {
     private CommandTester $skipTester;
     private CommandTester $resetTester;
