@@ -339,4 +339,22 @@ final class DbalStorageTest extends TestCase
 
         $this->storage->get('task.badstatus');
     }
+
+    public function testConcurrentSaveOverwritesAtomically(): void
+    {
+        $first = new TaskExecution('task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-16T10:00:00+00:00'));
+        $second = new TaskExecution('task.race', TaskStatus::Failed, new \DateTimeImmutable('2026-04-16T10:00:01+00:00'), 'second-write');
+        $third = new TaskExecution('task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-16T10:00:02+00:00'));
+
+        $this->storage->save($first);
+        $this->storage->save($second);
+        $this->storage->save($third);
+
+        $retrieved = $this->storage->get('task.race');
+
+        self::assertNotNull($retrieved);
+        self::assertSame(TaskStatus::Ran, $retrieved->status, 'Last write must win — DELETE+INSERT in transaction makes the sequence atomic.');
+        self::assertNull($retrieved->error);
+        self::assertCount(1, $this->storage->all(), 'No PK conflict — exactly one row remains for the (id, group) pair.');
+    }
 }
