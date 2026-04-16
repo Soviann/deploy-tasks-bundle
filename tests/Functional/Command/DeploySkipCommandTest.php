@@ -54,7 +54,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $this->tester->execute(['id' => 'test.predeploy']);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
-        self::assertStringContainsString('specify --group', $this->tester->getDisplay());
+        self::assertStringContainsString('specify --group', \preg_replace('/\s+/', ' ', $this->tester->getDisplay()));
     }
 
     public function testSkipMarksOnlyTargetSlot(): void
