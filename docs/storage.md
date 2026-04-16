@@ -100,7 +100,7 @@ Both require a storage backend implementing `TransactionalStorageInterface` (the
 `InMemoryStorage` is provided for use in tests only. It is not registered as a bundle service and must be instantiated directly:
 
 ```php
-use Soviann\DeployTasks\Storage\InMemoryStorage;
+use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 
 $storage = new InMemoryStorage();
 ```
@@ -110,7 +110,7 @@ $storage = new InMemoryStorage();
 Use `type: custom` to plug in any `TaskStorageInterface` implementation. Implement the interface and register your class as a service:
 
 ```php
-use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 
 final class RedisStorage implements TaskStorageInterface
 {

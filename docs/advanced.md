@@ -5,9 +5,9 @@
 Implement `TaskOrderResolverInterface` to define a custom task execution order.
 
 ```php
-use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
-use Soviann\DeployTasks\Contract\OrderedTaskCollection;
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
+use Soviann\DeployTasksBundle\Ordering\OrderedTaskCollection;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
 
 final class MyOrderResolver implements TaskOrderResolverInterface
 {
@@ -77,7 +77,7 @@ If the active storage does not implement `TransactionalStorageInterface`, `trans
 Implement `TaskIdGeneratorInterface` to customize how task IDs are derived from class names. The default generator (`DefaultTaskIdGenerator`) produces IDs like `task_20260412143000_seed_categories`.
 
 ```php
-use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
+use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 
 final class MyIdGenerator implements TaskIdGeneratorInterface
 {

@@ -8,18 +8,12 @@ DeployTasksBundle — Symfony bundle for one-time deploy tasks (data migrations,
 
 ## Architecture
 
-Three layers, dependency flows inward only: Contract ← Component ← Bundle.
-
-- **Contract** (`src/Contract/`): pure PHP interfaces, enums, attributes, value objects. No Symfony imports except `OutputInterface`.
-- **Component** (`src/`): `TaskRegistry`, `TaskRunner`, `TaskIdResolver` (`@internal`), `DefaultTaskIdGenerator` (`@internal`), `DefaultTaskOrderResolver`, `RunResult`, storage backends (`Filesystem`, `Dbal`, `InMemory`), events.
-- **Bundle** (`src/Bundle/`): `DeployTasksBundle` (`AbstractBundle`), `RegisterTasksCompilerPass`, 7 console commands.
+Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Ordering/`, `Runner/`, `Storage/` with `Dbal/`, `Filesystem/`, `InMemory/` sub-namespaces). Root-level public API: `DeployTaskInterface`, `DeployTasksBundle`, `TaskResult`.
 
 ## Namespaces
 
-- `Soviann\DeployTasks\Contract\` — contracts
-- `Soviann\DeployTasks\` — component
-- `Soviann\DeployTasksBundle\` — bundle (under `src/Bundle/`)
-- `Soviann\DeployTasks\Tests\` — tests (under `tests/`)
+- `Soviann\DeployTasksBundle\` — all bundle classes (under `src/`)
+- `Soviann\DeployTasksBundle\Tests\` — tests (under `tests/`)
 
 ## Service Registration
 
