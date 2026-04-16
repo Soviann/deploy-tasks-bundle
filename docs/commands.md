@@ -126,15 +126,8 @@ Generate a new deploy task class with a timestamp-based ID.
 
 ```bash
 bin/console deploytasks:generate
-bin/console deploytasks:generate SeedCategories
-bin/console deploytasks:generate SeedCategories --dir=src/Task/
+bin/console deploytasks:generate --dir=src/Task/
 ```
-
-**Arguments:**
-
-| Argument | Description |
-|---|---|
-| `name` | Optional descriptive suffix for the class name (e.g. `SeedCategories`) |
 
 **Options:**
 
@@ -142,9 +135,9 @@ bin/console deploytasks:generate SeedCategories --dir=src/Task/
 |---|---|---|
 | `--dir` | `src/DeployTasks/Task/` | Target directory for the generated file |
 
-The generated class name is `Task<YYYYMMDDHHmmss>[Name].php` and the task ID follows the convention `task_<YYYYMMDDHHmmss>[_name]`. The namespace is derived from the target directory by converting path segments to `PascalCase` (e.g. `src/DeployTasks/Task/` becomes `App\DeployTasks\Task`).
+The generated class name is `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`). The task ID is auto-derived from the class name by the configured `TaskIdGeneratorInterface`: the default generator strips the `DeployTask` prefix and returns the raw timestamp (e.g. `20260412143000`). The namespace is derived from the target directory by converting path segments to `PascalCase` (e.g. `src/DeployTasks/Task/` becomes `App\DeployTasks\Task`).
 
-The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute pre-configured with the generated ID, and provides a stub `run()` method.
+The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute, and provides a stub `run()` method. Rename the class after generation if you want a more descriptive name — the default ID generator also handles `SeedCategoriesTask` and similar CamelCase names.
 
 ---
 

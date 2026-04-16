@@ -26,11 +26,15 @@ final class DefaultTaskIdGeneratorTest extends TestCase
     {
         yield 'strips Task suffix' => ['SeedCategoriesTask', 'seed_categories'];
         yield 'strips DeployTask suffix' => ['SeedCategoriesDeployTask', 'seed_categories'];
+        yield 'strips DeployTask prefix (timestamp class)' => ['DeployTask20260416205300', '20260416205300'];
+        yield 'strips DeployTask prefix (with name)' => ['DeployTaskSeedCategories', 'seed_categories'];
+        yield 'strips Task prefix' => ['TaskSeedCategories', 'seed_categories'];
         yield 'no suffix — converts CamelCase as-is' => ['SeedCategories', 'seed_categories'];
         yield 'falls back when only Task remains' => ['Task', 'task'];
         yield 'falls back when only DeployTask remains' => ['DeployTask', 'deploy_task'];
         yield 'uses short class name (FQCN)' => ['App\Tasks\SeedCategories', 'seed_categories'];
         yield 'uses short class name with Task suffix (FQCN)' => ['App\Tasks\SeedCategoriesTask', 'seed_categories'];
+        yield 'uses short class name with DeployTask prefix (FQCN)' => ['App\Tasks\DeployTask20260416205300', '20260416205300'];
     }
 
     /**
