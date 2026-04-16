@@ -117,6 +117,12 @@ final class DeployTasksRunCommand extends Command
             return Command::INVALID;
         }
 
+        if (TaskResult::LOCKED === $taskResult) {
+            $io->warning('Run skipped: another process is already running.');
+
+            return Command::FAILURE;
+        }
+
         return TaskResult::FAILURE === $taskResult ? Command::FAILURE : Command::SUCCESS;
     }
 

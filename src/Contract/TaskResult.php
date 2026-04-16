@@ -16,4 +16,5 @@ enum TaskResult: int
     case SUCCESS = 0;
     case FAILURE = 1;
     case SKIPPED = 2;
+    case LOCKED = 3;
 }
