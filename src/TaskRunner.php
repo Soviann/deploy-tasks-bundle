@@ -8,7 +8,6 @@ use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\OrderedTaskCollection;
 use Soviann\DeployTasks\Contract\TaskExecution;
-use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskResult;
 use Soviann\DeployTasks\Contract\TaskStatus;
@@ -32,7 +31,7 @@ final class TaskRunner
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
         private readonly TaskOrderResolverInterface $resolver,
-        private readonly TaskIdResolverInterface $idResolver,
+        private readonly TaskIdResolver $idResolver,
         private readonly ?EventDispatcherInterface $dispatcher = null,
         private readonly ?LockFactory $lockFactory = null,
         private readonly int $defaultTimeout = 300,

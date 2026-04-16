@@ -8,7 +8,6 @@ use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
 use Soviann\DeployTasks\Contract\TaskIdProviderInterface;
-use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 
 /**
  * Resolves the canonical ID for a deploy task.
@@ -23,7 +22,7 @@ use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
  *
  * @internal
  */
-final class DefaultTaskIdResolver implements TaskIdResolverInterface
+final class TaskIdResolver
 {
     public function __construct(
         private readonly TaskIdGeneratorInterface $generator = new DefaultTaskIdGenerator(),

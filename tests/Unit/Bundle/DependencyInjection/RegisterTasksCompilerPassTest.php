@@ -7,7 +7,7 @@ namespace Soviann\DeployTasks\Tests\Unit\Bundle\DependencyInjection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasks\DefaultTaskIdGenerator;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasksBundle\DependencyInjection\RegisterTasksCompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -21,7 +21,7 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $container = new ContainerBuilder();
 
         // Register the default resolver so validation runs
-        $resolverDef = new Definition(DefaultTaskIdResolver::class);
+        $resolverDef = new Definition(TaskIdResolver::class);
         $container->setDefinition('deploy_tasks.id_resolver', $resolverDef);
 
         $generatorDef = new Definition(DefaultTaskIdGenerator::class);

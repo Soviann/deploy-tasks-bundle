@@ -5,14 +5,14 @@
 Use `InMemoryStorage` to test task logic without touching the filesystem or database.
 
 ```php
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 
 $storage = new InMemoryStorage();
-$idResolver = new DefaultTaskIdResolver();
+$idResolver = new TaskIdResolver();
 $registry = new TaskRegistry([$yourTask], $idResolver);
 $runner = new TaskRunner($registry, $storage, new DefaultTaskOrderResolver($idResolver), $idResolver);
 ```

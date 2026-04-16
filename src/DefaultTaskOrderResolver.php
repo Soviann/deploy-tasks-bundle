@@ -7,7 +7,6 @@ namespace Soviann\DeployTasks;
 use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\OrderedTaskCollection;
-use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 
 /**
@@ -23,7 +22,7 @@ use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
 {
     public function __construct(
-        private readonly TaskIdResolverInterface $idResolver,
+        private readonly TaskIdResolver $idResolver,
     ) {
     }
 
