@@ -9,6 +9,7 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskIdGenerator;
+use Soviann\DeployTasks\Exception\IncompatibleStorageException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -25,6 +26,39 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         $this->validateTaggedTasks($container);
         $this->wireOptionalDependencies($container);
         $this->maybeAliasTransactionalCustomStorage($container);
+        $this->validateAllOrNothingStorage($container);
+    }
+
+    /**
+     * When `all_or_nothing` is enabled, the configured storage MUST implement
+     * TransactionalStorageInterface — otherwise a partial run cannot be rolled back.
+     *
+     * Deferred to the compiler pass because custom storage services are not visible
+     * during extension loading.
+     */
+    private function validateAllOrNothingStorage(ContainerBuilder $container): void
+    {
+        if (!$container->hasParameter('deploy_tasks.runner.all_or_nothing')) {
+            return;
+        }
+
+        /** @var bool $allOrNothing */
+        $allOrNothing = $container->getParameter('deploy_tasks.runner.all_or_nothing');
+        $container->getParameterBag()->remove('deploy_tasks.runner.all_or_nothing');
+
+        if (!$allOrNothing) {
+            return;
+        }
+
+        $class = $container->findDefinition('deploy_tasks.storage')->getClass();
+
+        if (null === $class) {
+            return;
+        }
+
+        if (!\is_a($class, TransactionalStorageInterface::class, true)) {
+            throw IncompatibleStorageException::allOrNothingRequiresTransactional($class);
+        }
     }
 
     /**

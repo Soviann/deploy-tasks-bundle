@@ -219,6 +219,8 @@ final class DeployTasksBundle extends AbstractBundle
         /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
         $activeStorage = $storageConfig[$storageConfig['type']];
 
+        $builder->setParameter('deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
+
         $services->set('deploy_tasks.runner', TaskRunner::class)
             ->args([
                 service('deploy_tasks.registry'),
