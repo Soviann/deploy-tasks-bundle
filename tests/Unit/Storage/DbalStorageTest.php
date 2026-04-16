@@ -320,4 +320,23 @@ final class DbalStorageTest extends TestCase
 
         $this->storage->get('task.baddate');
     }
+
+    public function testCorruptedStatusRowThrowsStorageException(): void
+    {
+        $this->connection->insert(
+            'deploy_task_executions',
+            [
+                'id' => 'task.badstatus',
+                'task_group' => '',
+                'status' => 'unknown',
+                'executed_at' => (new \DateTimeImmutable('2026-04-16T10:00:00+00:00'))->format(\DateTimeInterface::ATOM),
+                'error' => null,
+            ],
+        );
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/task\.badstatus.*unknown/');
+
+        $this->storage->get('task.badstatus');
+    }
 }
