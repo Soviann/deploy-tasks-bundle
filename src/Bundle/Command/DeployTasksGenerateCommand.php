@@ -132,7 +132,7 @@ final class DeployTasksGenerateCommand extends Command
                 use Soviann\DeployTasks\Contract\TaskResult;
                 use Symfony\Component\Console\Output\OutputInterface;
 
-                #[AsDeployTask(id: '{$taskId}', description: '{$description}')]
+                #[AsDeployTask(description: '{$description}')]
                 final class {$className} implements DeployTaskInterface
                 {
                     public function getDescription(): string

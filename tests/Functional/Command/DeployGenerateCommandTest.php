@@ -70,7 +70,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $content = \file_get_contents($files[0]);
         self::assertNotFalse($content);
-        self::assertStringContainsString('seed_categories', $content);
+        self::assertStringContainsString('Seed categories', $content);
         self::assertStringContainsString('DeployTaskInterface', $content);
     }
 
