@@ -15,7 +15,7 @@ All events are in the `Soviann\DeployTasks\Event\` namespace.
 | Event | When | Properties |
 |---|---|---|
 | `BeforeTaskEvent` | Before each task runs | `string $taskId`, `DeployTaskInterface $task` |
-| `AfterTaskEvent` | After non-exceptional execution | `string $taskId`, `DeployTaskInterface $task`, `int $result`, `float $duration` |
+| `AfterTaskEvent` | After non-exceptional execution | `string $taskId`, `DeployTaskInterface $task`, `TaskResult $result`, `float $duration` |
 | `TaskFailedEvent` | On exception | `string $taskId`, `DeployTaskInterface $task`, `\Throwable $exception`, `float $duration` |
 
 ## Listener Example
