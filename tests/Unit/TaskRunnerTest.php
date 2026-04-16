@@ -16,6 +16,7 @@ use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
 use Soviann\DeployTasks\Event\TaskFailedEvent;
+use Soviann\DeployTasks\Exception\StorageException;
 use Soviann\DeployTasks\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasks\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasks\Exception\TaskNotFoundException;
@@ -301,6 +302,42 @@ final class TaskRunnerTest extends TestCase
         $runner->runAll($this->output);
 
         self::assertStringContainsString('No lock factory configured', $this->output->fetch());
+    }
+
+    public function testStorageFailureDuringPersistPropagates(): void
+    {
+        $dispatched = [];
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')
+            ->willReturnCallback(static function (object $event) use (&$dispatched): object {
+                $dispatched[] = $event;
+
+                return $event;
+            });
+
+        $storage = $this->createMock(TaskStorageInterface::class);
+        $storage->method('has')->willReturn(false);
+        $storage->method('get')->willReturn(null);
+        $storage->method('save')->willThrowException(
+            StorageException::writeError('task.1', new \RuntimeException('disk full')),
+        );
+
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            storage: $storage,
+            dispatcher: $dispatcher,
+        );
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected StorageException to propagate from persistOutcome');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('task.1', $e->getMessage());
+        }
+
+        self::assertCount(2, $dispatched, 'Before/After events must fire before persistOutcome');
+        self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
+        self::assertInstanceOf(AfterTaskEvent::class, $dispatched[1]);
     }
 
     public function testSkippedTaskStatus(): void
