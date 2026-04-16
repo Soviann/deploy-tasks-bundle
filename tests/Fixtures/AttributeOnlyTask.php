@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Fixtures;
+namespace Soviann\DeployTasksBundle\Tests\Fixtures;
 
-use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**

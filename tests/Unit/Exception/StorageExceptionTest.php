@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Exception;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Exception;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Exception\StorageException;
+use Soviann\DeployTasksBundle\Exception\StorageException;
 
 #[CoversClass(StorageException::class)]
 final class StorageExceptionTest extends TestCase

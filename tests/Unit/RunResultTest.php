@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit;
+namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\RunResult;
+use Soviann\DeployTasksBundle\Runner\RunResult;
 
 #[CoversClass(RunResult::class)]
 final class RunResultTest extends TestCase

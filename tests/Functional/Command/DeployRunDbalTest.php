@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional\Command;
+namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use Soviann\DeployTasks\Bundle\Command\DeployTasksRunCommand;
-use Soviann\DeployTasks\Contract\TaskStatus;
-use Soviann\DeployTasks\Contract\TaskStorageInterface;
-use Soviann\DeployTasks\Storage\DbalStorage;
-use Soviann\DeployTasks\Tests\Functional\DbalTestKernel;
-use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;

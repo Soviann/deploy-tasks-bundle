@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional;
+namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 

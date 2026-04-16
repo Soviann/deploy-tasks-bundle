@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Exception;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Exception;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 
 #[CoversClass(TaskNotFoundException::class)]
 final class TaskNotFoundExceptionTest extends TestCase

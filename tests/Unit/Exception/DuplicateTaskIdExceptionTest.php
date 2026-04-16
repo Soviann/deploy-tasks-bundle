@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Exception;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Exception;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Exception\DuplicateTaskIdException;
+use Soviann\DeployTasksBundle\Exception\DuplicateTaskIdException;
 
 #[CoversClass(DuplicateTaskIdException::class)]
 final class DuplicateTaskIdExceptionTest extends TestCase

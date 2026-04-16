@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Fixtures;
+namespace Soviann\DeployTasksBundle\Tests\Fixtures;
 
-use Soviann\DeployTasks\Contract\TaskIdProviderInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 final class SimpleTask implements TaskIdProviderInterface

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Fixtures;
+namespace Soviann\DeployTasksBundle\Tests\Fixtures;
 
-use Soviann\DeployTasks\Contract\TaskExecution;
-use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 
 final class TransactionalInMemoryStorageFixture implements TransactionalStorageInterface
 {

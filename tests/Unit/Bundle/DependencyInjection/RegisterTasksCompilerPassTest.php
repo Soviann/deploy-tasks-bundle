@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Bundle\DependencyInjection;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\DefaultTaskIdGenerator;
-use Soviann\DeployTasks\TaskIdResolver;
-use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
-use Soviann\DeployTasksBundle\DependencyInjection\RegisterTasksCompilerPass;
+use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
+use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
+use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 
@@ -28,7 +28,7 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $container->setDefinition('deploy_tasks.id_generator', $generatorDef);
 
         // Register the runner (needed by wireOptionalDependencies)
-        $runnerDef = new Definition('Soviann\DeployTasks\TaskRunner');
+        $runnerDef = new Definition('Soviann\DeployTasksBundle\Runner\TaskRunner');
         $container->setDefinition('deploy_tasks.runner', $runnerDef);
         $container->setParameter('deploy_tasks.events.enabled', false);
         $container->setParameter('deploy_tasks.lock.enabled', false);

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Contract;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Contract;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Contract\TaskExecution;
-use Soviann\DeployTasks\Contract\TaskStatus;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
 
 #[CoversClass(TaskExecution::class)]
 final class TaskExecutionTest extends TestCase

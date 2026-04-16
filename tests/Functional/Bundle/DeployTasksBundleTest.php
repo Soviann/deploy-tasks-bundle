@@ -2,31 +2,31 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional\Bundle;
+namespace Soviann\DeployTasksBundle\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use Soviann\DeployTasks\Bundle\DeployTasksBundle;
-use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
-use Soviann\DeployTasks\Contract\TaskStorageInterface;
-use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
-use Soviann\DeployTasks\DefaultTaskOrderResolver;
-use Soviann\DeployTasks\Exception\IncompatibleStorageException;
-use Soviann\DeployTasks\Storage\FilesystemStorage;
-use Soviann\DeployTasks\Storage\InMemoryStorage;
-use Soviann\DeployTasks\TaskIdResolver;
-use Soviann\DeployTasks\TaskRegistry;
-use Soviann\DeployTasks\TaskRunner;
-use Soviann\DeployTasks\Tests\Fixtures\CustomOrderResolverFixture;
-use Soviann\DeployTasks\Tests\Fixtures\TransactionalInMemoryStorageFixture;
-use Soviann\DeployTasks\Tests\Functional\CustomResolverTestKernel;
-use Soviann\DeployTasks\Tests\Functional\CustomStorageMissingServiceTestKernel;
-use Soviann\DeployTasks\Tests\Functional\CustomStorageTestKernel;
-use Soviann\DeployTasks\Tests\Functional\CustomTransactionalStorageTestKernel;
-use Soviann\DeployTasks\Tests\Functional\EventsEnabledTestKernel;
-use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
-use Soviann\DeployTasks\Tests\Functional\IncompatibleAllOrNothingTestKernel;
-use Soviann\DeployTasks\Tests\Functional\LockEnabledTestKernel;
-use Soviann\DeployTasks\Tests\Functional\TestKernel;
+use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
+use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
+use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
+use Soviann\DeployTasksBundle\Runner\TaskRegistry;
+use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
+use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
+use Soviann\DeployTasksBundle\Tests\Fixtures\CustomOrderResolverFixture;
+use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
+use Soviann\DeployTasksBundle\Tests\Functional\CustomResolverTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageMissingServiceTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\CustomTransactionalStorageTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\EventsEnabledTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Tests\Functional\IncompatibleAllOrNothingTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\LockEnabledTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Component\Lock\LockFactory;
 
 #[CoversClass(DeployTasksBundle::class)]

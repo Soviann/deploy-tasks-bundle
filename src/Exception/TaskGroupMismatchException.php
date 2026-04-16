@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Exception;
+namespace Soviann\DeployTasksBundle\Exception;
 
 /**
  * Thrown when a --group value targets a task that does not declare that group.
