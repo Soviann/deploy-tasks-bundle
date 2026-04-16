@@ -131,6 +131,9 @@ jobs:
           composer global config --no-plugins allow-plugins.symfony/flex true
           composer global require --no-progress --no-scripts --no-plugins symfony/flex
 
+      - name: Ignore Symfony security advisories blocking resolution
+        run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
+
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress ${{ matrix.composer-flags }}
 
