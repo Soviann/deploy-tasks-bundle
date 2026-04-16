@@ -102,9 +102,9 @@ use Soviann\DeployTasks\Storage\InMemoryStorage;
 $storage = new InMemoryStorage();
 ```
 
-## Custom storage
+## Custom
 
-Implement `TaskStorageInterface` to use a custom backend:
+Use `type: custom` to plug in any `TaskStorageInterface` implementation. Implement the interface and register your class as a service:
 
 ```php
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
@@ -115,15 +115,24 @@ final class RedisStorage implements TaskStorageInterface
 }
 ```
 
-If your backend supports transactions, implement `TransactionalStorageInterface` instead (which extends `TaskStorageInterface`).
-
-Register the service and alias it:
+If your backend supports transactions, implement `TransactionalStorageInterface` (which extends `TaskStorageInterface`) — the bundle detects this automatically and exposes your storage as both interfaces.
 
 ```yaml
+# config/services.yaml
 services:
     App\Storage\RedisStorage:
         arguments: ['@redis']
-
-    Soviann\DeployTasks\Contract\TaskStorageInterface: '@App\Storage\RedisStorage'
-    deploy_tasks.storage: '@App\Storage\RedisStorage'
 ```
+
+```yaml
+# config/packages/deploy_tasks.yaml
+deploy_tasks:
+    storage:
+        type: custom
+        custom:
+            service: App\Storage\RedisStorage    # service ID of your TaskStorageInterface implementation
+            transactional: false                 # requires TransactionalStorageInterface
+            all_or_nothing: false                # requires TransactionalStorageInterface
+```
+
+`transactional` and `all_or_nothing` have no effect unless the custom service implements `TransactionalStorageInterface`.
