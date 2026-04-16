@@ -90,7 +90,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $this->tester->execute(['--dir' => '/tmp/outside-project/']);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
-        self::assertStringContainsString('outside the project root', $this->tester->getDisplay());
+        self::assertStringContainsString('outside the project root', \preg_replace('/\s+/', ' ', $this->tester->getDisplay()));
     }
 
     public function testGenerateAllowsTraversalWithinProjectRoot(): void
@@ -120,7 +120,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $this->tester->execute(['--dir' => 'src/../../../../../../tmp/evil/']);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
-        self::assertStringContainsString('outside the project root', $this->tester->getDisplay());
+        self::assertStringContainsString('outside the project root', \preg_replace('/\s+/', ' ', $this->tester->getDisplay()));
     }
 
     protected static function getKernelClass(): string
