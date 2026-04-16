@@ -270,4 +270,40 @@ final class FilesystemStorageTest extends TestCase
 
         $this->storage->get('task.baddate');
     }
+
+    public function testGroupSlugCollisionDetected(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'a-b'));
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'), null, 'a_b'));
+
+        $first = $this->storage->get('task.1', 'a-b');
+        $second = $this->storage->get('task.1', 'a_b');
+
+        self::assertNotNull($first);
+        self::assertNotNull($second);
+        self::assertSame(TaskStatus::Ran, $first->status);
+        self::assertSame(TaskStatus::Failed, $second->status);
+    }
+
+    public function testGroupNameWithTraversalCharsIsSlugifiedSafely(): void
+    {
+        $this->storage->save(new TaskExecution(
+            'task.1',
+            TaskStatus::Ran,
+            new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+            null,
+            '../../../etc/passwd',
+        ));
+
+        $files = \glob($this->storagePath.'/*.json');
+        self::assertNotFalse($files);
+        self::assertCount(1, $files);
+
+        $resolvedFile = \realpath($files[0]);
+        $resolvedDir = \realpath($this->storagePath);
+
+        self::assertNotFalse($resolvedFile);
+        self::assertNotFalse($resolvedDir);
+        self::assertStringStartsWith($resolvedDir.'/', $resolvedFile, 'Slugified group must not escape the storage directory');
+    }
 }
