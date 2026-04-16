@@ -49,6 +49,39 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertStringContainsString('not registered', $this->tester->getDisplay());
     }
 
+    public function testSkipGroupedTaskRequiresGroupFlag(): void
+    {
+        $this->tester->execute(['id' => 'test.predeploy']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('specify --group', $this->tester->getDisplay());
+    }
+
+    public function testSkipMarksOnlyTargetSlot(): void
+    {
+        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+        self::assertFalse($storage->has('test.multi_group'));
+
+        $execution = $storage->get('test.multi_group', 'predeploy');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    public function testSkipUndeclaredGroupFails(): void
+    {
+        $this->tester->execute(['id' => 'test.predeploy', '--group' => 'postdeploy']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

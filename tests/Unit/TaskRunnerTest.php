@@ -16,6 +16,8 @@ use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
 use Soviann\DeployTasks\Event\TaskFailedEvent;
+use Soviann\DeployTasks\Exception\TaskGroupMismatchException;
+use Soviann\DeployTasks\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasks\Exception\TaskNotFoundException;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
@@ -23,6 +25,8 @@ use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 use Soviann\DeployTasks\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasks\Tests\Fixtures\MultiGroupTask;
+use Soviann\DeployTasks\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasks\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasks\Tests\Fixtures\TransactionalTask;
@@ -429,6 +433,97 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output);
 
         self::assertTrue($result->locked);
+    }
+
+    public function testRunAllWithGroupFilterOnlyRunsGroupTasks(): void
+    {
+        $runner = $this->createRunner([
+            new SimpleTask('task.default'),
+            new PredeployTask(),
+        ]);
+
+        $result = $runner->runAll($this->output, groups: ['predeploy']);
+
+        self::assertSame(1, $result->ran);
+        self::assertFalse($this->storage->has('task.default'));
+        self::assertTrue($this->storage->has('test.predeploy', 'predeploy'));
+        self::assertFalse($this->storage->has('test.predeploy'));
+    }
+
+    public function testRunAllWithoutGroupExcludesGroupedTasks(): void
+    {
+        $runner = $this->createRunner([
+            new SimpleTask('task.default'),
+            new PredeployTask(),
+        ]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->ran);
+        self::assertTrue($this->storage->has('task.default'));
+        self::assertFalse($this->storage->has('test.predeploy'));
+        self::assertFalse($this->storage->has('test.predeploy', 'predeploy'));
+    }
+
+    public function testRunAllMultiGroupTaskRunsOncePerRequestedSlot(): void
+    {
+        $runner = $this->createRunner([new MultiGroupTask()]);
+
+        $result = $runner->runAll($this->output, groups: ['predeploy', 'postdeploy']);
+
+        self::assertSame(2, $result->ran);
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+        self::assertFalse($this->storage->has('test.multi_group'));
+    }
+
+    public function testRunAllMultiGroupTaskRunsOnlyRequestedSlot(): void
+    {
+        $runner = $this->createRunner([new MultiGroupTask()]);
+
+        $result = $runner->runAll($this->output, groups: ['predeploy']);
+
+        self::assertSame(1, $result->ran);
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testRunOneThrowsWhenTaskDeclaresGroupsAndNoneRequested(): void
+    {
+        $runner = $this->createRunner([new PredeployTask()]);
+
+        $this->expectException(TaskGroupRequiredException::class);
+
+        $runner->runOne('test.predeploy', $this->output);
+    }
+
+    public function testRunOneThrowsWhenRequestedGroupUndeclared(): void
+    {
+        $runner = $this->createRunner([new PredeployTask()]);
+
+        $this->expectException(TaskGroupMismatchException::class);
+
+        $runner->runOne('test.predeploy', $this->output, groups: ['postdeploy']);
+    }
+
+    public function testRunOneThrowsWhenDefaultTaskReceivesGroups(): void
+    {
+        $runner = $this->createRunner([new SimpleTask('task.default')]);
+
+        $this->expectException(TaskGroupMismatchException::class);
+
+        $runner->runOne('task.default', $this->output, groups: ['predeploy']);
+    }
+
+    public function testRunOneWritesOneRowPerRequestedGroup(): void
+    {
+        $runner = $this->createRunner([new MultiGroupTask()]);
+
+        $result = $runner->runOne('test.multi_group', $this->output, groups: ['predeploy', 'postdeploy']);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
     }
 
     /**

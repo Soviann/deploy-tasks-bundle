@@ -85,6 +85,30 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertStringContainsString('not registered', $this->tester->getDisplay());
     }
 
+    public function testResetWithoutGroupRemovesAllSlots(): void
+    {
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
+
+        $this->tester->execute(['id' => 'test.multi_group', '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testResetWithGroupRemovesSingleSlot(): void
+    {
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
+
+        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy', '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

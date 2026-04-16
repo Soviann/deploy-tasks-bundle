@@ -37,28 +37,47 @@ final class TaskRegistry
     }
 
     /**
-     * Returns registered tasks, keyed by ID. When an environment is given,
-     * only tasks that match that environment (or have no env restriction) are returned.
+     * Returns registered tasks, keyed by ID, after applying environment and group filters.
+     *
+     * - Env: null environment matches every task; otherwise keep tasks whose `env`
+     *   is null or contains the requested environment.
+     * - Groups: empty array returns default-only tasks (those with no declared groups);
+     *   a non-empty array returns tasks whose declared groups intersect with it.
+     *
+     * @param list<string> $groups
      *
      * @return array<string, DeployTaskInterface>
      */
-    public function all(?string $environment = null): array
+    public function all(?string $environment = null, array $groups = []): array
     {
-        if (null === $environment) {
-            return $this->tasks;
-        }
+        $filtered = [];
 
-        return \array_filter($this->tasks, static function (DeployTaskInterface $task) use ($environment): bool {
-            $attribute = AsDeployTask::of($task);
-
-            if (null === $attribute || null === $attribute->env) {
-                return true;
+        foreach ($this->tasks as $id => $task) {
+            if (!self::matchesEnvironment($task, $environment)) {
+                continue;
             }
 
-            $envs = \is_array($attribute->env) ? $attribute->env : [$attribute->env];
+            if (!self::matchesGroups($task, $groups)) {
+                continue;
+            }
 
-            return \in_array($environment, $envs, true);
-        });
+            $filtered[$id] = $task;
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * Returns every registered task keyed by ID, bypassing environment and group filters.
+     *
+     * Used by commands that report on or manipulate the full task inventory
+     * (status, rollup) rather than selecting tasks for a specific run.
+     *
+     * @return array<string, DeployTaskInterface>
+     */
+    public function allRegistered(): array
+    {
+        return $this->tasks;
     }
 
     /**
@@ -81,5 +100,40 @@ final class TaskRegistry
     public function has(string $id): bool
     {
         return isset($this->tasks[$id]);
+    }
+
+    private static function matchesEnvironment(DeployTaskInterface $task, ?string $environment): bool
+    {
+        if (null === $environment) {
+            return true;
+        }
+
+        $attribute = AsDeployTask::of($task);
+
+        if (null === $attribute || null === $attribute->env) {
+            return true;
+        }
+
+        $envs = \is_array($attribute->env) ? $attribute->env : [$attribute->env];
+
+        return \in_array($environment, $envs, true);
+    }
+
+    /**
+     * @param list<string> $requestedGroups
+     */
+    private static function matchesGroups(DeployTaskInterface $task, array $requestedGroups): bool
+    {
+        $declared = AsDeployTask::groupsOf($task);
+
+        if ([] === $requestedGroups) {
+            return null === $declared;
+        }
+
+        if (null === $declared) {
+            return false;
+        }
+
+        return [] !== \array_intersect($declared, $requestedGroups);
     }
 }

@@ -94,6 +94,33 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertTrue($this->storage->has('test.simple'));
     }
 
+    public function testRollupMarksEverySlotAcrossAllTasks(): void
+    {
+        $this->tester->execute(['--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        self::assertTrue($this->storage->has('test.simple'));
+        self::assertTrue($this->storage->has('test.predeploy', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testRollupWithGroupMarksOnlyMatchingSlots(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute(['--group' => ['predeploy'], '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        self::assertTrue($this->storage->has('test.predeploy', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+        // default-slot record must be preserved when filtering by group
+        self::assertTrue($this->storage->has('test.simple'));
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

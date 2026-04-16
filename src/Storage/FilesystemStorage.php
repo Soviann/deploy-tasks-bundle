@@ -10,7 +10,13 @@ use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Exception\StorageException;
 
 /**
- * Filesystem-backed task storage — stores one JSON file per task execution.
+ * Filesystem-backed task storage — stores one JSON file per (task id, group) pair.
+ *
+ * Filename layout:
+ * - Default slot (group = null): `<id>.json`
+ * - Named group slot: `<id>@<slug>.json` where `<slug>` is the group name with
+ *   non-filesystem-safe characters replaced by `_`. The `@` separator is
+ *   unambiguous because task IDs are restricted to `[a-zA-Z0-9._-]`.
  *
  * @internal
  */
@@ -30,20 +36,14 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
-    /**
-     * Whether an execution record exists for the given task ID.
-     */
-    public function has(string $taskId): bool
+    public function has(string $taskId, ?string $group = null): bool
     {
-        return \file_exists($this->filePath($taskId));
+        return \file_exists($this->filePath($taskId, $group));
     }
 
-    /**
-     * Returns the execution record for the given task ID, or null if not found.
-     */
-    public function get(string $taskId): ?TaskExecution
+    public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
-        $path = $this->filePath($taskId);
+        $path = $this->filePath($taskId, $group);
 
         if (!\file_exists($path)) {
             return null;
@@ -58,14 +58,11 @@ final class FilesystemStorage implements TaskStorageInterface
         return $this->decode($contents);
     }
 
-    /**
-     * Saves or updates an execution record.
-     */
     public function save(TaskExecution $execution): void
     {
         $this->ensureDirectoryExists();
 
-        $path = $this->filePath($execution->id);
+        $path = $this->filePath($execution->id, $execution->group);
         $json = \json_encode($this->toArray($execution), \JSON_THROW_ON_ERROR);
 
         if (false === \file_put_contents($path, $json, \LOCK_EX)) {
@@ -73,12 +70,9 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
-    /**
-     * Removes the execution record for the given task ID.
-     */
-    public function remove(string $taskId): void
+    public function remove(string $taskId, ?string $group = null): void
     {
-        $path = $this->filePath($taskId);
+        $path = $this->filePath($taskId, $group);
 
         if (!\file_exists($path)) {
             return;
@@ -89,10 +83,32 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
+    public function removeAll(string $taskId): void
+    {
+        $this->validateTaskId($taskId);
+
+        $patterns = [
+            $this->storagePath.'/'.$taskId.'.json',
+            $this->storagePath.'/'.$taskId.'@*.json',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $files = \glob($pattern);
+
+            if (false === $files) {
+                throw new StorageException(\sprintf('Failed to glob storage path "%s".', $pattern));
+            }
+
+            foreach ($files as $file) {
+                if (!\unlink($file)) {
+                    throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file));
+                }
+            }
+        }
+    }
+
     /**
-     * Returns all stored execution records, keyed by task ID.
-     *
-     * @return array<string, TaskExecution>
+     * @return list<TaskExecution>
      */
     public function all(): array
     {
@@ -112,16 +128,12 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw new StorageException(\sprintf('Failed to read storage file "%s".', $file));
             }
 
-            $execution = $this->decode($contents);
-            $executions[$execution->id] = $execution;
+            $executions[] = $this->decode($contents);
         }
 
         return $executions;
     }
 
-    /**
-     * Removes all execution records from storage.
-     */
     public function reset(): void
     {
         $pattern = $this->storagePath.'/*.json';
@@ -138,13 +150,27 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
-    private function filePath(string $taskId): string
+    private function filePath(string $taskId, ?string $group): string
+    {
+        $this->validateTaskId($taskId);
+
+        if (null === $group) {
+            return $this->storagePath.'/'.$taskId.'.json';
+        }
+
+        return $this->storagePath.'/'.$taskId.'@'.self::slugifyGroup($group).'.json';
+    }
+
+    private function validateTaskId(string $taskId): void
     {
         if (!\preg_match('/^[a-zA-Z0-9._-]+$/', $taskId)) {
             throw new \InvalidArgumentException(\sprintf('Invalid task ID "%s": must contain only alphanumeric characters, dots, hyphens, and underscores.', $taskId));
         }
+    }
 
-        return $this->storagePath.'/'.$taskId.'.json';
+    private static function slugifyGroup(string $group): string
+    {
+        return (string) \preg_replace('/[^a-z0-9._-]+/i', '_', $group);
     }
 
     private function ensureDirectoryExists(): void
@@ -159,13 +185,14 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @return array{id: string, status: string, executed_at: string, error: string|null}
+     * @return array{id: string, status: string, executed_at: string, error: string|null, group: string|null}
      */
     private function toArray(TaskExecution $execution): array
     {
         return [
             'error' => $execution->error,
             'executed_at' => $execution->executedAt->format(\DateTimeInterface::ATOM),
+            'group' => $execution->group,
             'id' => $execution->id,
             'status' => $execution->status->value,
         ];
@@ -173,7 +200,7 @@ final class FilesystemStorage implements TaskStorageInterface
 
     private function decode(string $json): TaskExecution
     {
-        /** @var array{id: string, status: string, executed_at: string, error: string|null} $data */
+        /** @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data */
         $data = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
 
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['executed_at']);
@@ -187,6 +214,7 @@ final class FilesystemStorage implements TaskStorageInterface
             status: TaskStatus::from($data['status']),
             executedAt: $executedAt,
             error: $data['error'],
+            group: $data['group'] ?? null,
         );
     }
 }

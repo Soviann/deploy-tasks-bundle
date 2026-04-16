@@ -12,6 +12,8 @@ use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
+use Soviann\DeployTasks\Tests\Fixtures\MultiGroupTask;
+use Soviann\DeployTasks\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 
@@ -149,5 +151,72 @@ final class TaskRegistryTest extends TestCase
         self::expectException(DuplicateTaskIdException::class);
 
         new TaskRegistry([$task1, $task2], $this->idResolver);
+    }
+
+    public function testAllWithNoGroupsReturnsOnlyDefaultTasks(): void
+    {
+        $default = new SimpleTask('task.default');
+        $predeploy = new PredeployTask();
+
+        $registry = new TaskRegistry([$default, $predeploy], $this->idResolver);
+
+        $all = $registry->all();
+
+        self::assertArrayHasKey('task.default', $all);
+        self::assertArrayNotHasKey('test.predeploy', $all);
+    }
+
+    public function testAllWithGroupFilterReturnsTasksInGroup(): void
+    {
+        $default = new SimpleTask('task.default');
+        $predeploy = new PredeployTask();
+
+        $registry = new TaskRegistry([$default, $predeploy], $this->idResolver);
+
+        $filtered = $registry->all(null, ['predeploy']);
+
+        self::assertArrayHasKey('test.predeploy', $filtered);
+        self::assertArrayNotHasKey('task.default', $filtered);
+    }
+
+    public function testAllWithMultipleGroupsReturnsUnion(): void
+    {
+        $predeploy = new PredeployTask();
+        $multi = new MultiGroupTask();
+
+        $registry = new TaskRegistry([$predeploy, $multi], $this->idResolver);
+
+        $filtered = $registry->all(null, ['predeploy', 'postdeploy']);
+
+        self::assertArrayHasKey('test.predeploy', $filtered);
+        self::assertArrayHasKey('test.multi_group', $filtered);
+    }
+
+    public function testAllWithGroupExcludesDefault(): void
+    {
+        $default = new SimpleTask('task.default');
+        $multi = new MultiGroupTask();
+
+        $registry = new TaskRegistry([$default, $multi], $this->idResolver);
+
+        $filtered = $registry->all(null, ['postdeploy']);
+
+        self::assertArrayHasKey('test.multi_group', $filtered);
+        self::assertArrayNotHasKey('task.default', $filtered);
+    }
+
+    public function testAllCombinesEnvAndGroups(): void
+    {
+        $default = new SimpleTask('task.default');
+        $predeploy = new PredeployTask();
+        $prodOnly = new ProdOnlyTask();
+
+        $registry = new TaskRegistry([$default, $predeploy, $prodOnly], $this->idResolver);
+
+        $filtered = $registry->all('prod', ['predeploy']);
+
+        self::assertArrayHasKey('test.predeploy', $filtered);
+        self::assertArrayNotHasKey('task.default', $filtered);
+        self::assertArrayNotHasKey('test.prod_only', $filtered);
     }
 }
