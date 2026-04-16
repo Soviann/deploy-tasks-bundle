@@ -54,7 +54,7 @@ If you do not need the metadata provided by the attribute, you can implement `De
 | `priority` | `int` | `0` | Higher value runs first |
 | `env` | `string\|string[]\|null` | `null` | Restrict execution to one or more environments; `null` runs everywhere |
 | `timeout` | `?int` | `null` | Override the bundle's `default_timeout` for this task (seconds) |
-| `transactional` | `?bool` | `null` | Wrap execution in a database transaction (requires `DbalStorage`). `null` defers to the global `transactional` config (default: `true`). |
+| `transactional` | `?bool` | `null` | Wrap execution in a transaction (requires a storage implementing `TransactionalStorageInterface`). `null` defers to the active storage's `transactional` setting (database default: `true`, filesystem default: `false`). |
 | `description` | `?string` | `null` | Override the value returned by `getDescription()` |
 
 ## Environment filtering

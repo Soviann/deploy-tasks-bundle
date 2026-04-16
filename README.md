@@ -75,12 +75,12 @@ deploy_tasks:
     id_generator: ~              # service ID of a custom TaskIdGeneratorInterface
     order_resolver: ~            # service ID of a custom TaskOrderResolverInterface
     default_timeout: 300         # seconds
-    transactional: true          # wrap each task in a DB transaction (requires DbalStorage)
-    all_or_nothing: false        # wrap the entire run in a single transaction
     storage:
-        type: filesystem         # filesystem | database
+        type: filesystem         # filesystem | database | custom
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
+            transactional: false     # filesystem storage ignores these (no transaction support)
+            all_or_nothing: false
         database:
             connection: default
             table: deploy_task_executions
@@ -90,6 +90,12 @@ deploy_tasks:
             status_column: status
             executed_at_column: executed_at
             error_column: error
+            transactional: true      # wrap each task in a DB transaction (default for database)
+            all_or_nothing: true     # wrap the entire run in a single transaction
+        custom:
+            service: ~               # service ID of a TaskStorageInterface implementation
+            transactional: false
+            all_or_nothing: false
     events:
         enabled: true
     lock:

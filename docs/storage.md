@@ -12,7 +12,11 @@ deploy_tasks:
         type: filesystem
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
+            transactional: false    # default — filesystem has no transaction support
+            all_or_nothing: false   # default — ignored for filesystem
 ```
+
+Filesystem storage does not implement `TransactionalStorageInterface`, so `transactional` and `all_or_nothing` have no effect. The keys are accepted for config-tree uniformity across backends.
 
 The directory is created automatically on the first write. Add it to `.gitignore`:
 
@@ -38,6 +42,8 @@ deploy_tasks:
             connection: default              # Doctrine DBAL connection name
             table: deploy_task_executions    # Table name
             auto_create_table: true          # Create table on first use
+            transactional: true              # default — wrap each task in a DB transaction
+            all_or_nothing: true             # default — wrap the entire run in a single transaction
 ```
 
 ### Creating the table
@@ -70,18 +76,21 @@ CREATE TABLE IF NOT EXISTS deploy_task_executions (
 
 ### Transactional tasks
 
-Transaction wrapping is configured via two **top-level** keys (not under `storage`):
+Transaction wrapping is configured per storage backend under `storage.<type>`:
 
 ```yaml
 deploy_tasks:
-    transactional: true       # default — wrap each task in a DB transaction
-    all_or_nothing: false     # default — wrap the entire run in a single transaction
+    storage:
+        type: database
+        database:
+            transactional: true       # default for database — wrap each task in a DB transaction
+            all_or_nothing: true      # default for database — wrap the entire run in a single transaction
 ```
 
-- **`transactional: true`** (default): each task's `run()` and storage `save()` are wrapped in a database transaction. Individual tasks can override this via `#[AsDeployTask(transactional: false)]`. When `transactional` is `null` on the attribute, the global setting applies.
-- **`all_or_nothing: true`**: the entire run is wrapped in a single transaction — any failure rolls back all tasks. Per-task wrapping is skipped when this is enabled.
+- **`transactional: true`** (database default): each task's `run()` and storage `save()` are wrapped in a database transaction. Individual tasks can override this via `#[AsDeployTask(transactional: false)]`. When `transactional` is `null` on the attribute, the storage setting applies.
+- **`all_or_nothing: true`** (database default): the entire run is wrapped in a single transaction — any failure rolls back all tasks. Per-task wrapping is skipped when this is enabled.
 
-Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). With `FilesystemStorage`, transactional flags are silently ignored.
+Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). For `FilesystemStorage` these keys exist for uniformity but have no effect.
 
 ## InMemoryStorage
 
