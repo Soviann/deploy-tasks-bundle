@@ -30,9 +30,9 @@ return [
 ### Creating a task
 
 ```php
-use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsDeployTask(id: 'task_20260412143000_seed_categories', priority: 10)]

@@ -19,9 +19,9 @@ The generated file is placed in `src/DeployTasks/Task/` by default and contains 
 Add `#[AsDeployTask]` to your class to attach metadata such as priority, environment restriction, and timeout.
 
 ```php
-use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsDeployTask(id: 'task_20260412143000_seed_categories', priority: 10, description: 'Seed categories')]
@@ -116,8 +116,8 @@ If both `getTaskId()` and the attribute `id` return non-empty **different** valu
 Most tasks only need the attribute. Use `TaskIdProviderInterface` when you need to compute the ID dynamically:
 
 ```php
-use Soviann\DeployTasks\Contract\TaskIdProviderInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 final class DynamicIdTask implements TaskIdProviderInterface

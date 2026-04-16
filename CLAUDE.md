@@ -8,43 +8,58 @@ DeployTasksBundle is a Symfony bundle for running one-time deploy tasks (data mi
 
 ## Architecture
 
-Three-layer design with strict inward dependency flow: Contract ← Component ← Bundle (never reverse).
+Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout with role-based and domain-based folders.
 
-### Contract Layer (`src/Contract/`)
-Pure PHP interfaces, attributes, enums, and value objects. No Symfony imports except `OutputInterface`.
+### Root (`src/`)
+Primary public surface — matches DoctrineFixturesBundle pattern.
 
 - `DeployTaskInterface` — task contract: `getDescription(): string`, `run(OutputInterface): TaskResult`
-- `TaskIdProviderInterface` — opt-in on tasks to supply a dynamic ID via `getTaskId(): string`
-- `TaskIdGeneratorInterface` — service: `generate(class-string): string` plus static `generateStatic()` for compile time
-- `TaskOrderResolverInterface` — controls task execution order via `resolve(array): OrderedTaskCollection`
-- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`.
-- `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
-- `OrderedTaskCollection` — immutable, variadic-typed collection of `DeployTaskInterface`
-- `TaskExecution` — readonly value object: id, status, executedAt, error, group
-- `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
 - `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`, `LOCKED`
-- `Attribute\AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
+- `DeployTasksBundle` — `AbstractBundle`. `configure()` builds the config tree; `loadExtension()` registers services; `build()` autoconfigures `DeployTaskInterface` with tag `deploy_tasks.task`.
 
-### Component Layer (`src/`)
-Storage backends, registry, runner, resolvers, events. Framework-agnostic.
+### Role-based folders
 
+**`Attribute/`**
+- `AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
+
+**`Command/`** — 7 console commands (`Deploy*Command.php`).
+
+**`DependencyInjection/Compiler/`**
+- `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection (skipped when the generator's static method returns null), and wires optional `event_dispatcher` and `lock.factory` into the runner.
+
+**`Event/`**
+- `BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` — all carry `string $taskId`.
+
+**`Exception/`** — 6 `*Exception.php` classes.
+
+### Domain-based folders
+
+**`Identifier/`** — task ID handling
+- `TaskIdGeneratorInterface` — service: `generate(class-string): string` plus static `generateStatic()` for compile time
+- `TaskIdProviderInterface` — opt-in on tasks to supply a dynamic ID via `getTaskId(): string`
+- `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` suffix)
+- `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
+
+**`Ordering/`** — execution order
+- `TaskOrderResolverInterface` — controls task execution order via `resolve(array): OrderedTaskCollection`
+- `OrderedTaskCollection` — immutable, variadic-typed collection of `DeployTaskInterface`
+- `DefaultTaskOrderResolver` — sort: priority DESC → date-from-id ASC → stable original order
+
+**`Runner/`** — discovery and execution
 - `TaskRegistry` — holds tagged tasks, env filtering, duplicate detection
 - `TaskRunner` — orchestrates execution: ordering, storage tracking, optional events/locking/transactions
-- `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
-- `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` suffix)
-- `DefaultTaskOrderResolver` — sort: priority DESC → date-from-id ASC → stable original order
 - `RunResult` — readonly: `$ran`, `$skipped`, `$failed`, `$locked`. `isSuccessful()`.
-- `Storage\FilesystemStorage` — JSON file per `(task, group)` slot with `LOCK_EX`. Default slot → `<id>.json`; grouped slot → `<id>@<slug>.json`. Warns if path traverses `/public/`.
-- `Storage\DbalStorage` — implements `TransactionalStorageInterface`. Instance `getCreateTableSql()`, `createSchema()`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
-- `Storage\DbalStorageConfiguration` — table/column names DTO
-- `Storage\InMemoryStorage` — array-backed storage for tests
-- `Event\BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` — all carry `string $taskId`
+- `TaskOutcome` — per-task outcome value object
 
-### Bundle Layer (`src/Bundle/`)
-Symfony DI integration: configuration tree, compiler pass, console commands.
-
-- `DeployTasksBundle` — `AbstractBundle`. `configure()` builds the config tree; `loadExtension()` registers services; `build()` autoconfigures `DeployTaskInterface` with tag `deploy_tasks.task`.
-- `DependencyInjection\RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection (skipped when the generator's static method returns null), and wires optional `event_dispatcher` and `lock.factory` into the runner.
+**`Storage/`** — persistence
+- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`.
+- `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
+- `TaskExecution` — readonly value object: id, status, executedAt, error, group
+- `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
+- `Dbal\DbalStorage` — implements `TransactionalStorageInterface`. Instance `getCreateTableSql()`, `createSchema()`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
+- `Dbal\DbalStorageConfiguration` — table/column names DTO
+- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot with `LOCK_EX`. Default slot → `<id>.json`; grouped slot → `<id>@<slug>.json`. Warns if path traverses `/public/`.
+- `InMemory\InMemoryStorage` — array-backed storage for tests
 
 ## Configuration
 
@@ -148,7 +163,7 @@ vendor/bin/php-cs-fixer fix --dry-run     # check code style
 | Dynamic per-task ID | Task implements `TaskIdProviderInterface::getTaskId()`. |
 | Custom ordering | Implement `TaskOrderResolverInterface`. Set `deploy_tasks.order_resolver`. |
 | React to lifecycle | Subscribe to `BeforeTaskEvent` / `AfterTaskEvent` / `TaskFailedEvent` (all carry `$taskId`). |
-| New command | Add to `src/Bundle/Command/`, register in `DeployTasksBundle::loadExtension()`. |
+| New command | Add to `src/Command/`, register in `DeployTasksBundle::loadExtension()`. |
 
 ## Key Design Decisions
 
@@ -156,7 +171,6 @@ vendor/bin/php-cs-fixer fix --dry-run     # check code style
 - **Auto-create DB table** — `auto_create_table: true` by default; `deploytasks:create-schema` available for explicit control
 - **Optional event dispatcher and lock factory** — graceful degradation when `symfony/event-dispatcher` or `symfony/lock` is absent
 - **Single attribute reader** — `AsDeployTask::of()` is the sole entry point for attribute parsing
-- **Contract purity** — `src/Contract/` must not import Symfony classes (except `OutputInterface`)
 - **All classes `final`** — composition over inheritance
 
 ## Git
