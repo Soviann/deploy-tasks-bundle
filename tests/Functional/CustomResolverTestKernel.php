@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasks\Tests\Functional;
 
-use Soviann\DeployTasks\Tests\Fixtures\CustomIdResolverFixture;
 use Soviann\DeployTasks\Tests\Fixtures\CustomOrderResolverFixture;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -23,7 +22,6 @@ final class CustomResolverTestKernel extends AbstractTestKernel
         $storagePath = \sys_get_temp_dir().'/deploy-tasks-custom-'.$this->environment;
 
         $container->extension('deploy_tasks', [
-            'id_resolver' => 'test.custom_id_resolver',
             'order_resolver' => 'test.custom_order_resolver',
             'storage' => [
                 'type' => 'filesystem',
@@ -35,7 +33,6 @@ final class CustomResolverTestKernel extends AbstractTestKernel
 
         $services = $container->services();
 
-        $services->set('test.custom_id_resolver', CustomIdResolverFixture::class)->public();
         $services->set('test.custom_order_resolver', CustomOrderResolverFixture::class)->public();
 
         $services->set('test.task.simple', SimpleTask::class)

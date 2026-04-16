@@ -101,6 +101,6 @@ deploy_tasks:
     id_generator: App\Deploy\MyIdGenerator
 ```
 
-When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is used by `DefaultTaskIdResolver` for FQCN auto-deduction and by `deploytasks:generate` for new task IDs.
+When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is used for FQCN auto-deduction (when no explicit ID is provided) and by `deploytasks:generate` for new task IDs.
 
 > **Note:** `generateStatic()` is called at compile time by the compiler pass for duplicate ID detection. If your implementation requires runtime context (e.g. injected services), return `null` to opt out of compile-time detection — duplicates will then be caught at runtime by the `TaskRegistry`.

@@ -6,9 +6,9 @@ namespace Soviann\DeployTasks\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\Exception\DuplicateTaskIdException;
 use Soviann\DeployTasks\Exception\TaskNotFoundException;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
@@ -18,11 +18,11 @@ use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 #[CoversClass(TaskRegistry::class)]
 final class TaskRegistryTest extends TestCase
 {
-    private DefaultTaskIdResolver $idResolver;
+    private TaskIdResolver $idResolver;
 
     protected function setUp(): void
     {
-        $this->idResolver = new DefaultTaskIdResolver();
+        $this->idResolver = new TaskIdResolver();
     }
 
     public function testConstructWithTasks(): void

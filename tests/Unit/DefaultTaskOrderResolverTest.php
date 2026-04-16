@@ -6,8 +6,8 @@ namespace Soviann\DeployTasks\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\Tests\Fixtures\PrioritizedTask;
 use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
 
@@ -18,7 +18,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->resolver = new DefaultTaskOrderResolver(new DefaultTaskIdResolver());
+        $this->resolver = new DefaultTaskOrderResolver(new TaskIdResolver());
     }
 
     public function testSortsByPriorityDescending(): void

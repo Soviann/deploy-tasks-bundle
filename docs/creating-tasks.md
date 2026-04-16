@@ -85,7 +85,7 @@ Tasks whose `env` does not match the current environment are silently skipped at
 
 ## Task ID resolution
 
-Task IDs are resolved by the `TaskIdResolverInterface` service. The default resolver (`DefaultTaskIdResolver`) follows this precedence:
+The bundle resolves task IDs in this order:
 
 1. **`TaskIdProviderInterface::getTaskId()`** — if the task implements `TaskIdProviderInterface` and returns a non-empty value, it wins.
 2. **Attribute `id`** — if `#[AsDeployTask(id: '...')]` is present and non-empty.

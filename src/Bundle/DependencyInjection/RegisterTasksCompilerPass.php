@@ -9,7 +9,6 @@ use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskIdGenerator;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -55,19 +54,12 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     /**
      * Validates at compile time that no two tagged tasks resolve to the same ID.
      *
-     * Skipped entirely when a custom resolver is configured, as custom resolvers
-     * may use runtime logic that cannot be replicated at compile time.
-     *
      * When a custom generator is configured, its generateStatic() is called for
      * each task without an explicit attribute ID. Returning null opts that task
      * out of compile-time duplicate detection.
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
     {
-        if (!$this->isDefaultResolverConfigured($container)) {
-            return;
-        }
-
         $generatorClass = $this->resolveGeneratorClass($container);
         $taggedServices = $container->findTaggedServiceIds('deploy_tasks.task');
 
@@ -105,19 +97,6 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
             $seenIds[$taskId] = $serviceId;
         }
-    }
-
-    /**
-     * Checks whether the configured ID resolver is the default one.
-     */
-    private function isDefaultResolverConfigured(ContainerBuilder $container): bool
-    {
-        if (!$container->hasDefinition('deploy_tasks.id_resolver')) {
-            return $container->hasAlias('deploy_tasks.id_resolver')
-                && DefaultTaskIdResolver::class === $container->findDefinition('deploy_tasks.id_resolver')->getClass();
-        }
-
-        return DefaultTaskIdResolver::class === $container->getDefinition('deploy_tasks.id_resolver')->getClass();
     }
 
     /**

@@ -12,7 +12,6 @@ use Soviann\DeployTasks\Contract\TaskResult;
 use Soviann\DeployTasks\Contract\TaskStatus;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Event\AfterTaskEvent;
 use Soviann\DeployTasks\Event\BeforeTaskEvent;
@@ -20,6 +19,7 @@ use Soviann\DeployTasks\Event\TaskFailedEvent;
 use Soviann\DeployTasks\Exception\TaskNotFoundException;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 use Soviann\DeployTasks\Tests\Fixtures\FailingTask;
@@ -321,7 +321,7 @@ final class TaskRunnerTest extends TestCase
             ->willReturnCallback(static fn (\Closure $callback): mixed => $callback());
         $storage->expects(self::once())->method('save');
 
-        $idResolver = new DefaultTaskIdResolver();
+        $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
             new TaskRegistry([new TransactionalTask()], $idResolver),
@@ -350,7 +350,7 @@ final class TaskRunnerTest extends TestCase
         // so auto-init inside allOrNothing would roll back the table along with the data.
         $storage = new DbalStorage($connection);
         $connection->executeStatement($storage->getCreateTableSql());
-        $idResolver = new DefaultTaskIdResolver();
+        $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First'), new FailingTask()], $idResolver),
@@ -375,7 +375,7 @@ final class TaskRunnerTest extends TestCase
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         $storage = new DbalStorage($connection);
-        $idResolver = new DefaultTaskIdResolver();
+        $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First'), new SimpleTask('task.2', 'Second')], $idResolver),
@@ -415,7 +415,7 @@ final class TaskRunnerTest extends TestCase
         $lockFactory = $this->createMock(LockFactory::class);
         $lockFactory->method('createLock')->willReturn($lock);
 
-        $idResolver = new DefaultTaskIdResolver();
+        $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
@@ -439,7 +439,7 @@ final class TaskRunnerTest extends TestCase
         ?TaskStorageInterface $storage = null,
         ?EventDispatcherInterface $dispatcher = null,
     ): TaskRunner {
-        $idResolver = new DefaultTaskIdResolver();
+        $idResolver = new TaskIdResolver();
 
         return new TaskRunner(
             new TaskRegistry($tasks, $idResolver),
