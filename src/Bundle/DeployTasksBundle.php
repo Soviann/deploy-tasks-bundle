@@ -7,16 +7,15 @@ namespace Soviann\DeployTasksBundle;
 use Doctrine\DBAL\Connection;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
-use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskIdGenerator;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\DbalStorage;
 use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
@@ -52,10 +51,6 @@ final class DeployTasksBundle extends AbstractBundle
                 ->scalarNode('id_generator')
                     ->defaultNull()
                     ->info('Service ID of a custom TaskIdGeneratorInterface, or null for the default generator.')
-                ->end()
-                ->scalarNode('id_resolver')
-                    ->defaultNull()
-                    ->info('Service ID of a custom TaskIdResolverInterface, or null for the default resolver.')
                 ->end()
                 ->scalarNode('order_resolver')
                     ->defaultNull()
@@ -199,8 +194,10 @@ final class DeployTasksBundle extends AbstractBundle
         // ID generator
         $this->registerIdGenerator($config, $services);
 
-        // ID resolver
-        $this->registerIdResolver($config, $services);
+        // ID resolver (internal — not configurable)
+        $services->set('deploy_tasks.id_resolver', TaskIdResolver::class)
+            ->args([service('deploy_tasks.id_generator')])
+        ;
 
         // Storage
         $this->registerStorage($config, $services, $builder);
@@ -384,27 +381,6 @@ final class DeployTasksBundle extends AbstractBundle
         }
 
         $services->alias(TaskIdGeneratorInterface::class, 'deploy_tasks.id_generator')->public();
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function registerIdResolver(array $config, ServicesConfigurator $services): void
-    {
-        /** @var string|null $resolverServiceId */
-        $resolverServiceId = $config['id_resolver'];
-
-        $services->set('deploy_tasks.default_id_resolver', DefaultTaskIdResolver::class)
-            ->args([service('deploy_tasks.id_generator')])
-        ;
-
-        if (null !== $resolverServiceId) {
-            $services->alias('deploy_tasks.id_resolver', $resolverServiceId);
-        } else {
-            $services->alias('deploy_tasks.id_resolver', 'deploy_tasks.default_id_resolver');
-        }
-
-        $services->alias(TaskIdResolverInterface::class, 'deploy_tasks.id_resolver')->public();
     }
 
     /**

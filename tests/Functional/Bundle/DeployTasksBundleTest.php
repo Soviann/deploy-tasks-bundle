@@ -6,17 +6,15 @@ namespace Soviann\DeployTasks\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasks\Bundle\DeployTasksBundle;
-use Soviann\DeployTasks\Contract\TaskIdResolverInterface;
 use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
 use Soviann\DeployTasks\Contract\TaskStorageInterface;
 use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
-use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Soviann\DeployTasks\DefaultTaskOrderResolver;
 use Soviann\DeployTasks\Storage\FilesystemStorage;
 use Soviann\DeployTasks\Storage\InMemoryStorage;
+use Soviann\DeployTasks\TaskIdResolver;
 use Soviann\DeployTasks\TaskRegistry;
 use Soviann\DeployTasks\TaskRunner;
-use Soviann\DeployTasks\Tests\Fixtures\CustomIdResolverFixture;
 use Soviann\DeployTasks\Tests\Fixtures\CustomOrderResolverFixture;
 use Soviann\DeployTasks\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasks\Tests\Functional\CustomResolverTestKernel;
@@ -41,7 +39,6 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertTrue($container->has(TaskRunner::class));
         self::assertTrue($container->has(TaskStorageInterface::class));
         self::assertTrue($container->has(TaskOrderResolverInterface::class));
-        self::assertTrue($container->has(TaskIdResolverInterface::class));
     }
 
     public function testFilesystemStorageIsDefault(): void
@@ -60,12 +57,12 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertInstanceOf(DefaultTaskOrderResolver::class, $container->get(TaskOrderResolverInterface::class));
     }
 
-    public function testDefaultIdResolver(): void
+    public function testIdResolverIsRegistered(): void
     {
         self::bootKernel();
         $container = self::getContainer();
 
-        self::assertInstanceOf(DefaultTaskIdResolver::class, $container->get(TaskIdResolverInterface::class));
+        self::assertInstanceOf(TaskIdResolver::class, $container->get('deploy_tasks.id_resolver'));
     }
 
     public function testRegistryContainsRegisteredTasks(): void
@@ -129,16 +126,6 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
         $reflection = new \ReflectionProperty(TaskRunner::class, 'lockFactory');
         self::assertNotNull($reflection->getValue($runner), 'lockFactory must be wired when lock.enabled=true');
-    }
-
-    public function testCustomIdResolverIsUsed(): void
-    {
-        static::$class = CustomResolverTestKernel::class;
-        self::bootKernel();
-        $container = self::getContainer();
-
-        $resolver = $container->get(TaskIdResolverInterface::class);
-        self::assertInstanceOf(CustomIdResolverFixture::class, $resolver);
     }
 
     public function testCustomOrderResolverIsUsed(): void
