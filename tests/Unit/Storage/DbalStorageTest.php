@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Storage;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Contract\TaskExecution;
-use Soviann\DeployTasks\Contract\TaskStatus;
-use Soviann\DeployTasks\Exception\StorageException;
-use Soviann\DeployTasks\Storage\DbalStorage;
-use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
+use Soviann\DeployTasksBundle\Exception\StorageException;
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
 
 #[CoversClass(DbalStorage::class)]
 final class DbalStorageTest extends TestCase

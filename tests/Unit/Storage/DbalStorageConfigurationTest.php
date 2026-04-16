@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Storage;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Storage\DbalStorageConfiguration;
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 
 #[CoversClass(DbalStorageConfiguration::class)]
 final class DbalStorageConfigurationTest extends TestCase

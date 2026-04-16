@@ -2,35 +2,35 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit;
+namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Contract\TaskExecution;
-use Soviann\DeployTasks\Contract\TaskResult;
-use Soviann\DeployTasks\Contract\TaskStatus;
-use Soviann\DeployTasks\Contract\TaskStorageInterface;
-use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
-use Soviann\DeployTasks\DefaultTaskOrderResolver;
-use Soviann\DeployTasks\Event\AfterTaskEvent;
-use Soviann\DeployTasks\Event\BeforeTaskEvent;
-use Soviann\DeployTasks\Event\TaskFailedEvent;
-use Soviann\DeployTasks\Exception\StorageException;
-use Soviann\DeployTasks\Exception\TaskGroupMismatchException;
-use Soviann\DeployTasks\Exception\TaskGroupRequiredException;
-use Soviann\DeployTasks\Exception\TaskNotFoundException;
-use Soviann\DeployTasks\Storage\DbalStorage;
-use Soviann\DeployTasks\Storage\InMemoryStorage;
-use Soviann\DeployTasks\TaskIdResolver;
-use Soviann\DeployTasks\TaskRegistry;
-use Soviann\DeployTasks\TaskRunner;
-use Soviann\DeployTasks\Tests\Fixtures\FailingTask;
-use Soviann\DeployTasks\Tests\Fixtures\MultiGroupTask;
-use Soviann\DeployTasks\Tests\Fixtures\PredeployTask;
-use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
-use Soviann\DeployTasks\Tests\Fixtures\SkippingTask;
-use Soviann\DeployTasks\Tests\Fixtures\TransactionalTask;
+use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
+use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
+use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
+use Soviann\DeployTasksBundle\Exception\StorageException;
+use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
+use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
+use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
+use Soviann\DeployTasksBundle\Runner\TaskRegistry;
+use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
+use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
+use Soviann\DeployTasksBundle\TaskResult;
+use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
@@ -634,7 +634,7 @@ final class TaskRunnerTest extends TestCase
     }
 
     /**
-     * @param array<\Soviann\DeployTasks\Contract\DeployTaskInterface> $tasks
+     * @param array<\Soviann\DeployTasksBundle\DeployTaskInterface> $tasks
      */
     private function createRunner(
         array $tasks,

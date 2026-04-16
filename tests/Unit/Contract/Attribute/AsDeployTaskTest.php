@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Contract\Attribute;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Contract\Attribute;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\TaskResult;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[CoversClass(AsDeployTask::class)]

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Fixtures;
+namespace Soviann\DeployTasksBundle\Tests\Fixtures;
 
-use Soviann\DeployTasks\Contract\OrderedTaskCollection;
-use Soviann\DeployTasks\Contract\TaskOrderResolverInterface;
+use Soviann\DeployTasksBundle\Ordering\OrderedTaskCollection;
+use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
 
 final class CustomOrderResolverFixture implements TaskOrderResolverInterface
 {

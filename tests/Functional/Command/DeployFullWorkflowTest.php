@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional\Command;
+namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
-use Soviann\DeployTasks\Contract\TaskStatus;
-use Soviann\DeployTasks\Contract\TaskStorageInterface;
-use Soviann\DeployTasks\Tests\Functional\FunctionalTestCase;
-use Soviann\DeployTasks\Tests\Functional\TestKernel;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;

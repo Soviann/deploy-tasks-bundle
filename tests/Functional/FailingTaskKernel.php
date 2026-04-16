@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional;
+namespace Soviann\DeployTasksBundle\Tests\Functional;
 
-use Soviann\DeployTasks\Tests\Fixtures\FailingTask;
-use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 final class FailingTaskKernel extends AbstractTestKernel

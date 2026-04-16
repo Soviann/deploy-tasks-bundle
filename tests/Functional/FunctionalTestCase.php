@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional;
+namespace Soviann\DeployTasksBundle\Tests\Functional;
 
-use Soviann\DeployTasks\Contract\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 abstract class FunctionalTestCase extends KernelTestCase

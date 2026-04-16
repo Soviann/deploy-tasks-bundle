@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional;
+namespace Soviann\DeployTasksBundle\Tests\Functional;
 
-use Soviann\DeployTasks\Tests\Fixtures\MultiEnvTask;
-use Soviann\DeployTasks\Tests\Fixtures\MultiGroupTask;
-use Soviann\DeployTasks\Tests\Fixtures\PredeployTask;
-use Soviann\DeployTasks\Tests\Fixtures\PrioritizedTask;
-use Soviann\DeployTasks\Tests\Fixtures\ProdOnlyTask;
-use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
-use Soviann\DeployTasks\Tests\Fixtures\SkippingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\MultiEnvTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\PrioritizedTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 final class TestKernel extends AbstractTestKernel

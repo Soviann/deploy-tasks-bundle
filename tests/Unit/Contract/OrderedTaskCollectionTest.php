@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Unit\Contract;
+namespace Soviann\DeployTasksBundle\Tests\Unit\Contract;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
-use Soviann\DeployTasks\Contract\OrderedTaskCollection;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Ordering\OrderedTaskCollection;
 
 #[CoversClass(OrderedTaskCollection::class)]
 final class OrderedTaskCollectionTest extends TestCase

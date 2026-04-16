@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Exception;
+namespace Soviann\DeployTasksBundle\Exception;
 
-use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 
 /**
  * Thrown at boot when the configured storage cannot honour the requested transactional semantics.

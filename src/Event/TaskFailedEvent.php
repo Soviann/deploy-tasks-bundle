@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Event;
+namespace Soviann\DeployTasksBundle\Event;
 
-use Soviann\DeployTasks\Contract\DeployTaskInterface;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
 
 /**
  * Dispatched when a deploy task throws an exception during execution.

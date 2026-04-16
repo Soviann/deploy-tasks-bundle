@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasks\Tests\Functional;
+namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
-use Soviann\DeployTasks\Tests\Fixtures\SimpleTask;
-use Soviann\DeployTasks\Tests\Fixtures\TransactionalTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 final class DbalTestKernel extends AbstractTestKernel
