@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\DependencyInjection;
 use Soviann\DeployTasks\Contract\Attribute\AsDeployTask;
 use Soviann\DeployTasks\Contract\DeployTaskInterface;
 use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
+use Soviann\DeployTasks\Contract\TransactionalStorageInterface;
 use Soviann\DeployTasks\DefaultTaskIdGenerator;
 use Soviann\DeployTasks\DefaultTaskIdResolver;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -24,6 +25,31 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     {
         $this->validateTaggedTasks($container);
         $this->wireOptionalDependencies($container);
+        $this->maybeAliasTransactionalCustomStorage($container);
+    }
+
+    /**
+     * When storage.type is "custom" and the user-provided service implements
+     * TransactionalStorageInterface, exposes it under that interface too.
+     *
+     * Deferred to the compiler pass because the user's service definition is not
+     * visible during extension loading (which runs in an isolated temp container).
+     */
+    private function maybeAliasTransactionalCustomStorage(ContainerBuilder $container): void
+    {
+        if (!$container->hasParameter('deploy_tasks.storage.custom_service_id')) {
+            return;
+        }
+
+        /** @var string $customServiceId */
+        $customServiceId = $container->getParameter('deploy_tasks.storage.custom_service_id');
+        $container->getParameterBag()->remove('deploy_tasks.storage.custom_service_id');
+
+        $class = $container->findDefinition($customServiceId)->getClass();
+
+        if (null !== $class && \is_a($class, TransactionalStorageInterface::class, true)) {
+            $container->setAlias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->setPublic(true);
+        }
     }
 
     /**
