@@ -7,7 +7,6 @@ namespace Soviann\DeployTasksBundle\Command;
 use Soviann\DeployTasks\Contract\TaskIdGeneratorInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -29,7 +28,6 @@ final class DeployTasksGenerateCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('name', InputArgument::OPTIONAL, 'Optional descriptive suffix for the class name (e.g. SeedCategories).')
             ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated file.', $this->defaultDirectory)
             ->setHelp(
                 \sprintf(
@@ -38,20 +36,14 @@ final class DeployTasksGenerateCommand extends Command
 
                             <info>%%command.full_name%%</info>
 
-                        This creates a file like <comment>%sTask20260412143000.php</comment> with:
+                        This creates a file like <comment>%sDeployTask20260412143000.php</comment> with:
                           - A unique ID based on the current timestamp
                           - The <comment>#[AsDeployTask]</comment> attribute pre-configured
                           - A stub <comment>run()</comment> method ready to implement
 
-                        You can add a descriptive suffix to the class name:
-
-                            <info>%%command.full_name%% SeedCategories</info>
-
-                        This generates <comment>Task20260412143000SeedCategories.php</comment>.
-
                         You can specify a custom target directory with <comment>--dir</comment>:
 
-                            <info>%%command.full_name%% SeedCategories --dir=src/Deploy/Task/</info>
+                            <info>%%command.full_name%% --dir=src/Deploy/Task/</info>
 
                         The generated class implements <comment>DeployTaskInterface</comment> and is automatically
                         discovered by the bundle via autoconfiguration.
@@ -66,25 +58,12 @@ final class DeployTasksGenerateCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        /** @var string|null $name */
-        $name = $input->getArgument('name');
-
         $timestamp = \date('YmdHis');
-        $className = 'Task'.$timestamp;
-
-        if (null !== $name) {
-            $name = \ucfirst($name);
-
-            if (\str_ends_with($name, 'Task')) {
-                $name = \substr($name, 0, -4);
-            }
-
-            $className .= $name;
-        }
+        $className = 'DeployTask'.$timestamp;
 
         /** @var class-string $className */
         $taskId = $this->idGenerator->generate($className);
-        $description = null !== $name ? \ucfirst(\str_replace('_', ' ', $this->toSnakeCase($name))) : '';
+        $description = '';
 
         /** @var string $dir */
         $dir = $input->getOption('dir');
@@ -166,13 +145,6 @@ final class DeployTasksGenerateCommand extends Command
         ]);
 
         return Command::SUCCESS;
-    }
-
-    private function toSnakeCase(string $name): string
-    {
-        $snake = (string) \preg_replace('/[A-Z]/', '_$0', $name);
-
-        return \strtolower(\ltrim($snake, '_'));
     }
 
     /**
