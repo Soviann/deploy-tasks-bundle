@@ -49,15 +49,7 @@ vendor/bin/php-cs-fixer fix --dry-run
 
 ## Architecture
 
-The bundle is split into three layers with a strict dependency direction:
-
-```
-Contract (pure PHP interfaces and value objects)
-    -> Component (storage, registry, runner — no Symfony DI)
-        -> Bundle (Symfony DI, configuration, console commands)
-```
-
-The `src/Contract/` layer must not import any Symfony class, with the sole exception of `OutputInterface`.
+Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout with role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Ordering/`, `Runner/`, `Storage/`). Root-level public API: `DeployTaskInterface`, `DeployTasksBundle`, `TaskResult`.
 
 ## Pull Requests
 
@@ -70,6 +62,6 @@ CI runs automatically on every pull request. All checks (PHPStan, CS Fixer, test
 
 ## Adding a Storage Backend
 
-1. Create a class implementing `Soviann\DeployTasks\Contract\TaskStorageInterface` (or `Soviann\DeployTasks\Contract\TransactionalStorageInterface` for transaction support).
+1. Create a class implementing `Soviann\DeployTasksBundle\Storage\TaskStorageInterface` (or `Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface` for transaction support).
 2. Add unit tests in `tests/Unit/Storage/`.
 3. Register the service and alias `TaskStorageInterface` (and `deploy_tasks.storage`) to it. See [storage.md](docs/storage.md#custom-storage) for an example.

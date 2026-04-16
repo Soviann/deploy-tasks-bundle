@@ -10,7 +10,7 @@ deploy_tasks:
 
 ## Event Classes
 
-All events are in the `Soviann\DeployTasks\Event\` namespace.
+All events are in the `Soviann\DeployTasksBundle\Event\` namespace.
 
 | Event | When | Properties |
 |---|---|---|
@@ -21,7 +21,7 @@ All events are in the `Soviann\DeployTasks\Event\` namespace.
 ## Listener Example
 
 ```php
-use Soviann\DeployTasks\Event\AfterTaskEvent;
+use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 #[AsEventListener]
