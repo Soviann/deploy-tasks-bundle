@@ -35,8 +35,8 @@ final class DefaultTaskOrderResolverTest extends TestCase
 
     public function testSortsByDateAscending(): void
     {
-        $newer = new SimpleTask('task_2026_04_15_foo');
-        $older = new SimpleTask('task_2026_04_10_bar');
+        $newer = new SimpleTask('task_20260415_foo');
+        $older = new SimpleTask('task_20260410_bar');
 
         $result = $this->resolver->resolve([$newer, $older]);
         $tasks = $result->toArray();
@@ -48,7 +48,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
     public function testTasksWithoutDateSortAfterDated(): void
     {
         $noDate = new SimpleTask('no_date_task');
-        $dated = new SimpleTask('task_2026_04_10');
+        $dated = new SimpleTask('task_20260410');
 
         $result = $this->resolver->resolve([$noDate, $dated]);
         $tasks = $result->toArray();
@@ -82,9 +82,9 @@ final class DefaultTaskOrderResolverTest extends TestCase
         // Priority 10, no date → runs first
         $highPriority = new PrioritizedTask();
         // Priority 0, older date → second
-        $olderDated = new SimpleTask('task_2026_04_01_seed');
+        $olderDated = new SimpleTask('task_20260401_seed');
         // Priority 0, newer date → third
-        $newerDated = new SimpleTask('task_2026_04_15_patch');
+        $newerDated = new SimpleTask('task_20260415_patch');
         // Priority 0, no date → last
         $noDate = new SimpleTask('task.no_date');
 
