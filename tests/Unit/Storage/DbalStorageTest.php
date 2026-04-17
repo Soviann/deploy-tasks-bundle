@@ -377,8 +377,8 @@ final class DbalStorageTest extends TestCase
         // Kills Increment/DecrementInteger on the `0` code passed to StorageException (line 78):
         // the mutant changes the code to -1 or 1, which this assertion catches.
         $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
-        $connection->method('createSchemaManager')
-            ->willReturn($this->connection->createSchemaManager());
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
         $connection->method('fetchOne')
             ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('fetch failed'));
 
