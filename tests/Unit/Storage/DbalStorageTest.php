@@ -180,11 +180,13 @@ final class DbalStorageTest extends TestCase
     public function testSchemaHasCompositePrimaryKey(): void
     {
         $schemaManager = $this->connection->createSchemaManager();
-        $table = $schemaManager->introspectTable('deploy_task_executions');
-        $primaryKey = $table->getPrimaryKey();
+        // DBAL 3.6 introspection API; DBAL 4 replacements (introspectTableByUnquotedName /
+        // getPrimaryKeyConstraint / getIndexedColumns) are unavailable on 3.6, so keep the
+        // cross-version API and silence the deprecation notice phpstan-deprecation-rules raises.
+        /** @phpstan-ignore method.deprecated, method.deprecated, method.deprecated */
+        $columns = $schemaManager->introspectTable('deploy_task_executions')->getPrimaryKey()?->getColumns();
 
-        self::assertNotNull($primaryKey);
-        self::assertSame(['id', 'task_group'], $primaryKey->getColumns());
+        self::assertSame(['id', 'task_group'], $columns);
     }
 
     public function testAllEmpty(): void
@@ -194,11 +196,10 @@ final class DbalStorageTest extends TestCase
 
     public function testTransactional(): void
     {
-        $result = $this->storage->transactional(static function (): string {
-            return 'callback-result';
-        });
+        $payload = 'cb-'.\bin2hex(\random_bytes(4));
+        $result = $this->storage->transactional(static fn (): string => $payload);
 
-        self::assertSame('callback-result', $result);
+        self::assertSame($payload, $result);
     }
 
     public function testSaveWithError(): void

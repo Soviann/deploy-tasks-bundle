@@ -109,8 +109,12 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 continue;
             }
 
-            if (!\is_subclass_of($class, DeployTaskInterface::class) && !\in_array(DeployTaskInterface::class, \class_implements($class) ?: [], true)) {
-                continue;
+            if (!\is_subclass_of($class, DeployTaskInterface::class)) {
+                $implements = \class_implements($class);
+
+                if (false === $implements || !\in_array(DeployTaskInterface::class, $implements, true)) {
+                    continue;
+                }
             }
 
             $attributeId = $this->readAttributeId($class);

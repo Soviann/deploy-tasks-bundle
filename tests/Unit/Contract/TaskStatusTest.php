@@ -11,33 +11,23 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 #[CoversClass(TaskStatus::class)]
 final class TaskStatusTest extends TestCase
 {
-    public function testRanCaseValue(): void
+    public function testBackingValuesDocumentTheContract(): void
     {
-        self::assertSame('ran', TaskStatus::Ran->value);
+        $map = [];
+        foreach (TaskStatus::cases() as $case) {
+            $map[$case->name] = $case->value;
+        }
+
+        self::assertSame(
+            ['Ran' => 'ran', 'Failed' => 'failed', 'Skipped' => 'skipped'],
+            $map,
+        );
     }
 
-    public function testFailedCaseValue(): void
+    public function testFromResolvesEveryCase(): void
     {
-        self::assertSame('failed', TaskStatus::Failed->value);
-    }
-
-    public function testSkippedCaseValue(): void
-    {
-        self::assertSame('skipped', TaskStatus::Skipped->value);
-    }
-
-    public function testFromRan(): void
-    {
-        self::assertSame(TaskStatus::Ran, TaskStatus::from('ran'));
-    }
-
-    public function testFromFailed(): void
-    {
-        self::assertSame(TaskStatus::Failed, TaskStatus::from('failed'));
-    }
-
-    public function testFromSkipped(): void
-    {
-        self::assertSame(TaskStatus::Skipped, TaskStatus::from('skipped'));
+        foreach (TaskStatus::cases() as $case) {
+            self::assertSame($case, TaskStatus::from($case->value));
+        }
     }
 }

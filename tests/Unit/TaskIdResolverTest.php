@@ -78,8 +78,8 @@ final class TaskIdResolverTest extends TestCase
         self::assertSame('method_id', $result);
         self::assertNotNull($warning);
         self::assertStringContainsString('mismatched IDs', $warning);
-        self::assertStringContainsString('attribute_id', (string) $warning);
-        self::assertStringContainsString('method_id', (string) $warning);
+        self::assertStringContainsString('attribute_id', $warning);
+        self::assertStringContainsString('method_id', $warning);
     }
 
     public function testResolveFromClassUsesAttributeId(): void

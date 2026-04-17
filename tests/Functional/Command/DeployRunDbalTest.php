@@ -26,7 +26,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
     {
         self::bootKernel();
 
-        $application = new Application(self::$kernel);
+        $application = new Application(self::kernel());
         $this->runTester = new CommandTester($application->find('deploytasks:run'));
         $this->resetTester = new CommandTester($application->find('deploytasks:reset'));
         $this->skipTester = new CommandTester($application->find('deploytasks:skip'));

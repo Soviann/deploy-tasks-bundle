@@ -27,7 +27,7 @@ final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::$kernel);
+        $application = new Application(self::kernel());
         $this->skipTester = new CommandTester($application->find('deploytasks:skip'));
         $this->resetTester = new CommandTester($application->find('deploytasks:reset'));
 

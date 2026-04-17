@@ -11,18 +11,16 @@ use Soviann\DeployTasksBundle\TaskResult;
 #[CoversClass(TaskResult::class)]
 final class TaskResultTest extends TestCase
 {
-    public function testSuccessBackingValue(): void
+    public function testBackingValuesDocumentTheContract(): void
     {
-        self::assertSame(0, TaskResult::SUCCESS->value);
-    }
+        $map = [];
+        foreach (TaskResult::cases() as $case) {
+            $map[$case->name] = $case->value;
+        }
 
-    public function testFailureBackingValue(): void
-    {
-        self::assertSame(1, TaskResult::FAILURE->value);
-    }
-
-    public function testSkippedBackingValue(): void
-    {
-        self::assertSame(2, TaskResult::SKIPPED->value);
+        self::assertSame(
+            ['SUCCESS' => 0, 'FAILURE' => 1, 'SKIPPED' => 2, 'LOCKED' => 3],
+            $map,
+        );
     }
 }
