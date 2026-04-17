@@ -21,12 +21,12 @@ abstract class AbstractTestKernel extends Kernel
 
     public function getCacheDir(): string
     {
-        return \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-cache/'.$this->environment;
+        return \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-cache-'.\getmypid().'/'.$this->environment;
     }
 
     public function getLogDir(): string
     {
-        return \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-logs';
+        return \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-logs-'.\getmypid();
     }
 
     abstract protected static function kernelName(): string;
