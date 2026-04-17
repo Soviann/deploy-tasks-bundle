@@ -35,12 +35,14 @@
         "symfony/filesystem": "^6.4 || ^7.0",
         "symfony/lock": "^6.4 || ^7.0",
         "symfony/phpunit-bridge": "^6.4 || ^7.0",
-        "symfony/framework-bundle": "^6.4 || ^7.0"
+        "symfony/framework-bundle": "^6.4 || ^7.0",
+        "symfony/process": "^6.4 || ^7.0"
     },
     "suggest": {
         "doctrine/dbal": "Required for database storage backend",
         "symfony/event-dispatcher": "Required for task lifecycle events",
-        "symfony/lock": "Required for concurrent execution protection"
+        "symfony/lock": "Required for concurrent execution protection",
+        "symfony/process": "Required by RunsProcesses trait for tasks that shell out to external commands"
     },
     "conflict": {
         "doctrine/dbal": "<3.6",
