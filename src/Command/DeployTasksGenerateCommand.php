@@ -16,11 +16,15 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:generate', description: 'Generate a blank deploy task class.')]
 final class DeployTasksGenerateCommand extends Command
 {
+    /**
+     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic timestamps in tests
+     */
     public function __construct(
         private readonly TaskIdGeneratorInterface $idGenerator,
         private readonly string $defaultDirectory = 'src/DeployTasks/Task/',
         private readonly ?string $templatePath = null,
         private readonly ?string $projectDir = null,
+        private readonly ?\Closure $nowProvider = null,
     ) {
         parent::__construct();
     }
@@ -58,7 +62,8 @@ final class DeployTasksGenerateCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $timestamp = \date('YmdHis');
+        $now = null !== $this->nowProvider ? ($this->nowProvider)() : new \DateTimeImmutable();
+        $timestamp = $now->format('YmdHis');
         $className = 'DeployTask'.$timestamp;
 
         /** @var class-string $className */
