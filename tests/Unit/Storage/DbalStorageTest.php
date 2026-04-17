@@ -341,6 +341,74 @@ final class DbalStorageTest extends TestCase
         $this->storage->get('task.badstatus');
     }
 
+    /**
+     * @return iterable<string, array{0: \Closure(DbalStorage): void}>
+     */
+    public static function autoCreateEntryPointProvider(): iterable
+    {
+        yield 'get' => [static function (DbalStorage $s): void { $s->get('task.missing'); }];
+        yield 'save' => [static fn (DbalStorage $s) => $s->save(new TaskExecution('task.autocreate', TaskStatus::Ran, new \DateTimeImmutable()))];
+        yield 'remove' => [static fn (DbalStorage $s) => $s->remove('task.missing')];
+        yield 'removeAll' => [static fn (DbalStorage $s) => $s->removeAll('task.missing')];
+        yield 'all' => [static function (DbalStorage $s): void { $s->all(); }];
+        yield 'reset' => [static fn (DbalStorage $s) => $s->reset()];
+    }
+
+    /**
+     * @param \Closure(DbalStorage): void $call
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('autoCreateEntryPointProvider')]
+    public function testEachPublicMethodAutoCreatesTableWhenUsedFirst(\Closure $call): void
+    {
+        // Kills MethodCallRemoval on the `$this->ensureInitialized()` call at the top of every
+        // public method (lines 84, 109, 151, 170, 191, 216). If the call is removed, SQLite will
+        // raise a "no such table" exception when the method tries to hit the table first.
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+
+        $call($storage);
+
+        $schemaManager = $connection->createSchemaManager();
+        self::assertTrue($schemaManager->tablesExist(['deploy_task_executions']));
+    }
+
+    public function testHasWrapsDbalExceptionWithCodeZero(): void
+    {
+        // Kills Increment/DecrementInteger on the `0` code passed to StorageException (line 78):
+        // the mutant changes the code to -1 or 1, which this assertion catches.
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('createSchemaManager')
+            ->willReturn($this->connection->createSchemaManager());
+        $connection->method('fetchOne')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('fetch failed'));
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        try {
+            $storage->has('task.boom');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame(0, $e->getCode());
+        }
+    }
+
+    public function testTransactionalWrapsExceptionWithCodeZero(): void
+    {
+        // Kills Increment/DecrementInteger on the `0` code passed to StorageException (line 232).
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('transactional')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('tx failed'));
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        try {
+            $storage->transactional(static fn (): string => 'never');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame(0, $e->getCode());
+        }
+    }
+
     public function testConcurrentSaveOverwritesAtomically(): void
     {
         $first = new TaskExecution('task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-16T10:00:00+00:00'));
