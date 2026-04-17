@@ -1,0 +1,59 @@
+name: Bug report
+description: Report a defect in the bundle
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: input
+    id: bundle-version
+    attributes:
+      label: Bundle version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      placeholder: "8.3.12"
+    validations:
+      required: true
+  - type: input
+    id: symfony-version
+    attributes:
+      label: Symfony version
+      placeholder: "7.1.5"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Summarize the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. Configure the bundle with ...
+        2. Run `bin/console deploy:run`
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: Expected vs. actual
+      description: What you expected to happen and what actually happened.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Paste any relevant output.
+      render: shell
+    validations:
+      required: false
