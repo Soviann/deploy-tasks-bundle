@@ -143,10 +143,10 @@ vendor/bin/php-cs-fixer fix --dry-run     # check code style
 ## Coding Standards
 
 - `@Symfony` CS Fixer ruleset, PHPStan level 9 — never lower
-- Backslash-prefix native functions: `\array_map()`, `\sprintf()`, `\count()`
-- Yoda conditions: `null === $var`
 - All classes `final` unless designed for extension; properties `readonly` where possible
 - Method order: `__construct` → public → protected → private (`setUp`/`tearDown` first in tests)
+
+Additional stylistic rules (backslash-prefix native functions, Yoda conditions, etc.) are enforced by CS Fixer — see `CONTRIBUTING.md` for the contributor-facing list.
 
 ## Testing Patterns
 
@@ -176,3 +176,7 @@ vendor/bin/php-cs-fixer fix --dry-run     # check code style
 ## Git
 
 English commits. Format: `<type>: description` — types: `feat|fix|chore|refactor|docs|test|ci`. **No `(scope)`** — the whole repo is one bundle, scope adds noise. 3rd-person present-tense imperative (`adds`, `fixes`, `removes`). Title expresses visible impact, not implementation detail. No `Co-authored-by` trailer.
+
+## Release
+
+Tagged releases follow semver + Keep a Changelog. See `CONTRIBUTING.md` § Releasing for the full process, or invoke the `release` skill which walks through pre-flight checks, changelog finalization, tagging, and publishing in order.
