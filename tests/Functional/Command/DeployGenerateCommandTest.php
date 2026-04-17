@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
+use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -73,16 +74,24 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testGenerateFileAlreadyExists(): void
     {
-        // Pre-create the file the command will try to generate (same-second timestamp)
-        $timestamp = \date('YmdHis');
-        $expectedFile = $this->outputDir.'DeployTask'.$timestamp.'.php';
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $fixedNow = new \DateTimeImmutable('2026-04-17 12:00:00');
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+        );
+        $tester = new CommandTester($command);
+
+        $expectedFile = $this->outputDir.'DeployTask'.$fixedNow->format('YmdHis').'.php';
         \mkdir($this->outputDir, 0755, true);
         \file_put_contents($expectedFile, '<?php // placeholder');
 
-        $this->tester->execute(['--dir' => $this->outputDir]);
+        $tester->execute(['--dir' => $this->outputDir]);
 
-        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
-        self::assertStringContainsString('File already exists', $this->tester->getDisplay());
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('File already exists', $tester->getDisplay());
     }
 
     public function testGenerateRejectsAbsolutePathOutsideProjectRoot(): void
