@@ -47,14 +47,14 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
 
       - name: Cache PHPStan result
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: var/cache/phpstan
           key: phpstan-${{ runner.os }}-${{ hashFiles('phpstan.neon', 'composer.lock') }}
@@ -82,14 +82,14 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
 
       - name: Cache CS Fixer result
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .php-cs-fixer.cache
           key: php-cs-fixer-${{ runner.os }}-${{ hashFiles('.php-cs-fixer.dist.php', 'composer.lock') }}
@@ -128,7 +128,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.composer/cache
           key: composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-${{ hashFiles('composer.json') }}
@@ -172,7 +172,7 @@ jobs:
           coverage: pcov
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.composer/cache
           key: composer-coverage-${{ hashFiles('composer.json') }}
@@ -254,7 +254,7 @@ jobs:
           coverage: pcov
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.composer/cache
           key: composer-mutation-${{ hashFiles('composer.json') }}
