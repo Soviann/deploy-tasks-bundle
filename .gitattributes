@@ -7,5 +7,6 @@
 AGENTS.md              export-ignore
 CLAUDE.md              export-ignore
 CONTRIBUTING.md        export-ignore
+infection.json5        export-ignore
 phpstan.neon           export-ignore
 phpunit.xml.dist       export-ignore

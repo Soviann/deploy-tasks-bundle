@@ -163,7 +163,7 @@ final class FilesystemStorage implements TaskStorageInterface
 
     private function validateTaskId(string $taskId): void
     {
-        if (!\preg_match('/^[a-zA-Z0-9._-]+$/', $taskId)) {
+        if (1 !== \preg_match('/^[a-zA-Z0-9._-]+$/', $taskId)) {
             throw new \InvalidArgumentException(\sprintf('Invalid task ID "%s": must contain only alphanumeric characters, dots, hyphens, and underscores.', $taskId));
         }
     }

@@ -17,7 +17,7 @@ final class OrderedTaskCollectionTest extends TestCase
         $collection = new OrderedTaskCollection();
 
         self::assertTrue($collection->isEmpty());
-        self::assertSame(0, \count($collection));
+        self::assertCount(0, $collection);
         self::assertSame([], $collection->toArray());
     }
 
@@ -29,7 +29,7 @@ final class OrderedTaskCollectionTest extends TestCase
         $collection = new OrderedTaskCollection($task1, $task2);
 
         self::assertFalse($collection->isEmpty());
-        self::assertSame(2, \count($collection));
+        self::assertCount(2, $collection);
         self::assertSame([$task1, $task2], $collection->toArray());
     }
 
@@ -56,7 +56,7 @@ final class OrderedTaskCollectionTest extends TestCase
 
         $collection = new OrderedTaskCollection($task1, $task2, $task3);
 
-        self::assertSame(3, \count($collection));
+        self::assertCount(3, $collection);
     }
 
     public function testSingleTaskCollection(): void
@@ -65,7 +65,7 @@ final class OrderedTaskCollectionTest extends TestCase
         $collection = new OrderedTaskCollection($task);
 
         self::assertFalse($collection->isEmpty());
-        self::assertSame(1, \count($collection));
+        self::assertCount(1, $collection);
         self::assertSame([$task], $collection->toArray());
     }
 }

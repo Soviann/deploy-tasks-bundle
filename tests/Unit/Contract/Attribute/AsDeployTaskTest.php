@@ -65,7 +65,6 @@ final class AsDeployTaskTest extends TestCase
         $attribute = AsDeployTask::of($task);
 
         self::assertNotNull($attribute);
-        self::assertInstanceOf(AsDeployTask::class, $attribute);
         self::assertSame('test.attributed', $attribute->id);
         self::assertSame(5, $attribute->priority);
         self::assertSame('Test task', $attribute->description);

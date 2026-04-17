@@ -13,16 +13,15 @@ final class TaskNotFoundExceptionTest extends TestCase
 {
     public function testExtendsInvalidArgumentException(): void
     {
-        $exception = TaskNotFoundException::create('task.seed');
-
-        self::assertInstanceOf(\InvalidArgumentException::class, $exception);
+        $parents = \class_parents(TaskNotFoundException::class);
+        self::assertNotFalse($parents);
+        self::assertContains(\InvalidArgumentException::class, $parents);
     }
 
     public function testCreateReturnsInstanceWithExpectedMessage(): void
     {
         $exception = TaskNotFoundException::create('task.seed_categories');
 
-        self::assertInstanceOf(TaskNotFoundException::class, $exception);
         self::assertSame('Deploy task "task.seed_categories" not found.', $exception->getMessage());
     }
 

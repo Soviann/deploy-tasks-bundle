@@ -20,7 +20,7 @@ final class DefaultTaskIdGeneratorTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{class-string, string}>
+     * @return iterable<string, array{string, string}>
      */
     public static function provideClassNames(): iterable
     {
@@ -37,29 +37,27 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         yield 'uses short class name with DeployTask prefix (FQCN)' => ['App\Tasks\DeployTask20260416205300', '20260416205300'];
     }
 
-    /**
-     * @param class-string $className
-     */
     #[DataProvider('provideClassNames')]
     public function testGenerate(string $className, string $expectedId): void
     {
+        // Deliberately feeds non-existent class names to exercise the pure string-manipulation
+        // edge cases (e.g. 'Task', 'DeployTask' alone) — the generator performs no reflection.
+        /* @phpstan-ignore argument.type */
         self::assertSame($expectedId, $this->generator->generate($className));
     }
 
-    /**
-     * @param class-string $className
-     */
     #[DataProvider('provideClassNames')]
     public function testGenerateStatic(string $className, string $expectedId): void
     {
+        /* @phpstan-ignore argument.type */
         self::assertSame($expectedId, DefaultTaskIdGenerator::generateStatic($className));
     }
 
-    public function testGenerateStaticNeverReturnsNull(): void
+    public function testGenerateStaticReturnsNonEmptyString(): void
     {
+        /* @phpstan-ignore argument.type */
         $result = DefaultTaskIdGenerator::generateStatic('App\Tasks\SeedCategories');
 
-        self::assertNotNull($result);
-        self::assertIsString($result);
+        self::assertNotEmpty($result);
     }
 }
