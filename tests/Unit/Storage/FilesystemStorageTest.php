@@ -285,6 +285,16 @@ final class FilesystemStorageTest extends TestCase
         self::assertSame(TaskStatus::Failed, $second->status);
     }
 
+    public function testRemoveAllValidatesTaskId(): void
+    {
+        // Kills MethodCallRemoval on the `$this->validateTaskId()` call at line 88 —
+        // removeAll must reject path-traversal ids before globbing.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid task ID/');
+
+        $this->storage->removeAll('../../etc/passwd');
+    }
+
     public function testGroupNameWithTraversalCharsIsSlugifiedSafely(): void
     {
         $this->storage->save(new TaskExecution(
