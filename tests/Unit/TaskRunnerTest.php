@@ -149,7 +149,22 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(0, $result->failed);
         self::assertFalse($this->storage->has('task.1'));
         self::assertFalse($this->storage->has('task.2'));
-        self::assertStringContainsString('[pending]', $this->output->fetch());
+        $output = $this->output->fetch();
+        // Default slot → no `@group` suffix, exact label + description format.
+        self::assertStringContainsString('  [pending] task.1 - First', $output);
+        self::assertStringContainsString('  [pending] task.2 - Second', $output);
+        self::assertStringNotContainsString('@', $output);
+    }
+
+    public function testDryRunLabelForGroupSlot(): void
+    {
+        $runner = $this->createRunner([new PredeployTask()]);
+
+        $result = $runner->runAll($this->output, dryRun: true, groups: ['predeploy']);
+
+        self::assertSame(1, $result->ran);
+        // Group slot → label is `{taskId}@{slot}`; kills Concat/Ternary/Identical/Operand-removal mutants on line 178.
+        self::assertStringContainsString('  [pending] test.predeploy@predeploy - Predeploy-only task', $this->output->fetch());
     }
 
     public function testRunAllDryRunSkipsAlreadyRan(): void
@@ -406,10 +421,30 @@ final class TaskRunnerTest extends TestCase
             true, // allOrNothing
         );
 
-        $runner->runAll($this->output);
+        $result = $runner->runAll($this->output);
 
         // All changes must be rolled back — no records saved
         self::assertSame([], $storage->all());
+        // Rollback path returns fixed-shape result: kills IncrementInteger mutants on the `0, 0, 1` literals.
+        self::assertSame(0, $result->ran);
+        self::assertSame(0, $result->skipped);
+        self::assertSame(1, $result->failed);
+        self::assertFalse($result->isSuccessful());
+    }
+
+    public function testAllOrNothingWithNonTransactionalStorageRunsUnwrapped(): void
+    {
+        // Non-transactional storage bypasses the transactional wrap on line 69 (`storage instanceof TransactionalStorageInterface`).
+        // A mutant that inverts the instanceof check would call `transactional()` on InMemoryStorage and crash.
+        $runner = $this->createAllOrNothingRunner(
+            [new SimpleTask('task.1', 'First')],
+            $this->storage,
+        );
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->ran);
+        self::assertTrue($this->storage->has('task.1'));
     }
 
     public function testAllOrNothingCommitsOnSuccess(): void
@@ -454,7 +489,11 @@ final class TaskRunnerTest extends TestCase
         $lock->method('acquire')->willReturn(false);
 
         $lockFactory = $this->createMock(LockFactory::class);
-        $lockFactory->method('createLock')->willReturn($lock);
+        // Lock must be created with the canonical name and a 1-hour TTL — kills IncrementInteger on the 3600 literal.
+        $lockFactory->expects(self::once())
+            ->method('createLock')
+            ->with('deploy_tasks_run', 3600)
+            ->willReturn($lock);
 
         $idResolver = new TaskIdResolver();
 
@@ -470,6 +509,34 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output);
 
         self::assertTrue($result->locked);
+        // Lock-failure sentinel has all zero counts: kills IncrementInteger on the `0, 0, 0` literals.
+        self::assertSame(0, $result->ran);
+        self::assertSame(0, $result->skipped);
+        self::assertSame(0, $result->failed);
+    }
+
+    public function testLockReleasedEvenWhenTaskThrows(): void
+    {
+        $lock = $this->createMock(SharedLockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        // Release must fire from the `finally` block — kills UnwrapFinally mutant on line 147.
+        $lock->expects(self::once())->method('release');
+
+        $lockFactory = $this->createMock(LockFactory::class);
+        $lockFactory->method('createLock')->willReturn($lock);
+
+        $idResolver = new TaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new FailingTask()], $idResolver),
+            $this->storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            null,
+            $lockFactory,
+        );
+
+        $runner->runAll($this->output);
     }
 
     public function testRunAllWithGroupFilterOnlyRunsGroupTasks(): void
@@ -631,6 +698,156 @@ final class TaskRunnerTest extends TestCase
         self::assertTrue($this->storage->has('test.transactional'));
         self::assertSame(TaskStatus::Ran, $this->storage->get('test.transactional')?->status);
         self::assertStringContainsString('Transactional task executed', $this->output->fetch());
+    }
+
+    public function testFailedCountAccumulatesAcrossMultipleTasks(): void
+    {
+        // Two independent failures → failed=2; kills Assignment mutator on `$failed += $count` (line 219).
+        // If `+=` collapses to `=`, second failure overwrites the first and failed=1.
+        $runner = $this->createRunner([
+            new FailingTask(),
+            new SimpleTask('task.ok', 'Ok'),
+            $this->makeFailingTask('test.failing.second'),
+        ]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->ran);
+        self::assertSame(2, $result->failed);
+    }
+
+    public function testSkippedCountAccumulatesAcrossMultipleTasks(): void
+    {
+        // Two already-ran tasks → skipped=2; kills Assignment mutator on `$skipped += \count($slots)` (line 208).
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $runner = $this->createRunner([
+            new SimpleTask('task.1', 'First'),
+            new SimpleTask('task.2', 'Second'),
+        ]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(0, $result->ran);
+        self::assertSame(2, $result->skipped);
+        self::assertSame(0, $result->failed);
+    }
+
+    public function testSkippingTaskCountAccumulatesAcrossMultipleTasks(): void
+    {
+        // Two tasks that self-report SKIPPED → skipped=2; kills Assignment mutator on `$skipped += $count` (line 221).
+        $runner = $this->createRunner([
+            new SkippingTask(),
+            $this->makeSkippingTask('test.skipping.second'),
+        ]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(0, $result->ran);
+        self::assertSame(2, $result->skipped);
+    }
+
+    public function testTimeoutWarningMessageIncludesExactValues(): void
+    {
+        // Pins the exact warning format — kills Minus/CastInt mutants on the `(int) $duration` and `$duration - $start` lines.
+        $idResolver = new TaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            $this->storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            defaultTimeout: -1,
+        );
+
+        $runner->runOne('task.1', $this->output);
+
+        // Exact format: `Task "{id}" exceeded timeout ({duration}s elapsed, {limit}s limit)` — duration is non-negative int, limit is -1.
+        $output = $this->output->fetch();
+        self::assertMatchesRegularExpression(
+            '/Task "task\.1" exceeded timeout \(\d+s elapsed, -1s limit\)\./',
+            $output,
+        );
+    }
+
+    public function testFailureErrorMessageIncludesExactFormat(): void
+    {
+        // Pins the `Task "{id}" failed: {message}` writeln — kills MethodCallRemoval on line 272.
+        $runner = $this->createRunner([new FailingTask()]);
+
+        $runner->runAll($this->output);
+
+        self::assertStringContainsString('Task "test.failing" failed: Task failed!', $this->output->fetch());
+    }
+
+    /**
+     * @param array<\Soviann\DeployTasksBundle\DeployTaskInterface> $tasks
+     */
+    private function createAllOrNothingRunner(array $tasks, TaskStorageInterface $storage): TaskRunner
+    {
+        $idResolver = new TaskIdResolver();
+
+        return new TaskRunner(
+            new TaskRegistry($tasks, $idResolver),
+            $storage,
+            new DefaultTaskOrderResolver($idResolver),
+            $idResolver,
+            null,
+            null,
+            300,
+            null,
+            true,
+            true, // allOrNothing
+        );
+    }
+
+    private function makeFailingTask(string $taskId): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
+    {
+        return new class($taskId) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public function __construct(private readonly string $id)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return $this->id;
+            }
+
+            public function getDescription(): string
+            {
+                return 'Inline failing fixture';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                throw new \RuntimeException('boom');
+            }
+        };
+    }
+
+    private function makeSkippingTask(string $taskId): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
+    {
+        return new class($taskId) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public function __construct(private readonly string $id)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return $this->id;
+            }
+
+            public function getDescription(): string
+            {
+                return 'Inline skipping fixture';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                return TaskResult::SKIPPED;
+            }
+        };
     }
 
     /**
