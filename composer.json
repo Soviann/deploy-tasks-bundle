@@ -6,7 +6,8 @@
     "homepage": "https://github.com/soviann/deploy-tasks-bundle",
     "authors": [
         {
-            "name": "Nicolas Vasse"
+            "name": "Nicolas Vasse",
+            "email": "vasse.nicolas@gmail.com"
         }
     ],
     "support": {
