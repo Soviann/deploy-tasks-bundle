@@ -112,11 +112,14 @@ final class DeployRunEnvTest extends FunctionalTestCase
         self::assertFalse($storage->has('test.multi_env'), 'Multi-env task (dev+test) must not run in prod env');
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     private function bootAndBuildTester(string $kernelClass, array $options = []): void
     {
         static::$class = $kernelClass;
         self::bootKernel($options);
-        $application = new Application(self::$kernel);
+        $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:run'));
         $this->cleanStorage();
     }

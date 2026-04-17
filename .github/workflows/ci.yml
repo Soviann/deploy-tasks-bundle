@@ -53,11 +53,18 @@ jobs:
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
 
+      - name: Cache PHPStan result
+        uses: actions/cache@v4
+        with:
+          path: var/cache/phpstan
+          key: phpstan-${{ runner.os }}-${{ hashFiles('phpstan.neon', 'composer.lock') }}
+          restore-keys: phpstan-${{ runner.os }}-
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse
+        run: vendor/bin/phpstan analyse --no-progress
 
   cs-fixer:
     name: CS Fixer
@@ -80,6 +87,13 @@ jobs:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
+
+      - name: Cache CS Fixer result
+        uses: actions/cache@v4
+        with:
+          path: .php-cs-fixer.cache
+          key: php-cs-fixer-${{ runner.os }}-${{ hashFiles('.php-cs-fixer.dist.php', 'composer.lock') }}
+          restore-keys: php-cs-fixer-${{ runner.os }}-
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
@@ -141,3 +155,113 @@ jobs:
         env:
           SYMFONY_DEPRECATIONS_HELPER: ${{ matrix.prefer-lowest && 'disabled=1' || 'max[direct]=0' }}
         run: vendor/bin/phpunit
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite
+          coverage: pcov
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-coverage-${{ hashFiles('composer.json') }}
+          restore-keys: composer-coverage-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run tests with coverage
+        run: vendor/bin/phpunit --coverage-clover=build/coverage/clover.xml --coverage-text=build/coverage/coverage.txt
+
+      - name: Enforce coverage threshold
+        run: |
+          php -r '
+          $xml = simplexml_load_file("build/coverage/clover.xml");
+          $metrics = $xml->xpath("//metrics")[0];
+          $covered = (int) $metrics["coveredstatements"];
+          $total = (int) $metrics["statements"];
+          $pct = $total > 0 ? ($covered / $total) * 100 : 0;
+          printf("Line coverage: %.2f%% (%d / %d)\n", $pct, $covered, $total);
+          exit($pct >= 85 ? 0 : 1);
+          '
+
+      - name: Upload coverage to Codecov
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./build/coverage/clover.xml
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-clover
+          path: build/coverage/
+          retention-days: 14
+
+  security:
+    name: Composer audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Ignore Symfony security advisories blocking resolution
+        run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
+
+      - name: Run composer audit
+        run: composer audit --locked
+
+  mutation:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite
+          coverage: pcov
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-mutation-${{ hashFiles('composer.json') }}
+          restore-keys: composer-mutation-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run Infection
+        run: vendor/bin/infection --threads=max --logger-github --min-msi=70 --min-covered-msi=80

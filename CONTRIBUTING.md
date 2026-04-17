@@ -41,11 +41,14 @@ vendor/bin/php-cs-fixer fix --dry-run
 
 ## Coding Standards
 
-- `@Symfony` CS Fixer ruleset
+- `@Symfony` CS Fixer ruleset (includes `@Symfony:risky`)
 - PHPStan level 9 — no suppressions
-- All classes must be `final` unless designed for extension
+- All classes must be `final` unless designed for extension; properties `readonly` where possible
 - Backslash-prefix native PHP functions: `\array_map()`, `\sprintf()`, `\count()`
 - Yoda conditions: `null === $var`, not `$var === null`
+- Method order: `__construct` → public → protected → private (`setUp` / `tearDown` first in tests)
+
+`vendor/bin/php-cs-fixer fix` auto-fixes most of the above; run it before opening a PR.
 
 ## Architecture
 
@@ -65,3 +68,17 @@ CI runs automatically on every pull request. All checks (PHPStan, CS Fixer, test
 1. Create a class implementing `Soviann\DeployTasksBundle\Storage\TaskStorageInterface` (or `Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface` for transaction support).
 2. Add unit tests in `tests/Unit/Storage/`.
 3. Register the service and alias `TaskStorageInterface` (and `deploy_tasks.storage`) to it. See [storage.md](docs/storage.md#custom-storage) for an example.
+
+## Releasing
+
+1. Decide the next version (semver: MAJOR for breaking changes, MINOR for new features, PATCH for fixes).
+2. In `CHANGELOG.md`, move the `## [Unreleased]` bullets into a new `## [X.Y.Z] - YYYY-MM-DD` section above it. Add a fresh empty `## [Unreleased]` at the top.
+3. Update the compare links at the bottom of `CHANGELOG.md`:
+   - `[Unreleased]: .../compare/vX.Y.Z...HEAD`
+   - `[X.Y.Z]: .../compare/vPREV...vX.Y.Z` (or `.../releases/tag/vX.Y.Z` for the first release)
+4. Commit: `docs: prepares X.Y.Z release notes`.
+5. Tag from `main`: `git tag -a vX.Y.Z -m "vX.Y.Z"` then `git push origin vX.Y.Z`.
+6. The `release` workflow creates a draft GitHub Release from the tag's changelog section — review it on GitHub, then publish.
+7. Verify Packagist picks up the new version within 5 minutes. If not, force-update the package from its Packagist settings page.
+
+Only stable tags (`vX.Y.Z`, no suffix) trigger the release workflow. Pre-release tags (`vX.Y.Z-rc1`, `-alpha`, `-beta`) still reach Packagist via its own webhook but do not create a GitHub Release automatically — use the workflow's `workflow_dispatch` input if you need release notes for a pre-release.

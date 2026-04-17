@@ -13,16 +13,15 @@ final class DuplicateTaskIdExceptionTest extends TestCase
 {
     public function testExtendsLogicException(): void
     {
-        $exception = DuplicateTaskIdException::create('task.seed');
-
-        self::assertInstanceOf(\LogicException::class, $exception);
+        $parents = \class_parents(DuplicateTaskIdException::class);
+        self::assertNotFalse($parents);
+        self::assertContains(\LogicException::class, $parents);
     }
 
     public function testCreateReturnsInstanceWithExpectedMessage(): void
     {
         $exception = DuplicateTaskIdException::create('task.seed_categories');
 
-        self::assertInstanceOf(DuplicateTaskIdException::class, $exception);
         self::assertSame('Deploy task ID "task.seed_categories" is already registered.', $exception->getMessage());
     }
 

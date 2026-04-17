@@ -1,0 +1,62 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+'
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: 'Tag to release (e.g. v1.2.3)'
+                required: true
+                type: string
+
+jobs:
+    release:
+        name: Create GitHub release
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.3'
+                  coverage: none
+
+            - name: Resolve tag
+              id: tag
+              env:
+                  INPUT_TAG: ${{ inputs.tag }}
+              run: |
+                  TAG="${INPUT_TAG:-${GITHUB_REF#refs/tags/}}"
+                  echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+                  echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+            - name: Extract changelog section
+              env:
+                  VERSION: ${{ steps.tag.outputs.version }}
+              run: |
+                  awk -v v="$VERSION" '
+                      $0 ~ "^## \\[" v "\\]" { found=1; next }
+                      found && /^## / { exit }
+                      found { print }
+                  ' CHANGELOG.md > RELEASE_NOTES.md
+                  if [ ! -s RELEASE_NOTES.md ]; then
+                      echo "::error::No CHANGELOG entry found for ${VERSION}"
+                      exit 1
+                  fi
+
+            - name: Create GitHub release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.tag.outputs.tag }}
+                  name: ${{ steps.tag.outputs.tag }}
+                  body_path: RELEASE_NOTES.md
+                  draft: true
+                  prerelease: false
