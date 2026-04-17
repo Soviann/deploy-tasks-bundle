@@ -138,15 +138,9 @@ final class DeployTasksRollupCommand extends Command
         }
 
         if ([] === $groupFilter) {
-            /** @var list<?string> $slots */
-            $slots = $declared;
-
-            return $slots;
+            return $declared;
         }
 
-        /** @var list<?string> $slots */
-        $slots = \array_values(\array_intersect($declared, $groupFilter));
-
-        return $slots;
+        return \array_values(\array_intersect($declared, $groupFilter));
     }
 }

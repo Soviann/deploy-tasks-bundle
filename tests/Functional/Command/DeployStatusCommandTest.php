@@ -23,7 +23,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::$kernel);
+        $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:status'));
         $this->cleanStorage();
     }

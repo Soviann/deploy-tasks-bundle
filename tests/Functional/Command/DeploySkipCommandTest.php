@@ -22,7 +22,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::$kernel);
+        $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:skip'));
         $this->cleanStorage();
     }
@@ -54,7 +54,9 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $this->tester->execute(['id' => 'test.predeploy']);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
-        self::assertStringContainsString('specify --group', \preg_replace('/\s+/', ' ', $this->tester->getDisplay()));
+        $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertNotNull($display);
+        self::assertStringContainsString('specify --group', $display);
     }
 
     public function testSkipMarksOnlyTargetSlot(): void

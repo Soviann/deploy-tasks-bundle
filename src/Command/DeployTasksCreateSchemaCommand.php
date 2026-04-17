@@ -45,7 +45,7 @@ final class DeployTasksCreateSchemaCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $sql = $this->storage->getCreateTableSql();
 
-        if ($input->getOption('dump-sql')) {
+        if (true === $input->getOption('dump-sql')) {
             $output->writeln($sql.';');
 
             return Command::SUCCESS;

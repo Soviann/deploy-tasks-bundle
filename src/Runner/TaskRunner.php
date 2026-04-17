@@ -332,10 +332,7 @@ final class TaskRunner
             throw TaskGroupMismatchException::create($taskId, $undeclared, $declared);
         }
 
-        /** @var list<?string> $slots */
-        $slots = $groups;
-
-        return $slots;
+        return $groups;
     }
 
     /**

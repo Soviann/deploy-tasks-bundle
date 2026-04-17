@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
@@ -22,7 +23,7 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
 
     public function testFullLifecycleRunSkipResetForceRun(): void
     {
-        $application = new Application(self::$kernel);
+        $application = new Application(self::kernel());
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
 
@@ -45,12 +46,16 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         // 3. Run predeploy group so we have a slot to skip/reset
         $runner->execute(['--group' => ['predeploy']]);
         self::assertSame(Command::SUCCESS, $runner->getStatusCode());
-        self::assertSame(TaskStatus::Ran, $storage->get('test.predeploy', 'predeploy')?->status);
+        $ran = $storage->get('test.predeploy', 'predeploy');
+        self::assertNotNull($ran);
+        self::assertSame(TaskStatus::Ran, $ran->status);
 
         // 4. Skip the predeploy slot
         $skipper->execute(['id' => 'test.predeploy', '--group' => 'predeploy', '--no-interaction' => true]);
         self::assertSame(Command::SUCCESS, $skipper->getStatusCode());
-        self::assertSame(TaskStatus::Skipped, $storage->get('test.predeploy', 'predeploy')?->status);
+        $skipped = $storage->get('test.predeploy', 'predeploy');
+        self::assertNotNull($skipped);
+        self::assertSame(TaskStatus::Skipped, $skipped->status);
 
         // 5. Reset the predeploy slot back to pending
         $resetter->execute(['id' => 'test.predeploy', '--group' => 'predeploy', '--no-interaction' => true]);
@@ -61,7 +66,12 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         $runner->execute(['--group' => ['predeploy'], '--force' => true]);
         self::assertSame(Command::SUCCESS, $runner->getStatusCode());
         self::assertStringContainsString('ran', $runner->getDisplay());
-        self::assertSame(TaskStatus::Ran, $storage->get('test.predeploy', 'predeploy')?->status);
+        // PHPStan narrowed this call to null from the assertNull at step 5; the runner
+        // command mutates storage between then and now, which PHPStan can't observe.
+        /** @var ?TaskExecution $reRan */
+        $reRan = $storage->get('test.predeploy', 'predeploy');
+        self::assertNotNull($reRan);
+        self::assertSame(TaskStatus::Ran, $reRan->status);
     }
 
     protected static function getKernelClass(): string
