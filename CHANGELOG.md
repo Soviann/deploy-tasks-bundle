@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Host-scope deploy tasks: shell files under `deploy/host-tasks/` executed by the `bin/deploy-tasks-host.sh` runner (installed manually from `bin/deploy-tasks-host.sh.dist` until a Flex recipe ships). Tracked in a separate append-only log (`.deploy-tasks-host.log`). Supports Symfony `.env` cascade + `deploy-tasks-host.local.sh` overrides.
+- Console command `deploytasks:generate:host` scaffolds a new host task file.
+- `deploytasks:generate` renamed to `deploytasks:generate:container` (old name kept as alias — no breaking change).
 - Contract layer: `DeployTaskInterface`, `TaskIdProviderInterface`, `TaskIdGeneratorInterface`, `TaskOrderResolverInterface`, `TaskStorageInterface`, `TransactionalStorageInterface`, value objects (`TaskExecution`, `TaskStatus`, `TaskResult`, `OrderedTaskCollection`), and `#[AsDeployTask]` attribute
 - `TaskResult` enum cases: `SUCCESS`, `FAILURE`, `SKIPPED`, `LOCKED`
 - `TaskStorageInterface` methods: `has`, `get`, `save`, `remove`, `removeAll`, `all`, `reset` — all scoped by `(taskId, ?group)`
