@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle;
 use Doctrine\DBAL\Connection;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
@@ -281,6 +282,16 @@ final class DeployTasksBundle extends AbstractBundle
                 service('deploy_tasks.id_generator'),
                 $generateConfig['directory'],
                 $generateConfig['template'],
+                '%kernel.project_dir%',
+            ])
+            ->tag('console.command')
+        ;
+
+        $builder->setParameter('deploy_tasks.host_dir_default', 'deploy/host-tasks');
+
+        $services->set('deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
+            ->args([
+                '%env(default:deploy_tasks.host_dir_default:DEPLOY_TASKS_HOST_DIR)%',
                 '%kernel.project_dir%',
             ])
             ->tag('console.command')

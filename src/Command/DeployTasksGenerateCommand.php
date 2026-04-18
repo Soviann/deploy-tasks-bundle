@@ -13,7 +13,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /** @internal */
-#[AsCommand(name: 'deploytasks:generate', description: 'Generate a blank deploy task class.')]
+#[AsCommand(
+    name: 'deploytasks:generate:container',
+    description: 'Generate a blank container-scope deploy task class.',
+    aliases: ['deploytasks:generate'],
+)]
 final class DeployTasksGenerateCommand extends Command
 {
     /**
@@ -36,7 +40,7 @@ final class DeployTasksGenerateCommand extends Command
             ->setHelp(
                 \sprintf(
                     <<<'EOT'
-                        The <info>%%command.name%%</info> command generates a blank deploy task class:
+                        The <info>%%command.name%%</info> command generates a blank container-scope deploy task class:
 
                             <info>%%command.full_name%%</info>
 
@@ -51,6 +55,9 @@ final class DeployTasksGenerateCommand extends Command
 
                         The generated class implements <comment>DeployTaskInterface</comment> and is automatically
                         discovered by the bundle via autoconfiguration.
+
+                        For host-scope tasks (bash scripts running outside the container), see
+                        <info>deploytasks:generate:host</info>.
                         EOT,
                     $this->defaultDirectory,
                 )
