@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve project root from script location (bin/..), then cd so all
+# relative paths below resolve against project root regardless of cwd.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
+TASKS_DIR="${DEPLOY_TASKS_HOST_DIR:-deploy/host-tasks}"
+STORAGE="${DEPLOY_TASKS_HOST_STORAGE:-.deploy-tasks-host.log}"
+LOCK_FILE="${DEPLOY_TASKS_HOST_LOCK:-.deploy-tasks-host.lock}"
+DRY_RUN=0
+APP_ENV_ARG=""
+
+# Parse args: positional APP_ENV, --dry-run flag
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=1 ;;
+        *) [ -z "$APP_ENV_ARG" ] && APP_ENV_ARG="$arg" ;;
+    esac
+done
+APP_ENV="${APP_ENV_ARG:-${APP_ENV:-dev}}"
+export APP_ENV
+
+_load_env() {
+    [ -f "$1" ] || return 0
+    set -a
+    # shellcheck disable=SC1090
+    source "$1"
+    set +a
+}
+_load_env .env
+_load_env ".env.$APP_ENV"
+_load_env .env.local
+_load_env ".env.$APP_ENV.local"
+
+if [ -f deploy-tasks-host.local.sh ]; then
+    # shellcheck disable=SC1091
+    source deploy-tasks-host.local.sh
+fi
+
+# Re-resolve after env loading (loaded files may override defaults)
+TASKS_DIR="${DEPLOY_TASKS_HOST_DIR:-$TASKS_DIR}"
+STORAGE="${DEPLOY_TASKS_HOST_STORAGE:-$STORAGE}"
+LOCK_FILE="${DEPLOY_TASKS_HOST_LOCK:-$LOCK_FILE}"
+
+touch "$STORAGE"
+exec 9>"$LOCK_FILE"
+flock -n 9 || { echo "Another deploy-tasks-host run is in progress"; exit 1; }
+
+exit_code=0
+shopt -s nullglob
+for task_file in "$TASKS_DIR"/*.sh; do
+    id=$(basename "$task_file" .sh)
+    if grep -Fxq "$id" "$STORAGE"; then
+        echo "✓ $id (skipped)"
+        continue
+    fi
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "→ $id (dry-run)"
+        continue
+    fi
+    echo "▶ $id"
+    if bash "$task_file"; then
+        echo "$id" >> "$STORAGE"
+    else
+        exit_code=$?
+        echo "✗ $id failed (exit $exit_code)"
+        break
+    fi
+done
+shopt -u nullglob
+exit $exit_code
