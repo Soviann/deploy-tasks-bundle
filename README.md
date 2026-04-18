@@ -161,6 +161,55 @@ deploy_tasks:
 
 **Custom**: plug in any `TaskStorageInterface` implementation via `storage.type: custom`. See [`docs/storage.md`](docs/storage.md).
 
+## Host-scope tasks
+
+Host tasks run outside the Symfony container — useful for operations that must execute on the host (Docker restarts, SSH-driven commands, infrastructure prep). They live as shell files under `deploy/host-tasks/`.
+
+### Install the runner
+
+Until a Flex recipe ships, install the runner manually:
+
+    cp vendor/soviann/deploy-tasks-bundle/bin/deploy-tasks-host.sh.dist bin/deploy-tasks-host.sh
+    chmod +x bin/deploy-tasks-host.sh
+    mkdir -p deploy/host-tasks
+
+Add to `.gitignore`:
+
+    .deploy-tasks-host.log
+    .deploy-tasks-host.lock
+    deploy-tasks-host.local.sh
+
+### Create a host task
+
+    bin/console deploytasks:generate:host
+
+Creates `deploy/host-tasks/deploy_task_20260418_143022.sh`. Edit the file to implement the task.
+
+### Run pending host tasks
+
+    bash bin/deploy-tasks-host.sh           # defaults to APP_ENV=dev
+    bash bin/deploy-tasks-host.sh prod      # loads .env.prod + .env.prod.local
+    bash bin/deploy-tasks-host.sh prod --dry-run
+
+### Storage & idempotency
+
+Each successful task is logged in `.deploy-tasks-host.log` (one ID per line). Re-running the script skips already-logged tasks. A task is one-shot per environment.
+
+### `.env` loading
+
+The runner loads env files in Symfony cascade order (lowest to highest priority):
+1. `.env`
+2. `.env.$APP_ENV`
+3. `.env.local`
+4. `.env.$APP_ENV.local`
+5. `deploy-tasks-host.local.sh` (bash source, for overrides the `.env` parser can't express)
+
+Values in host task scripts reference exported env vars (`$NAS_HOST`, etc.).
+
+### Concurrency
+
+A `flock` lock at `.deploy-tasks-host.lock` prevents concurrent runs on the same machine.
+
 ## Commands
 
 | Command | Description | Options |
