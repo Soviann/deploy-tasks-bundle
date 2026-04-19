@@ -218,7 +218,8 @@ A `flock` lock at `.deploy-tasks-host.lock` prevents concurrent runs on the same
 | `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable) |
 | `deploytasks:skip <id>` | Mark a task as skipped | `--group=<name>` |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>` |
-| `deploytasks:generate [name]` | Generate a blank task class | `--dir` |
+| `deploytasks:generate:container` | Generate a blank container-scope task class (alias: `deploytasks:generate`) | `--dir` |
+| `deploytasks:generate:host` | Generate a blank host-scope deploy script | `--dir` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable) |
 | `deploytasks:create-schema` | Create the DBAL storage table | `--dump-sql` |
 
