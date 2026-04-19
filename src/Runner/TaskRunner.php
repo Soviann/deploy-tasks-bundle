@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
+use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Ordering\OrderedTaskCollection;
 use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
@@ -35,6 +36,7 @@ final class TaskRunner
         private readonly TaskStorageInterface $storage,
         private readonly TaskOrderResolverInterface $resolver,
         private readonly TaskIdResolver $idResolver,
+        private readonly TaskDescriptionResolver $descriptionResolver,
         private readonly ?EventDispatcherInterface $dispatcher = null,
         private readonly ?LockFactory $lockFactory = null,
         private readonly int $defaultTimeout = 300,
@@ -176,7 +178,7 @@ final class TaskRunner
 
                 ++$pending;
                 $label = null === $slot ? $taskId : $taskId.'@'.$slot;
-                $output->writeln(\sprintf('  [pending] %s - %s', $label, $task->getDescription()));
+                $output->writeln(\sprintf('  [pending] %s - %s', $label, $this->descriptionResolver->resolve($task)));
             }
         }
 

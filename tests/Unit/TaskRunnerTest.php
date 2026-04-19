@@ -14,6 +14,7 @@ use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
@@ -384,6 +385,7 @@ final class TaskRunnerTest extends TestCase
             $storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
         );
 
         $runner->runAll($this->output);
@@ -413,6 +415,7 @@ final class TaskRunnerTest extends TestCase
             $storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             null,
             null,
             300,
@@ -458,6 +461,7 @@ final class TaskRunnerTest extends TestCase
             $storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             null,
             null,
             300,
@@ -502,6 +506,7 @@ final class TaskRunnerTest extends TestCase
             $this->storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             null,
             $lockFactory,
         );
@@ -532,6 +537,7 @@ final class TaskRunnerTest extends TestCase
             $this->storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             null,
             $lockFactory,
         );
@@ -645,6 +651,7 @@ final class TaskRunnerTest extends TestCase
             $this->storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             null,
             $lockFactory,
         );
@@ -677,6 +684,7 @@ final class TaskRunnerTest extends TestCase
             $this->storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             defaultTimeout: -1,
         );
 
@@ -758,6 +766,7 @@ final class TaskRunnerTest extends TestCase
             $this->storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             defaultTimeout: -1,
         );
 
@@ -793,6 +802,7 @@ final class TaskRunnerTest extends TestCase
             $storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             null,
             null,
             300,
@@ -865,6 +875,7 @@ final class TaskRunnerTest extends TestCase
             $storage ?? $this->storage,
             new DefaultTaskOrderResolver($idResolver),
             $idResolver,
+            new TaskDescriptionResolver(),
             $dispatcher,
         );
     }

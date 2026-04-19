@@ -8,10 +8,13 @@ namespace Soviann\DeployTasksBundle\Identifier;
  * Converts a FQCN to a snake_case task identifier.
  *
  * Strips a leading `DeployTask` or `Task` prefix and/or a trailing `DeployTask`
- * or `Task` suffix, then converts the remainder to snake_case.
+ * or `Task` suffix, then converts the remainder to snake_case. When the stripped
+ * remainder is purely numeric (timestamp class produced by `deploytasks:generate`),
+ * prefixes `task_` so the output matches the recommended `task_<timestamp>` naming.
  *
  * Examples:
- *  - App\Tasks\DeployTask20260416205300  → 20260416205300
+ *  - App\Tasks\DeployTask20260416205300  → task_20260416205300
+ *  - App\Tasks\Task20260416205300        → task_20260416205300
  *  - App\Tasks\SeedCategoriesTask        → seed_categories
  *  - App\Tasks\SeedCategoriesDeployTask  → seed_categories
  *  - App\Tasks\SeedCategories            → seed_categories
@@ -40,6 +43,11 @@ final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
         // If nothing left after stripping, fall back to original short name
         if ('' === $shortName) {
             $shortName = $original;
+        }
+
+        // Purely numeric remainder (timestamp from `deploytasks:generate`) → `task_<digits>`
+        if (1 === \preg_match('/^\d+$/', $shortName)) {
+            return 'task_'.$shortName;
         }
 
         // CamelCase → snake_case
