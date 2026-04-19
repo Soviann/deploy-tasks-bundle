@@ -7,12 +7,11 @@ A deploy task is a class that implements `DeployTaskInterface` and is registered
 The quickest way to create a task is via the generator command:
 
 ```bash
-bin/console deploytasks:generate                     # Task20260412143000.php
-bin/console deploytasks:generate SeedCategories      # Task20260412143000SeedCategories.php
-bin/console deploytasks:generate Foo --dir=src/Task/ # custom target directory
+bin/console deploytasks:generate                    # DeployTask20260412143000.php
+bin/console deploytasks:generate --dir=src/Task/    # custom target directory
 ```
 
-The generated file is placed in `src/DeployTasks/Task/` by default and contains a stub `run()` method ready to implement.
+The generated file is placed in `src/DeployTasks/Task/` by default and contains a stub `run()` method ready to implement. The filename is always `DeployTask<timestamp>.php` — the command takes no positional argument. `deploytasks:generate` is an alias of `deploytasks:generate:container`; use `deploytasks:generate:host` to scaffold a host-scope script instead.
 
 ## Attribute-based tasks (recommended)
 
@@ -44,18 +43,18 @@ final class SeedCategoriesTask implements DeployTaskInterface
 
 ## Interface-only tasks
 
-If you do not need the metadata provided by the attribute, you can implement `DeployTaskInterface` directly without it. The task will still be discovered and executed, but it will have no priority, no environment restriction, no timeout override, and no transactional flag.
+If you do not need the metadata provided by the attribute, you can implement `DeployTaskInterface` directly without it. The task will still be discovered and executed, but it will have no priority, no environment restriction, no timeout override, no transactional flag, and no group assignment.
 
 ## Attribute options
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `string` | `''` | Unique task identifier; overridden by `TaskIdProviderInterface::getTaskId()` if implemented, falls back to FQCN auto-deduction when empty |
+| `id` | `string` | `''` | Unique task identifier. Resolution order: `TaskIdProviderInterface::getTaskId()` if the task implements it and returns non-empty, then this `id` if non-empty, then the configured `TaskIdGeneratorInterface::generate()` (default: `DefaultTaskIdGenerator`). |
 | `priority` | `int` | `0` | Higher value runs first |
 | `env` | `string\|string[]\|null` | `null` | Restrict execution to one or more environments; `null` runs everywhere |
 | `timeout` | `?int` | `null` | Override the bundle's `default_timeout` for this task (seconds) |
 | `transactional` | `?bool` | `null` | Wrap execution in a transaction (requires a storage implementing `TransactionalStorageInterface`). `null` defers to the active storage's `transactional` setting (database default: `true`, filesystem default: `false`). |
-| `description` | `?string` | `null` | Override the value returned by `getDescription()` |
+| `description` | `?string` | `null` | Human-readable description used when `getDescription()` returns an empty string. Mirrors the `id` resolution: interface method wins when non-empty, attribute fallback otherwise. |
 | `groups` | `string\|string[]\|null` | `null` | Group(s) the task belongs to; `null` = default slot (runs when `deploytasks:run` is called without `--group`) |
 
 ## Environment filtering
@@ -93,6 +92,8 @@ Execution is scoped per `(task, group)` slot:
 2. Same priority: the date extracted from the task ID (format `YYYYMMDD` embedded anywhere in the ID string) determines order — oldest date first.
 3. Same date or no date: original service registration order.
 
+The date is extracted from the **resolved** task ID, so a custom `TaskIdGeneratorInterface` producing IDs without an embedded `YYYYMMDD` substring silently falls back to registration order for ties.
+
 ## Return values
 
 `run()` must return one of the `TaskResult` enum cases:
@@ -103,13 +104,15 @@ Execution is scoped per `(task, group)` slot:
 | `TaskResult::FAILURE` | `1` | Task failed; recorded as `failed` and will be retried on the next run |
 | `TaskResult::SKIPPED` | `2` | Task decided to skip itself; recorded as `skipped` in storage |
 
+`TaskResult::LOCKED` exists but is produced by the runner when a concurrent lock is held; do not return it from `run()`.
+
 ## Task ID resolution
 
 The bundle resolves task IDs in this order:
 
 1. **`TaskIdProviderInterface::getTaskId()`** — if the task implements `TaskIdProviderInterface` and returns a non-empty value, it wins.
 2. **Attribute `id`** — if `#[AsDeployTask(id: '...')]` is present and non-empty.
-3. **FQCN auto-deduction** — the ID is derived from the short class name: strip `Task`/`DeployTask` suffix, then convert to `snake_case`. Example: `SeedCategories` → `seed_categories`.
+3. **Configured `TaskIdGeneratorInterface`** — by default `DefaultTaskIdGenerator` strips `Task`/`DeployTask` prefix/suffix, converts CamelCase to snake_case, and prefixes numeric remainders with `task_` (see [`docs/advanced.md`](advanced.md#custom-id-generator)). Examples: `SeedCategoriesTask` → `seed_categories`, `DeployTask20260412143000` → `task_20260412143000`.
 
 If both `getTaskId()` and the attribute `id` return non-empty **different** values, a `E_USER_WARNING` is triggered and the interface value takes precedence.
 
@@ -131,6 +134,13 @@ final class DynamicIdTask implements TaskIdProviderInterface
 }
 ```
 
-Task IDs must be unique across the entire application. Duplicate IDs are detected at container compilation and cause a `LogicException`.
+Task IDs must be unique across the entire application. Duplication is detected at two layers:
+
+- **Compile time** — the compiler pass calls `TaskIdGeneratorInterface::generateStatic()` for every tagged task without an explicit attribute ID and throws `LogicException` on collision.
+- **Runtime** — `TaskRegistry` re-checks resolved IDs on boot and throws `DuplicateTaskIdException`. This covers `TaskIdProviderInterface` tasks and any task whose generator returned `null` from `generateStatic()` to opt out of compile-time detection.
 
 Recommended naming convention: `task_YYYYMMDDHHMMSS_<description_in_snake_case>`.
+
+## Host-scope tasks
+
+Container-scope tasks (the default) run through the Symfony kernel and are the right fit for 99% of use cases. Host-scope tasks run as plain bash scripts on the host machine, outside the container — use them when you need to touch the host filesystem, invoke host-only binaries, or sequence deploy steps that cannot run from inside the container. See [README → Host-scope tasks](../README.md#host-scope-tasks) for setup and operation details.

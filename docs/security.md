@@ -26,3 +26,11 @@ Execution records are stored in a dedicated table. Ensure the table is only acce
 ## Task Code
 
 Tasks have full access to all injected services. Review task code carefully, especially tasks contributed by team members. Tasks should be idempotent when possible — if interrupted and re-run, they should produce the same result without side effects.
+
+## Host-scope tasks
+
+Host-scope tasks are **not** container-sandboxed. They execute inside the operator's host shell (the one that runs `bin/deploy-tasks-host.sh`) with its full environment, path, umask, and filesystem rights. Treat them as shell code you authored yourself:
+
+- `deploy/host-tasks/deploy_task_*.sh` scripts and `bin/deploy-tasks-host.local.sh` are sourced by bash at execution time. Any secret stored in them ends up in the shell's process environment and in `.deploy-tasks-host.log`. Never commit secrets or production credentials in these files — source them from an out-of-repo location instead.
+- Both `.deploy-tasks-host.log` and `.deploy-tasks-host.lock` can leak task metadata and timing. Git-ignore them and make sure they are not served from a web-exposed directory.
+- Only operators who are already trusted to run `bin/deploy-tasks-host.sh` (deploy user, CI runner) should be able to write to `deploy/host-tasks/` — any attacker who can drop a script there gets arbitrary shell execution on the host.

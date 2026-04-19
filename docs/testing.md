@@ -5,17 +5,26 @@
 Use `InMemoryStorage` to test task logic without touching the filesystem or database.
 
 ```php
-use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
-use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
+use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 
 $storage = new InMemoryStorage();
 $idResolver = new TaskIdResolver();
 $registry = new TaskRegistry([$yourTask], $idResolver);
-$runner = new TaskRunner($registry, $storage, new DefaultTaskOrderResolver($idResolver), $idResolver);
+$runner = new TaskRunner(
+    $registry,
+    $storage,
+    new DefaultTaskOrderResolver($idResolver),
+    $idResolver,
+    new TaskDescriptionResolver(),
+);
 ```
+
+`TaskRunner`'s full constructor signature is `(TaskRegistry $registry, TaskStorageInterface $storage, TaskOrderResolverInterface $resolver, TaskIdResolver $idResolver, TaskDescriptionResolver $descriptionResolver, ?EventDispatcherInterface $dispatcher = null, ?LockFactory $lockFactory = null, int $defaultTimeout = 300, ?string $environment = null, bool $transactional = true, bool $allOrNothing = false)`. The example above supplies only the required arguments; add optional ones as needed.
 
 ## Functional Testing with a Test Kernel
 
@@ -74,3 +83,7 @@ protected function tearDown(): void
     // Remove temp storage directory recursively
 }
 ```
+
+## Host-scope tasks
+
+Host tasks are bash scripts invoked by `bin/deploy-tasks-host.sh` — they do **not** go through the Symfony kernel, so `CommandTester` and the kernel harness above do not cover them. Test them at the bash level: invoke the script with a controlled `APP_ENV`, point it at a disposable working directory, and assert against the state of `deploy/host-tasks/` and `.deploy-tasks-host.log`.
