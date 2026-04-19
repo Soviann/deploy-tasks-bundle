@@ -176,22 +176,22 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
         $runnerDefinition = $container->getDefinition('deploy_tasks.runner');
 
-        // Event dispatcher (argument index 4)
+        // Event dispatcher (argument index 5)
         /** @var bool $eventsEnabled */
         $eventsEnabled = $container->getParameter('deploy_tasks.events.enabled');
 
         if ($eventsEnabled && $container->has('event_dispatcher')) {
-            $runnerDefinition->setArgument(4, new Reference('event_dispatcher'));
+            $runnerDefinition->setArgument(5, new Reference('event_dispatcher'));
         } elseif ($eventsEnabled) {
             $container->log($this, 'Events enabled but symfony/event-dispatcher not available — event dispatching disabled.');
         }
 
-        // Lock factory (argument index 5)
+        // Lock factory (argument index 6)
         /** @var bool $lockEnabled */
         $lockEnabled = $container->getParameter('deploy_tasks.lock.enabled');
 
         if ($lockEnabled && $container->has('lock.factory')) {
-            $runnerDefinition->setArgument(5, new Reference('lock.factory'));
+            $runnerDefinition->setArgument(6, new Reference('lock.factory'));
         } elseif ($lockEnabled) {
             $container->log($this, 'Lock enabled but symfony/lock not available — concurrent execution protection disabled.');
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -25,6 +26,7 @@ final class DeployTasksStatusCommand extends Command
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
+        private readonly TaskDescriptionResolver $descriptionResolver,
     ) {
         parent::__construct();
     }
@@ -84,7 +86,7 @@ final class DeployTasksStatusCommand extends Command
                     continue;
                 }
 
-                $rows[] = $this->buildRow($id, $slot, $task->getDescription(), $executions, $noState);
+                $rows[] = $this->buildRow($id, $slot, $this->descriptionResolver->resolve($task), $executions, $noState);
                 ++$slotCount;
             }
         }

@@ -15,6 +15,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksSkipCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
 use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
+use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
@@ -198,6 +199,9 @@ final class DeployTasksBundle extends AbstractBundle
             ->args([service('deploy_tasks.id_generator')])
         ;
 
+        // Description resolver (internal — not configurable)
+        $services->set('deploy_tasks.description_resolver', TaskDescriptionResolver::class);
+
         // Storage
         $this->registerStorage($config, $services, $builder);
 
@@ -226,6 +230,7 @@ final class DeployTasksBundle extends AbstractBundle
                 service('deploy_tasks.storage'),
                 service('deploy_tasks.order_resolver'),
                 service('deploy_tasks.id_resolver'),
+                service('deploy_tasks.description_resolver'),
                 null, // dispatcher — set by compiler pass
                 null, // lock factory — set by compiler pass
                 $config['default_timeout'],
@@ -246,6 +251,7 @@ final class DeployTasksBundle extends AbstractBundle
             ->args([
                 service('deploy_tasks.registry'),
                 service('deploy_tasks.storage'),
+                service('deploy_tasks.description_resolver'),
             ])
             ->tag('console.command')
         ;

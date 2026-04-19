@@ -53,7 +53,17 @@ final class DeployStatusCommandTest extends FunctionalTestCase
     {
         $this->tester->execute([]);
 
-        self::assertStringContainsString('7 task(s) registered', $this->tester->getDisplay());
+        self::assertStringContainsString('8 task(s) registered', $this->tester->getDisplay());
+    }
+
+    public function testAttributeDescriptionFallbackRendered(): void
+    {
+        // Fixture's getDescription() returns '' but #[AsDeployTask(description: 'From attribute only')]
+        // is declared — the resolver should surface the attribute fallback in the table.
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('From attribute only', $this->tester->getDisplay());
     }
 
     public function testStatusShowsAllExecutionStates(): void
@@ -87,8 +97,8 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringContainsString('predeploy', $display);
         self::assertStringContainsString('postdeploy', $display);
 
-        // 5 default slots + 1 predeploy + 2 multi_group = 8 slots displayed
-        self::assertStringContainsString('8 slot(s) displayed', $display);
+        // 6 default slots + 1 predeploy + 2 multi_group = 9 slots displayed
+        self::assertStringContainsString('9 slot(s) displayed', $display);
     }
 
     public function testGroupFilterRestrictsDisplay(): void
