@@ -7,9 +7,9 @@ Use `InMemoryStorage` to test task logic without touching the filesystem or data
 ```php
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 
 $storage = new InMemoryStorage();
@@ -18,13 +18,13 @@ $registry = new TaskRegistry([$yourTask], $idResolver);
 $runner = new TaskRunner(
     $registry,
     $storage,
-    new DefaultTaskOrderResolver($idResolver),
+    new DefaultTaskSorter($idResolver),
     $idResolver,
     new TaskDescriptionResolver(),
 );
 ```
 
-`TaskRunner`'s full constructor signature is `(TaskRegistry $registry, TaskStorageInterface $storage, TaskOrderResolverInterface $resolver, TaskIdResolver $idResolver, TaskDescriptionResolver $descriptionResolver, ?EventDispatcherInterface $dispatcher = null, ?LockFactory $lockFactory = null, int $defaultTimeout = 300, ?string $environment = null, bool $transactional = true, bool $allOrNothing = false)`. The example above supplies only the required arguments; add optional ones as needed.
+`TaskRunner`'s full constructor signature is `(TaskRegistry $registry, TaskStorageInterface $storage, TaskSorterInterface $sorter, TaskIdResolver $idResolver, TaskDescriptionResolver $descriptionResolver, ?EventDispatcherInterface $dispatcher = null, ?LockFactory $lockFactory = null, int $defaultTimeout = 300, ?string $environment = null, bool $transactional = true, bool $allOrNothing = false)`. The example above supplies only the required arguments; add optional ones as needed.
 
 ## Functional Testing with a Test Kernel
 

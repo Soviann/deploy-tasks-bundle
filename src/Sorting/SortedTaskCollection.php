@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasksBundle\Ordering;
+namespace Soviann\DeployTasksBundle\Sorting;
 
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 
 /**
- * Type-safe, immutable collection of deploy tasks in resolved execution order.
+ * Type-safe, immutable collection of deploy tasks in sorted execution order.
  *
  * The variadic constructor guarantees that only DeployTaskInterface instances
  * can be stored — enforcing the contract at runtime, not just via PHPDoc.
  *
  * @implements \IteratorAggregate<int, DeployTaskInterface>
  */
-final readonly class OrderedTaskCollection implements \IteratorAggregate, \Countable
+final readonly class SortedTaskCollection implements \IteratorAggregate, \Countable
 {
     /** @var list<DeployTaskInterface> */
     private array $tasks;

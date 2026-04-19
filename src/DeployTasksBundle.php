@@ -18,10 +18,10 @@ use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
-use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
+use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
@@ -52,9 +52,9 @@ final class DeployTasksBundle extends AbstractBundle
                     ->defaultNull()
                     ->info('Service ID of a custom TaskIdGeneratorInterface, or null for the default generator.')
                 ->end()
-                ->scalarNode('order_resolver')
+                ->scalarNode('sorter')
                     ->defaultNull()
-                    ->info('Service ID of a custom TaskOrderResolverInterface, or null for the default resolver.')
+                    ->info('Service ID of a custom TaskSorterInterface, or null for the default sorter.')
                 ->end()
                 ->integerNode('default_timeout')
                     ->defaultValue(300)
@@ -205,8 +205,8 @@ final class DeployTasksBundle extends AbstractBundle
         // Storage
         $this->registerStorage($config, $services, $builder);
 
-        // Order resolver
-        $this->registerOrderResolver($config, $services);
+        // Sorter
+        $this->registerSorter($config, $services);
 
         // Config flags for compiler pass
         /** @var array{enabled: bool} $eventsConfig */
@@ -228,7 +228,7 @@ final class DeployTasksBundle extends AbstractBundle
             ->args([
                 service('deploy_tasks.registry'),
                 service('deploy_tasks.storage'),
-                service('deploy_tasks.order_resolver'),
+                service('deploy_tasks.sorter'),
                 service('deploy_tasks.id_resolver'),
                 service('deploy_tasks.description_resolver'),
                 null, // dispatcher — set by compiler pass
@@ -403,19 +403,19 @@ final class DeployTasksBundle extends AbstractBundle
     /**
      * @param array<string, mixed> $config
      */
-    private function registerOrderResolver(array $config, ServicesConfigurator $services): void
+    private function registerSorter(array $config, ServicesConfigurator $services): void
     {
-        /** @var string|null $resolverServiceId */
-        $resolverServiceId = $config['order_resolver'];
+        /** @var string|null $sorterServiceId */
+        $sorterServiceId = $config['sorter'];
 
-        if (null !== $resolverServiceId) {
-            $services->alias('deploy_tasks.order_resolver', $resolverServiceId);
+        if (null !== $sorterServiceId) {
+            $services->alias('deploy_tasks.sorter', $sorterServiceId);
         } else {
-            $services->set('deploy_tasks.order_resolver', DefaultTaskOrderResolver::class)
+            $services->set('deploy_tasks.sorter', DefaultTaskSorter::class)
                 ->args([service('deploy_tasks.id_resolver')])
             ;
         }
 
-        $services->alias(TaskOrderResolverInterface::class, 'deploy_tasks.order_resolver')->public();
+        $services->alias(TaskSorterInterface::class, 'deploy_tasks.sorter')->public();
     }
 }

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasksBundle\Ordering;
+namespace Soviann\DeployTasksBundle\Sorting;
 
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 
 /**
- * Determines the execution order of deploy tasks.
+ * Sorts deploy tasks into execution order.
  */
-interface TaskOrderResolverInterface
+interface TaskSorterInterface
 {
     /**
      * Returns the tasks sorted in the order they should be executed.
      *
      * @param array<DeployTaskInterface> $tasks
      */
-    public function resolve(array $tasks): OrderedTaskCollection;
+    public function sort(array $tasks): SortedTaskCollection;
 }

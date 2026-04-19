@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasksBundle\Ordering;
+namespace Soviann\DeployTasksBundle\Sorting;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 
 /**
- * Resolves the execution order of deploy tasks based on their #[AsDeployTask] attribute.
+ * Default sort for deploy tasks based on their #[AsDeployTask] attribute.
  *
  * Sorting rules (applied in order):
  *  1. Priority DESC (higher priority runs first)
@@ -18,7 +18,7 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
  *
  * @internal
  */
-final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
+final class DefaultTaskSorter implements TaskSorterInterface
 {
     public function __construct(
         private readonly TaskIdResolver $idResolver,
@@ -30,7 +30,7 @@ final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
      *
      * @param array<DeployTaskInterface> $tasks
      */
-    public function resolve(array $tasks): OrderedTaskCollection
+    public function sort(array $tasks): SortedTaskCollection
     {
         /** @var array<int, array{task: DeployTaskInterface, priority: int, date: string|null, index: int}> $indexed */
         $indexed = \array_map(
@@ -65,7 +65,7 @@ final class DefaultTaskOrderResolver implements TaskOrderResolverInterface
             return $a['index'] <=> $b['index'];
         });
 
-        return new OrderedTaskCollection(...\array_map(static fn (array $entry): DeployTaskInterface => $entry['task'], $indexed));
+        return new SortedTaskCollection(...\array_map(static fn (array $entry): DeployTaskInterface => $entry['task'], $indexed));
     }
 
     /**
