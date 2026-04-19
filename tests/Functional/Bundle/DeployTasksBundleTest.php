@@ -9,19 +9,19 @@ use Soviann\DeployTasksBundle\DeployTasksBundle;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
-use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
+use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
-use Soviann\DeployTasksBundle\Tests\Fixtures\CustomOrderResolverFixture;
+use Soviann\DeployTasksBundle\Tests\Fixtures\CustomSorterFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Functional\AutoconfigTaskKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\CustomResolverTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\CustomSorterTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageMissingServiceTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomTransactionalStorageTestKernel;
@@ -44,7 +44,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertTrue($container->has(TaskRegistry::class));
         self::assertTrue($container->has(TaskRunner::class));
         self::assertTrue($container->has(TaskStorageInterface::class));
-        self::assertTrue($container->has(TaskOrderResolverInterface::class));
+        self::assertTrue($container->has(TaskSorterInterface::class));
     }
 
     public function testFilesystemStorageIsDefault(): void
@@ -55,12 +55,12 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertInstanceOf(FilesystemStorage::class, $container->get(TaskStorageInterface::class));
     }
 
-    public function testDefaultOrderResolver(): void
+    public function testDefaultSorter(): void
     {
         self::bootKernel();
         $container = self::getContainer();
 
-        self::assertInstanceOf(DefaultTaskOrderResolver::class, $container->get(TaskOrderResolverInterface::class));
+        self::assertInstanceOf(DefaultTaskSorter::class, $container->get(TaskSorterInterface::class));
     }
 
     public function testIdResolverIsRegistered(): void
@@ -134,14 +134,14 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertNotNull($reflection->getValue($runner), 'lockFactory must be wired when lock.enabled=true');
     }
 
-    public function testCustomOrderResolverIsUsed(): void
+    public function testCustomSorterIsUsed(): void
     {
-        static::$class = CustomResolverTestKernel::class;
+        static::$class = CustomSorterTestKernel::class;
         self::bootKernel();
         $container = self::getContainer();
 
-        $resolver = $container->get(TaskOrderResolverInterface::class);
-        self::assertInstanceOf(CustomOrderResolverFixture::class, $resolver);
+        $sorter = $container->get(TaskSorterInterface::class);
+        self::assertInstanceOf(CustomSorterFixture::class, $sorter);
     }
 
     public function testCustomStorageIsAliased(): void

@@ -13,8 +13,8 @@ use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Ordering\OrderedTaskCollection;
-use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
+use Soviann\DeployTasksBundle\Sorting\SortedTaskCollection;
+use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
@@ -34,7 +34,7 @@ final class TaskRunner
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
-        private readonly TaskOrderResolverInterface $resolver,
+        private readonly TaskSorterInterface $sorter,
         private readonly TaskIdResolver $idResolver,
         private readonly TaskDescriptionResolver $descriptionResolver,
         private readonly ?EventDispatcherInterface $dispatcher = null,
@@ -60,23 +60,23 @@ final class TaskRunner
     {
         $result = $this->withLock($output, function () use ($output, $dryRun, $force, $groups): RunResult {
             $tasks = \array_values($this->registry->all($this->environment, $groups));
-            $ordered = $this->resolver->resolve($tasks);
+            $sorted = $this->sorter->sort($tasks);
             /** @var list<?string> $effectiveGroups */
             $effectiveGroups = [] === $groups ? [null] : $groups;
 
             if ($dryRun) {
-                return $this->dryRun($ordered, $output, $effectiveGroups);
+                return $this->dryRun($sorted, $output, $effectiveGroups);
             }
 
             if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
                 try {
-                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($ordered, $output, $force, $effectiveGroups));
+                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups));
                 } catch (\Throwable) {
                     return new RunResult(ran: 0, skipped: 0, failed: 1);
                 }
             }
 
-            return $this->executeAll($ordered, $output, $force, $effectiveGroups);
+            return $this->executeAll($sorted, $output, $force, $effectiveGroups);
         });
 
         return $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
@@ -158,7 +158,7 @@ final class TaskRunner
      *
      * @param list<?string> $effectiveGroups
      */
-    private function dryRun(OrderedTaskCollection $tasks, OutputInterface $output, array $effectiveGroups): RunResult
+    private function dryRun(SortedTaskCollection $tasks, OutputInterface $output, array $effectiveGroups): RunResult
     {
         $pending = 0;
         $skipped = 0;
@@ -190,7 +190,7 @@ final class TaskRunner
      *
      * @param list<?string> $effectiveGroups
      */
-    private function executeAll(OrderedTaskCollection $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
+    private function executeAll(SortedTaskCollection $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
     {
         $ran = 0;
         $skipped = 0;

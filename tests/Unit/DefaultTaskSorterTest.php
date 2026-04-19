@@ -7,18 +7,18 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
+use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PrioritizedTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 
-#[CoversClass(DefaultTaskOrderResolver::class)]
-final class DefaultTaskOrderResolverTest extends TestCase
+#[CoversClass(DefaultTaskSorter::class)]
+final class DefaultTaskSorterTest extends TestCase
 {
-    private DefaultTaskOrderResolver $resolver;
+    private DefaultTaskSorter $sorter;
 
     protected function setUp(): void
     {
-        $this->resolver = new DefaultTaskOrderResolver(new TaskIdResolver());
+        $this->sorter = new DefaultTaskSorter(new TaskIdResolver());
     }
 
     public function testSortsByPriorityDescending(): void
@@ -26,7 +26,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
         $lowPriority = new SimpleTask('task.low');
         $highPriority = new PrioritizedTask();
 
-        $result = $this->resolver->resolve([$lowPriority, $highPriority]);
+        $result = $this->sorter->sort([$lowPriority, $highPriority]);
         $tasks = $result->toArray();
 
         self::assertSame($highPriority, $tasks[0]);
@@ -38,7 +38,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
         $newer = new SimpleTask('task_20260415_foo');
         $older = new SimpleTask('task_20260410_bar');
 
-        $result = $this->resolver->resolve([$newer, $older]);
+        $result = $this->sorter->sort([$newer, $older]);
         $tasks = $result->toArray();
 
         self::assertSame($older, $tasks[0]);
@@ -50,7 +50,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
         $noDate = new SimpleTask('no_date_task');
         $dated = new SimpleTask('task_20260410');
 
-        $result = $this->resolver->resolve([$noDate, $dated]);
+        $result = $this->sorter->sort([$noDate, $dated]);
         $tasks = $result->toArray();
 
         self::assertSame($dated, $tasks[0]);
@@ -62,7 +62,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
         $first = new SimpleTask('task.alpha');
         $second = new SimpleTask('task.beta');
 
-        $result = $this->resolver->resolve([$first, $second]);
+        $result = $this->sorter->sort([$first, $second]);
         $tasks = $result->toArray();
 
         self::assertSame($first, $tasks[0]);
@@ -71,7 +71,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
 
     public function testEmptyCollection(): void
     {
-        $result = $this->resolver->resolve([]);
+        $result = $this->sorter->sort([]);
 
         self::assertTrue($result->isEmpty());
         self::assertCount(0, $result);
@@ -88,7 +88,7 @@ final class DefaultTaskOrderResolverTest extends TestCase
         // Priority 0, no date → last
         $noDate = new SimpleTask('task.no_date');
 
-        $result = $this->resolver->resolve([$noDate, $newerDated, $olderDated, $highPriority]);
+        $result = $this->sorter->sort([$noDate, $newerDated, $olderDated, $highPriority]);
         $tasks = $result->toArray();
 
         self::assertSame($highPriority, $tasks[0]);

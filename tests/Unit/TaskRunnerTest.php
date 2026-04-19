@@ -16,9 +16,9 @@ use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Ordering\DefaultTaskOrderResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -383,7 +383,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new TransactionalTask()], $idResolver),
             $storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
         );
@@ -413,7 +413,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First'), new FailingTask()], $idResolver),
             $storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             null,
@@ -459,7 +459,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First'), new SimpleTask('task.2', 'Second')], $idResolver),
             $storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             null,
@@ -504,7 +504,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
             $this->storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             null,
@@ -535,7 +535,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new FailingTask()], $idResolver),
             $this->storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             null,
@@ -649,7 +649,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
             $this->storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             null,
@@ -682,7 +682,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
             $this->storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             defaultTimeout: -1,
@@ -764,7 +764,7 @@ final class TaskRunnerTest extends TestCase
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
             $this->storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             defaultTimeout: -1,
@@ -800,7 +800,7 @@ final class TaskRunnerTest extends TestCase
         return new TaskRunner(
             new TaskRegistry($tasks, $idResolver),
             $storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             null,
@@ -873,7 +873,7 @@ final class TaskRunnerTest extends TestCase
         return new TaskRunner(
             new TaskRegistry($tasks, $idResolver),
             $storage ?? $this->storage,
-            new DefaultTaskOrderResolver($idResolver),
+            new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
             $dispatcher,

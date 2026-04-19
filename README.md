@@ -121,7 +121,7 @@ Behavior notes:
 # config/packages/deploy_tasks.yaml
 deploy_tasks:
     id_generator: ~              # service ID of a custom TaskIdGeneratorInterface
-    order_resolver: ~            # service ID of a custom TaskOrderResolverInterface
+    sorter: ~                    # service ID of a custom TaskSorterInterface
     default_timeout: 300         # seconds
     storage:
         type: filesystem         # filesystem | database | custom
