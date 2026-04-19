@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
+use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeDescriptionOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiEnvTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
@@ -65,6 +66,10 @@ final class TestKernel extends AbstractTestKernel
         ;
 
         $services->set('test.task.multi_group', MultiGroupTask::class)
+            ->tag('deploy_tasks.task')
+        ;
+
+        $services->set('test.task.attribute_description', AttributeDescriptionOnlyTask::class)
             ->tag('deploy_tasks.task')
         ;
     }
