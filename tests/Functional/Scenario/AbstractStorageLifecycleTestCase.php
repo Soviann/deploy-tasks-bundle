@@ -35,18 +35,24 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
 
         // 1. Run → fixture task is Ran
         self::assertSame(Command::SUCCESS, $run->execute([]));
-        self::assertSame(TaskStatus::Ran, $storage->get($taskId)?->status);
+        $exec = $storage->get($taskId);
+        self::assertNotNull($exec);
+        self::assertSame(TaskStatus::Ran, $exec->status);
 
         // 2. Reset → record gone → run → back to Ran
         self::assertSame(Command::SUCCESS, $reset->execute(['id' => $taskId, '--no-interaction' => true]));
         self::assertFalse($storage->has($taskId));
         self::assertSame(Command::SUCCESS, $run->execute([]));
-        self::assertSame(TaskStatus::Ran, $storage->get($taskId)?->status);
+        $exec = $storage->get($taskId);
+        self::assertNotNull($exec);
+        self::assertSame(TaskStatus::Ran, $exec->status);
 
         // 3. Rollup from clean slate → Ran without executing the task body
         $this->cleanStorage();
         self::assertSame(Command::SUCCESS, $rollup->execute(['--no-interaction' => true]));
-        self::assertSame(TaskStatus::Ran, $storage->get($taskId)?->status);
+        $exec = $storage->get($taskId);
+        self::assertNotNull($exec);
+        self::assertSame(TaskStatus::Ran, $exec->status);
 
         // 4. Status exits 0 after a clean run
         self::assertSame(Command::SUCCESS, $status->execute([]));
