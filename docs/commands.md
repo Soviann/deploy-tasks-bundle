@@ -1,5 +1,7 @@
 # Console Commands
 
+`deploytasks:generate` is an alias of [`deploytasks:generate:container`](#deploytasksgeneratecontainer); both names work interchangeably. A separate [`deploytasks:generate:host`](#deploytasksgeneratehost) command scaffolds host-scope scripts.
+
 ## deploytasks:run
 
 Execute all pending deploy tasks in priority order.
@@ -120,13 +122,14 @@ If the task has no execution record, the command reports it is already pending a
 
 ---
 
-## deploytasks:generate
+## deploytasks:generate:container
 
-Generate a new deploy task class with a timestamp-based ID.
+Generate a new container-scope deploy task class with a timestamp-based ID. `deploytasks:generate` is kept as an alias for convenience.
 
 ```bash
-bin/console deploytasks:generate
-bin/console deploytasks:generate --dir=src/Task/
+bin/console deploytasks:generate:container
+bin/console deploytasks:generate:container --dir=src/Task/
+bin/console deploytasks:generate                          # alias
 ```
 
 **Options:**
@@ -135,9 +138,28 @@ bin/console deploytasks:generate --dir=src/Task/
 |---|---|---|
 | `--dir` | `src/DeployTasks/Task/` | Target directory for the generated file |
 
-The generated class name is `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`). The task ID is auto-derived from the class name by the configured `TaskIdGeneratorInterface`: the default generator strips the `DeployTask` prefix and returns the raw timestamp (e.g. `20260412143000`). The namespace is derived from the target directory by converting path segments to `PascalCase` (e.g. `src/DeployTasks/Task/` becomes `App\DeployTasks\Task`).
+The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`) — the command takes no positional argument. The task ID is auto-derived from the class name by the configured `TaskIdGeneratorInterface`: the default generator strips the `DeployTask` prefix and prefixes the purely-numeric remainder with `task_` (e.g. `task_20260412143000`). The namespace is derived from the target directory by converting path segments to `PascalCase` (e.g. `src/DeployTasks/Task/` becomes `App\DeployTasks\Task`).
 
 The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute, and provides a stub `run()` method. Rename the class after generation if you want a more descriptive name — the default ID generator also handles `SeedCategoriesTask` and similar CamelCase names.
+
+---
+
+## deploytasks:generate:host
+
+Generate a new host-scope deploy task script. Host scripts are plain bash files executed outside the container by `bin/deploy-tasks-host.sh`; see the [README host-runner setup](../README.md#host-scope-tasks) for installation details.
+
+```bash
+bin/console deploytasks:generate:host
+bin/console deploytasks:generate:host --dir=deploy/host-tasks/
+```
+
+**Options:**
+
+| Option | Default | Description |
+|---|---|---|
+| `--dir` | `deploy/host-tasks/` | Target directory for the generated script |
+
+The generated filename follows the pattern `deploy_task_<YYYYMMDD>_<HHMMSS>.sh` (e.g. `deploy_task_20260418_143022.sh`). The file is executable (`0755`) and contains a bash stub with `set -euo pipefail` and a `# TODO: implement` marker. Lexicographic filename ordering on disk drives execution order.
 
 ---
 

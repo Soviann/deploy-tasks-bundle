@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS deploy_task_executions (
 
 The `task_group` column stores the empty string for the default slot (SQL forbids `NULL` in a primary key), and the declared group name for grouped slots. The composite primary key `(id, task_group)` allows one row per `(task, group)` slot — a task declared in multiple groups therefore records one row per slot.
 
+These are the default column names and widths; adjust them to match your `storage.database.id_column*` configuration if you've overridden them.
+
 ### Transactional tasks
 
 Transaction wrapping is configured per storage backend under `storage.<type>`:
@@ -118,7 +120,7 @@ final class RedisStorage implements TaskStorageInterface
 }
 ```
 
-If your backend supports transactions, implement `TransactionalStorageInterface` (which extends `TaskStorageInterface`) — the bundle detects this automatically and exposes your storage as both interfaces.
+If your backend supports transactions, implement `TransactionalStorageInterface` (which extends `TaskStorageInterface`) — the bundle detects this automatically and exposes your storage as both interfaces. Detection happens in a compiler pass that inspects the registered service's class after extension loading, so the alias is wired without any extra configuration on your side.
 
 ```yaml
 # config/services.yaml
