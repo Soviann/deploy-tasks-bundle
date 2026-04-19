@@ -22,7 +22,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Attribute/`**
 - `AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
 
-**`Command/`** — 7 console commands (`Deploy*Command.php`).
+**`Command/`** — 8 console commands (`Deploy*Command.php`).
 
 **`DependencyInjection/Compiler/`**
 - `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection (skipped when the generator's static method returns null), and wires optional `event_dispatcher` and `lock.factory` into the runner.
@@ -37,7 +37,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Identifier/`** — task ID handling
 - `TaskIdGeneratorInterface` — service: `generate(class-string): string` plus static `generateStatic()` for compile time
 - `TaskIdProviderInterface` — opt-in on tasks to supply a dynamic ID via `getTaskId(): string`
-- `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` suffix)
+- `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` prefix/suffix); prefixes a purely-numeric remainder with `task_` to match the recommended naming convention.
 - `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
 
 **`Ordering/`** — execution order
@@ -108,7 +108,7 @@ Validation: `type: database` requires `doctrine/dbal` at compile time. `type: cu
 Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tasks.task`.
 
 ### Attribute
-`#[AsDeployTask(id, priority, env, timeout, transactional, description)]` provides task metadata. `AsDeployTask::of($task)` is the only attribute reader in the codebase.
+`#[AsDeployTask(id, priority, env, timeout, transactional, description, groups)]` provides task metadata. `AsDeployTask::of($task)` is the only attribute reader in the codebase. The `description` attribute is the fallback when `getDescription()` returns an empty string — same pattern as `id` resolution.
 
 ### Service Aliases (autowirable)
 - `TaskStorageInterface` → active storage backend
@@ -126,7 +126,8 @@ Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tas
 | `deploytasks:skip <id>` | Record a task as `Skipped` without running it. |
 | `deploytasks:reset <id>` | Remove a task's execution record. Interactive unless `--no-interaction`. |
 | `deploytasks:rollup` | Clear execution history and mark all registered tasks as `Ran`. |
-| `deploytasks:generate [name] [--dir=...]` | Create a `Task{YYYYMMDDHHIISS}{Name}.php` stub. |
+| `deploytasks:generate:container [--dir=...]` (alias: `deploytasks:generate`) | Create a `DeployTask<YYYYMMDDHHIISS>.php` container-scope task stub. |
+| `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` host-scope task stub. |
 | `deploytasks:create-schema` | Emit/execute the SQL to create the DBAL storage table. Registered only when `storage.type: database`. |
 
 ## Development Commands
