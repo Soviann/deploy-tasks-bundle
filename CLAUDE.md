@@ -40,10 +40,10 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 - `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` prefix/suffix); prefixes a purely-numeric remainder with `task_` to match the recommended naming convention.
 - `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
 
-**`Ordering/`** — execution order
-- `TaskOrderResolverInterface` — controls task execution order via `resolve(array): OrderedTaskCollection`
-- `OrderedTaskCollection` — immutable, variadic-typed collection of `DeployTaskInterface`
-- `DefaultTaskOrderResolver` — sort: priority DESC → date-from-id ASC → stable original order
+**`Sorting/`** — execution order
+- `TaskSorterInterface` — sorts tasks into execution order via `sort(array): SortedTaskCollection`
+- `SortedTaskCollection` — immutable, variadic-typed collection of `DeployTaskInterface`
+- `DefaultTaskSorter` — sort: priority DESC → date-from-id ASC → stable original order
 
 **`Runner/`** — discovery and execution
 - `TaskRegistry` — holds tagged tasks, env filtering, duplicate detection
@@ -68,7 +68,7 @@ Root key `deploy_tasks:`.
 ```yaml
 deploy_tasks:
     id_generator: ~                         # service ID or null (default: DefaultTaskIdGenerator)
-    order_resolver: ~                       # service ID or null (default: DefaultTaskOrderResolver)
+    sorter: ~                               # service ID or null (default: DefaultTaskSorter)
     default_timeout: 300                    # seconds (>= 0)
     storage:
         type: filesystem                    # filesystem | database | custom
@@ -114,7 +114,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tas
 - `TaskStorageInterface` → active storage backend
 - `TransactionalStorageInterface` → active storage when it supports transactions
 - `TaskIdGeneratorInterface` → configured or default generator
-- `TaskOrderResolverInterface` → configured or default resolver
+- `TaskSorterInterface` → configured or default sorter
 - `TaskRegistry`, `TaskRunner` → public
 
 ## Console Commands
@@ -162,7 +162,7 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 | New storage backend | Implement `TaskStorageInterface` (or `TransactionalStorageInterface`) in `src/Storage/`. Add a service + config branch in `DeployTasksBundle::configure()` and `loadExtension()`. |
 | Custom ID scheme | Implement `TaskIdGeneratorInterface`. Set `deploy_tasks.id_generator` to its service ID. |
 | Dynamic per-task ID | Task implements `TaskIdProviderInterface::getTaskId()`. |
-| Custom ordering | Implement `TaskOrderResolverInterface`. Set `deploy_tasks.order_resolver`. |
+| Custom ordering | Implement `TaskSorterInterface`. Set `deploy_tasks.sorter`. |
 | React to lifecycle | Subscribe to `BeforeTaskEvent` / `AfterTaskEvent` / `TaskFailedEvent` (all carry `$taskId`). |
 | New command | Add to `src/Command/`, register in `DeployTasksBundle::loadExtension()`. |
 

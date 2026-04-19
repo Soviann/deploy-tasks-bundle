@@ -1,21 +1,21 @@
 # Advanced Usage
 
-## Custom Order Resolver
+## Custom Task Sorter
 
-Implement `TaskOrderResolverInterface` to define a custom task execution order.
+Implement `TaskSorterInterface` to define a custom task execution order.
 
 ```php
-use Soviann\DeployTasksBundle\Ordering\TaskOrderResolverInterface;
-use Soviann\DeployTasksBundle\Ordering\OrderedTaskCollection;
+use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
+use Soviann\DeployTasksBundle\Sorting\SortedTaskCollection;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 
-final class MyOrderResolver implements TaskOrderResolverInterface
+final class MySorter implements TaskSorterInterface
 {
     /** @param array<DeployTaskInterface> $tasks */
-    public function resolve(array $tasks): OrderedTaskCollection
+    public function sort(array $tasks): SortedTaskCollection
     {
         // Your custom ordering logic
-        return new OrderedTaskCollection(...$tasks);
+        return new SortedTaskCollection(...$tasks);
     }
 }
 ```
@@ -24,7 +24,7 @@ Register it in the bundle configuration:
 
 ```yaml
 deploy_tasks:
-    order_resolver: App\Deploy\MyOrderResolver
+    sorter: App\Deploy\MySorter
 ```
 
 ## Lock Configuration

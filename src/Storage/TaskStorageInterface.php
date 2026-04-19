@@ -45,7 +45,7 @@ interface TaskStorageInterface
      * Returns all stored execution records as a flat list.
      *
      * Multi-group tasks yield multiple entries (one per group slot). No particular
-     * order is guaranteed; task ordering is handled by TaskOrderResolverInterface.
+     * order is guaranteed; task ordering is handled by TaskSorterInterface.
      *
      * @return list<TaskExecution>
      */
