@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+### Renamed: `RunsProcesses` → `ProcessRunnerTrait` + `runProcess()` now takes a `Process`
+
+The optional helper trait for tasks that shell out to external commands was renamed to match Symfony's trait-naming convention (`*Trait` suffix). At the same time, `runProcess()` stopped proxying `Process::__construct` arguments — callers now build and pass a `Process` themselves, giving access to the full `Process` API (PTY, `fromShellCommandline`, input streams, per-instance options).
+
+| Old | New |
+|---|---|
+| `Soviann\DeployTasksBundle\RunsProcesses` | `Soviann\DeployTasksBundle\ProcessRunnerTrait` |
+| file `src/RunsProcesses.php` | `src/ProcessRunnerTrait.php` |
+| `runProcess(array $command, OutputInterface $output, ?string $cwd = null, ?array $env = null, ?string $input = null, ?int $timeout = null)` | `runProcess(Process $process, OutputInterface $output)` |
+
+Migration:
+
+```php
+// Before
+use Soviann\DeployTasksBundle\RunsProcesses;
+
+use RunsProcesses;
+
+return $this->runProcess(
+    ['npm', 'run', 'build'],
+    $output,
+    cwd: __DIR__.'/../../assets',
+    timeout: 120,
+);
+
+// After
+use Soviann\DeployTasksBundle\ProcessRunnerTrait;
+use Symfony\Component\Process\Process;
+
+use ProcessRunnerTrait;
+
+return $this->runProcess(
+    new Process(['npm', 'run', 'build'], cwd: __DIR__.'/../../assets', timeout: 120),
+    $output,
+);
+```
+
 ### Renamed: Ordering/TaskOrderResolver → Sorting/TaskSorter
 
 The task-sorting extension point was renamed for clarity — the component sorts tasks, it does not resolve anything. Namespace and directory moved in the same stroke so vocabulary is consistent end-to-end.

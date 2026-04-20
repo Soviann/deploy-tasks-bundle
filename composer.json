@@ -42,7 +42,7 @@
         "doctrine/dbal": "Required for database storage backend",
         "symfony/event-dispatcher": "Required for task lifecycle events",
         "symfony/lock": "Required for concurrent execution protection",
-        "symfony/process": "Required by RunsProcesses trait for tasks that shell out to external commands"
+        "symfony/process": "Required by ProcessRunnerTrait for tasks that shell out to external commands"
     },
     "conflict": {
         "doctrine/dbal": "<3.6",

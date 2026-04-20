@@ -12,35 +12,23 @@ use Symfony\Component\Process\Process;
 /**
  * Optional helper for deploy tasks that shell out to external commands.
  *
- * Streams stdout/stderr to the task's OutputInterface, enforces a per-call
- * timeout at OS level, and maps the outcome to a TaskResult.
+ * Streams stdout/stderr to the task's OutputInterface, enforces the Process's
+ * own timeout, and maps the outcome to a TaskResult.
  *
  * Requires symfony/process (listed under "suggest" in composer.json).
  */
-trait RunsProcesses
+trait ProcessRunnerTrait
 {
-    /**
-     * @param list<string>               $command Array-form command (no shell parsing)
-     * @param array<string, string>|null $env     Extra env vars, or null to inherit
-     */
-    protected function runProcess(
-        array $command,
-        OutputInterface $output,
-        ?string $cwd = null,
-        ?array $env = null,
-        ?string $input = null,
-        ?int $timeout = null,
-    ): TaskResult {
-        $process = new Process($command, $cwd, $env, $input, $timeout);
-
+    protected function runProcess(Process $process, OutputInterface $output): TaskResult
+    {
         try {
             $exitCode = $process->run(static function (string $type, string $buffer) use ($output): void {
                 $output->write(Process::ERR === $type ? "<error>{$buffer}</error>" : $buffer);
             });
         } catch (ProcessTimedOutException) {
             $output->writeln(\sprintf(
-                '<error>Process timed out after %ds: %s</error>',
-                $timeout ?? 0,
+                '<error>Process timed out after %ss: %s</error>',
+                $process->getTimeout() ?? '0',
                 $process->getCommandLine(),
             ));
 
