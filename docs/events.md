@@ -34,6 +34,8 @@ final class LogTaskExecutionListener
 }
 ```
 
+See [`logging.md`](logging.md) if you want passive lifecycle observability without writing a listener — the bundle logs run/task lifecycle to the configured PSR-3 logger out of the box.
+
 ## Graceful Degradation
 
 If `symfony/event-dispatcher` is not installed or events are disabled, the runner skips event dispatching silently. No errors are thrown.
