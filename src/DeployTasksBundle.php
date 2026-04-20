@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle;
 
 use Doctrine\DBAL\Connection;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
@@ -28,6 +29,7 @@ use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
@@ -55,6 +57,10 @@ final class DeployTasksBundle extends AbstractBundle
                 ->scalarNode('sorter')
                     ->defaultNull()
                     ->info('Service ID of a custom TaskSorterInterface, or null for the default sorter.')
+                ->end()
+                ->scalarNode('logger')
+                    ->defaultNull()
+                    ->info('Service ID of a custom PSR-3 LoggerInterface, or null to auto-detect the application logger (with monolog channel "deploy_tasks" when monolog-bundle is installed).')
                 ->end()
                 ->integerNode('default_timeout')
                     ->defaultValue(300)
@@ -208,6 +214,9 @@ final class DeployTasksBundle extends AbstractBundle
         // Sorter
         $this->registerSorter($config, $services);
 
+        // Logger
+        $this->registerLogger($config, $services, $builder);
+
         // Config flags for compiler pass
         /** @var array{enabled: bool} $eventsConfig */
         $eventsConfig = $config['events'];
@@ -224,6 +233,10 @@ final class DeployTasksBundle extends AbstractBundle
 
         $builder->setParameter('deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
 
+        $loggerArg = null !== $config['logger']
+            ? service('deploy_tasks.logger')   // user override — alias created in registerLogger()
+            : service('deploy_tasks.null_logger'); // compiler pass swaps to @logger when available
+
         $services->set('deploy_tasks.runner', TaskRunner::class)
             ->args([
                 service('deploy_tasks.registry'),
@@ -237,7 +250,9 @@ final class DeployTasksBundle extends AbstractBundle
                 param('kernel.environment'),
                 $activeStorage['transactional'],
                 $activeStorage['all_or_nothing'],
+                $loggerArg,
             ])
+            ->tag('monolog.logger', ['channel' => 'deploy_tasks'])
         ;
         $services->alias(TaskRunner::class, 'deploy_tasks.runner')->public();
 
@@ -312,7 +327,9 @@ final class DeployTasksBundle extends AbstractBundle
             ->addTag('deploy_tasks.task')
         ;
 
-        $container->addCompilerPass(new RegisterTasksCompilerPass());
+        // Priority 100 ensures this pass runs before Monolog's LoggerChannelPass (priority 0),
+        // so the runner's logger argument is in place for channel rewriting.
+        $container->addCompilerPass(new RegisterTasksCompilerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 100);
     }
 
     /**
@@ -417,5 +434,29 @@ final class DeployTasksBundle extends AbstractBundle
         }
 
         $services->alias(TaskSorterInterface::class, 'deploy_tasks.sorter')->public();
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function registerLogger(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
+    {
+        /** @var string|null $userLoggerId */
+        $userLoggerId = $config['logger'];
+
+        // NullLogger is the baseline fallback — always registered so the runner can reference it.
+        $services->set('deploy_tasks.null_logger', NullLogger::class);
+
+        // Recorded for the compiler pass: when false, the pass may swap in @logger (channel-rewritten by monolog).
+        $builder->setParameter('deploy_tasks.logger.user_overridden', null !== $userLoggerId);
+
+        if (null !== $userLoggerId) {
+            $services->alias('deploy_tasks.logger', $userLoggerId);
+        }
+        // When null, we do NOT create a deploy_tasks.logger alias here — the runner is wired
+        // directly with @deploy_tasks.null_logger and the compiler pass replaces it with @logger
+        // if the app has one. Direct @logger injection is required for monolog's LoggerChannelPass
+        // to rewrite the reference to the channel-scoped logger (it matches literal 'logger' refs,
+        // not aliases).
     }
 }
