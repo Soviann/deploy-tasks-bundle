@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
@@ -877,6 +878,7 @@ final class TaskRunnerTest extends TestCase
             $idResolver,
             new TaskDescriptionResolver(),
             $dispatcher,
+            logger: new NullLogger(),
         );
     }
 }
