@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added: PSR-3 logging
+
+No migration required. The task runner now emits PSR-3 logs through the application logger (with a `deploy_tasks` Monolog channel when `symfony/monolog-bundle` is installed) and falls back to `NullLogger` when no logger is available. To route records through a custom PSR-3 service instead, opt in:
+
+```yaml
+deploy_tasks:
+    logger: my_custom_psr3_logger_service
+```
+
+See `docs/logging.md` for the full record catalog and Monolog routing example.
+
 ### Renamed: `RunsProcesses` → `ProcessRunnerTrait` + `runProcess()` now takes a `Process`
 
 The optional helper trait for tasks that shell out to external commands was renamed to match Symfony's trait-naming convention (`*Trait` suffix). At the same time, `runProcess()` stopped proxying `Process::__construct` arguments — callers now build and pass a `Process` themselves, giving access to the full `Process` API (PTY, `fromShellCommandline`, input streams, per-instance options).
