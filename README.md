@@ -69,7 +69,7 @@ bin/console deploytasks:status
 
 ## Running shell commands
 
-Tasks that shell out to external binaries (asset builds, `rsync`, CLI migrations) can opt into the `RunsProcesses` trait. It wraps `symfony/process` to stream stdout/stderr, enforce a per-call timeout, and map the outcome to a `TaskResult`.
+Tasks that shell out to external binaries (asset builds, `rsync`, CLI migrations) can opt into the `ProcessRunnerTrait`. It wraps `symfony/process` to stream stdout/stderr, enforce a per-call timeout, and map the outcome to a `TaskResult`.
 
 Install the soft dependency first:
 
@@ -82,14 +82,15 @@ Then compose the trait into your task:
 ```php
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
-use Soviann\DeployTasksBundle\RunsProcesses;
+use Soviann\DeployTasksBundle\ProcessRunnerTrait;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Process;
 
 #[AsDeployTask(id: 'build_assets', timeout: 120)]
 final class BuildAssetsTask implements DeployTaskInterface
 {
-    use RunsProcesses;
+    use ProcessRunnerTrait;
 
     public function getDescription(): string
     {
@@ -99,10 +100,8 @@ final class BuildAssetsTask implements DeployTaskInterface
     public function run(OutputInterface $output): TaskResult
     {
         return $this->runProcess(
-            ['npm', 'run', 'build'],
+            new Process(['npm', 'run', 'build'], cwd: __DIR__.'/../../assets', timeout: 120),
             $output,
-            cwd: __DIR__.'/../../assets',
-            timeout: 120,
         );
     }
 }
@@ -110,8 +109,8 @@ final class BuildAssetsTask implements DeployTaskInterface
 
 Behavior notes:
 
-- **Commands MUST be arrays.** No shell interpretation, no injection surface.
-- **Timeout is per call.** It is not auto-read from `#[AsDeployTask(timeout: ...)]` — keep them aligned manually if you want them to match.
+- **You own the `Process` instance** — use array-form commands to avoid shell parsing, or `Process::fromShellCommandline()` if you deliberately need shell features.
+- **Timeout lives on the `Process`.** It is not auto-read from `#[AsDeployTask(timeout: ...)]` — keep them aligned manually if you want them to match.
 - **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
 - **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.
 

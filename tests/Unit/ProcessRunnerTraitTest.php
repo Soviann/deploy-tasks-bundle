@@ -6,21 +6,22 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasksBundle\RunsProcesses;
+use Soviann\DeployTasksBundle\ProcessRunnerTrait;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Process;
 
-#[CoversTrait(RunsProcesses::class)]
-final class RunsProcessesTest extends TestCase
+#[CoversTrait(ProcessRunnerTrait::class)]
+final class ProcessRunnerTraitTest extends TestCase
 {
     public function testSuccessReturnsSuccessAndStreamsStdout(): void
     {
         $output = self::createRawOutput();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'echo "hello";'],
+            new Process(['php', '-r', 'echo "hello";']),
             $output,
         );
 
@@ -33,7 +34,7 @@ final class RunsProcessesTest extends TestCase
         $output = self::createRawOutput();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'exit(3);'],
+            new Process(['php', '-r', 'exit(3);']),
             $output,
         );
 
@@ -46,9 +47,8 @@ final class RunsProcessesTest extends TestCase
         $output = self::createRawOutput();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'sleep(5);'],
+            new Process(['php', '-r', 'sleep(5);'], timeout: 1),
             $output,
-            timeout: 1,
         );
 
         self::assertSame(TaskResult::FAILURE, $result);
@@ -60,7 +60,7 @@ final class RunsProcessesTest extends TestCase
         $output = self::createRawOutput();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'fwrite(STDERR, "boom");'],
+            new Process(['php', '-r', 'fwrite(STDERR, "boom");']),
             $output,
         );
 
@@ -74,9 +74,8 @@ final class RunsProcessesTest extends TestCase
         $cwd = \sys_get_temp_dir();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'echo getcwd();'],
+            new Process(['php', '-r', 'echo getcwd();'], $cwd),
             $output,
-            cwd: $cwd,
         );
 
         self::assertSame(TaskResult::SUCCESS, $result);
@@ -88,9 +87,8 @@ final class RunsProcessesTest extends TestCase
         $output = self::createRawOutput();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'echo getenv("FOO");'],
+            new Process(['php', '-r', 'echo getenv("FOO");'], env: ['FOO' => 'bar']),
             $output,
-            env: ['FOO' => 'bar'],
         );
 
         self::assertSame(TaskResult::SUCCESS, $result);
@@ -102,9 +100,8 @@ final class RunsProcessesTest extends TestCase
         $output = self::createRawOutput();
 
         $result = self::createCaller()->invoke(
-            ['php', '-r', 'echo 1;'],
+            new Process(['php', '-r', 'echo 1;'], '/nonexistent/dir/xyz'),
             $output,
-            cwd: '/nonexistent/dir/xyz',
         );
 
         self::assertSame(TaskResult::FAILURE, $result);
@@ -124,31 +121,21 @@ final class RunsProcessesTest extends TestCase
         return $output;
     }
 
-    private static function createCaller(): RunsProcessesCaller
+    private static function createCaller(): ProcessRunnerTraitCaller
     {
-        return new RunsProcessesCaller();
+        return new ProcessRunnerTraitCaller();
     }
 }
 
 /**
  * @internal
  */
-final class RunsProcessesCaller
+final class ProcessRunnerTraitCaller
 {
-    use RunsProcesses;
+    use ProcessRunnerTrait;
 
-    /**
-     * @param list<string>               $command
-     * @param array<string, string>|null $env
-     */
-    public function invoke(
-        array $command,
-        OutputInterface $output,
-        ?string $cwd = null,
-        ?array $env = null,
-        ?string $input = null,
-        ?int $timeout = null,
-    ): TaskResult {
-        return $this->runProcess($command, $output, $cwd, $env, $input, $timeout);
+    public function invoke(Process $process, OutputInterface $output): TaskResult
+    {
+        return $this->runProcess($process, $output);
     }
 }
