@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
@@ -27,6 +28,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ArrayLogger;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
@@ -36,6 +38,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 #[CoversClass(TaskRunner::class)]
@@ -791,6 +794,102 @@ final class TaskRunnerTest extends TestCase
         self::assertStringContainsString('Task "test.failing" failed: Task failed!', $this->output->fetch());
     }
 
+    public function testRunAllLogsLifecycle(): void
+    {
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [
+                new SimpleTask('task.1', 'First'),
+                new SimpleTask('task.2', 'Second'),
+                new SkippingTask(),
+            ],
+            logger: $logger,
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertTrue($logger->has('info', 'Deploy tasks run starting'));
+        self::assertTrue($logger->has('info', 'Deploy tasks run finished'));
+        // SimpleTask → SUCCESS, SkippingTask → SKIPPED; both emit the same info message
+        // with `result` distinguishing them. Assert the aggregate so the test is robust
+        // against future lifecycle-log additions.
+        self::assertGreaterThanOrEqual(2, \count($logger->recordsMatching('info', 'Deploy task executed')));
+    }
+
+    public function testFailingTaskLogsError(): void
+    {
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [new FailingTask()],
+            logger: $logger,
+        );
+
+        $runner->runAll($this->output);
+
+        $matches = $logger->recordsMatching('error', 'Deploy task failed');
+        self::assertCount(1, $matches);
+        self::assertSame('test.failing', $matches[0]['context']['task_id'] ?? null);
+        self::assertIsInt($matches[0]['context']['duration_ms'] ?? null);
+        self::assertInstanceOf(\Throwable::class, $matches[0]['context']['exception'] ?? null);
+    }
+
+    public function testTimeoutExceedsLogsWarning(): void
+    {
+        $logger = new ArrayLogger();
+        $idResolver = new TaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            $this->storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+            defaultTimeout: -1,
+            logger: $logger,
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertTrue($logger->has('warning', 'exceeded timeout'));
+    }
+
+    public function testLockDeniedLogsWarning(): void
+    {
+        $logger = new ArrayLogger();
+        $lockFactory = new LockFactory(new InMemoryStore());
+        // Pre-acquire the shared lock outside the runner so its own acquire call fails.
+        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        self::assertTrue($heldLock->acquire());
+
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            logger: $logger,
+            lockFactory: $lockFactory,
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertTrue($logger->has('warning', 'another process is already running'));
+
+        $heldLock->release();
+    }
+
+    public function testMissingLockFactoryLogsWarning(): void
+    {
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            logger: $logger,
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertTrue($logger->has('warning', 'no lock factory'));
+    }
+
     /**
      * @param array<\Soviann\DeployTasksBundle\DeployTaskInterface> $tasks
      */
@@ -868,6 +967,8 @@ final class TaskRunnerTest extends TestCase
         array $tasks,
         ?TaskStorageInterface $storage = null,
         ?EventDispatcherInterface $dispatcher = null,
+        ?LoggerInterface $logger = null,
+        ?LockFactory $lockFactory = null,
     ): TaskRunner {
         $idResolver = new TaskIdResolver();
 
@@ -878,7 +979,8 @@ final class TaskRunnerTest extends TestCase
             $idResolver,
             new TaskDescriptionResolver(),
             $dispatcher,
-            logger: new NullLogger(),
+            $lockFactory,
+            logger: $logger ?? new NullLogger(),
         );
     }
 }
