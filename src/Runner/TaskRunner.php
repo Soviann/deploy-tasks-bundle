@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Runner;
 
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
@@ -43,6 +45,7 @@ final class TaskRunner
         private readonly ?string $environment = null,
         private readonly bool $transactional = true,
         private readonly bool $allOrNothing = false,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -59,6 +62,13 @@ final class TaskRunner
     public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): RunResult
     {
         $result = $this->withLock($output, function () use ($output, $dryRun, $force, $groups): RunResult {
+            $this->logger->info('Deploy tasks run starting', [
+                'environment' => $this->environment,
+                'dry_run' => $dryRun,
+                'force' => $force,
+                'groups' => $groups,
+            ]);
+
             $tasks = \array_values($this->registry->all($this->environment, $groups));
             $sorted = $this->sorter->sort($tasks);
             /** @var list<?string> $effectiveGroups */
@@ -79,7 +89,16 @@ final class TaskRunner
             return $this->executeAll($sorted, $output, $force, $effectiveGroups);
         });
 
-        return $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
+        $final = $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
+
+        $this->logger->info('Deploy tasks run finished', [
+            'ran' => $final->ran,
+            'skipped' => $final->skipped,
+            'failed' => $final->failed,
+            'locked' => $final->locked,
+        ]);
+
+        return $final;
     }
 
     /**
@@ -106,6 +125,7 @@ final class TaskRunner
 
             if ([] === $pendingSlots) {
                 $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
+                $this->logger->info('Deploy task skipped (already executed)', ['task_id' => $taskId]);
 
                 return TaskResult::SKIPPED;
             }
@@ -136,12 +156,14 @@ final class TaskRunner
     {
         if (null === $this->lockFactory) {
             $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
+            $this->logger->warning('Deploy tasks runner has no lock factory — concurrent execution is not protected');
         }
 
         $lock = $this->lockFactory?->createLock('deploy_tasks_run', 3600);
 
         if (null !== $lock && !$lock->acquire()) {
             $output->writeln('<error>Another deploytasks:run process is already running.</error>');
+            $this->logger->warning('Deploy tasks run skipped: another process is already running');
 
             return null;
         }
@@ -240,6 +262,8 @@ final class TaskRunner
         $attribute = AsDeployTask::of($task);
         $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
 
+        $this->logger->info('Deploy task starting', ['task_id' => $taskId]);
+
         $this->dispatcher?->dispatch(new BeforeTaskEvent($taskId, $task));
 
         $start = \microtime(true);
@@ -255,9 +279,20 @@ final class TaskRunner
                     (int) $duration,
                     $timeout,
                 ));
+                $this->logger->warning('Deploy task exceeded timeout', [
+                    'task_id' => $taskId,
+                    'duration_s' => $duration,
+                    'timeout_s' => $timeout,
+                ]);
             }
 
             $status = TaskResult::SKIPPED === $result ? TaskStatus::Skipped : TaskStatus::Ran;
+
+            $this->logger->info('Deploy task executed', [
+                'task_id' => $taskId,
+                'result' => $result->value,
+                'duration_ms' => (int) \round($duration * 1000),
+            ]);
 
             $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
 
@@ -272,6 +307,11 @@ final class TaskRunner
             $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
 
             $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
+            $this->logger->error('Deploy task failed', [
+                'task_id' => $taskId,
+                'duration_ms' => (int) \round($duration * 1000),
+                'exception' => $e,
+            ]);
 
             if ($this->allOrNothing) {
                 // Propagate so the outer transaction rolls everything back
