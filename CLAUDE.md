@@ -164,6 +164,7 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 | Dynamic per-task ID | Task implements `TaskIdProviderInterface::getTaskId()`. |
 | Custom ordering | Implement `TaskSorterInterface`. Set `deploy_tasks.sorter`. |
 | React to lifecycle | Subscribe to `BeforeTaskEvent` / `AfterTaskEvent` / `TaskFailedEvent` (all carry `$taskId`). |
+| Custom logger | Set `deploy_tasks.logger` to a PSR-3 service ID. Default auto-detects the app logger with a `deploy_tasks` Monolog channel; `NullLogger` if no logger is available. |
 | New command | Add to `src/Command/`, register in `DeployTasksBundle::loadExtension()`. |
 
 ## Key Design Decisions
@@ -171,6 +172,7 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 - **Filesystem default** — zero dependencies, no migration needed
 - **Auto-create DB table** — `auto_create_table: true` by default; `deploytasks:create-schema` available for explicit control
 - **Optional event dispatcher and lock factory** — graceful degradation when `symfony/event-dispatcher` or `symfony/lock` is absent
+- **PSR-3 logging, channel-aware** — requires `psr/log` (universal); the runner uses `@logger` when available with a `deploy_tasks` Monolog channel tag, otherwise falls back to `NullLogger`. Mirrors the event-dispatcher / lock graceful-degradation pattern.
 - **Single attribute reader** — `AsDeployTask::of()` is the sole entry point for attribute parsing
 - **All classes `final`** — composition over inheritance
 

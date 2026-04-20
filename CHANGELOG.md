@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PSR-3 logging from the task runner — run/task lifecycle (start, success, skip, failure, timeout, lock) emitted at `info` / `warning` / `error` levels through the configured logger. `NullLogger` fallback when the application has no logger.
+- Monolog channel `deploy_tasks` automatically registered when `symfony/monolog-bundle` is installed; no-op otherwise. Route it to a dedicated handler via standard `monolog.yaml`.
+- New config option `deploy_tasks.logger` to point the runner at any PSR-3 service.
 - Host-scope deploy tasks: shell files under `deploy/host-tasks/` executed by the `bin/deploy-tasks-host.sh` runner (installed manually from `bin/deploy-tasks-host.sh.dist` until a Flex recipe ships). Tracked in a separate append-only log (`.deploy-tasks-host.log`). Supports Symfony `.env` cascade + `deploy-tasks-host.local.sh` overrides.
 - Console command `deploytasks:generate:host` scaffolds a new host task file.
 - `deploytasks:generate` renamed to `deploytasks:generate:container` (old name kept as alias — no breaking change).
