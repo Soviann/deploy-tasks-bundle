@@ -393,6 +393,14 @@ final class DeployTasksBundle extends AbstractBundle
                 $builder->setParameter('deploy_tasks.storage.custom_service_id', $customServiceId);
 
                 break;
+            default:
+                // Unreachable via the public configuration: enumNode('type')->values([...])
+                // rejects unknown values during Configuration processing. Defensive throw
+                // guards against downstream compiler passes mutating the storage type after
+                // the enum guard.
+                // @codeCoverageIgnoreStart
+                throw new \LogicException(\sprintf('Unsupported storage type "%s".', $storageConfig['type']));
+                // @codeCoverageIgnoreEnd
         }
 
         $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();
