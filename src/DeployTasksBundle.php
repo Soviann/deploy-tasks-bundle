@@ -65,7 +65,7 @@ final class DeployTasksBundle extends AbstractBundle
                 ->integerNode('default_timeout')
                     ->defaultValue(300)
                     ->min(0)
-                    ->info('Default task execution timeout in seconds.')
+                    ->info('Default task execution timeout in seconds. 0 disables the timeout check entirely (no warning emitted, regardless of duration).')
                 ->end()
                 ->arrayNode('storage')
                     ->addDefaultsIfNotSet()

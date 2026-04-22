@@ -38,7 +38,7 @@ To customise the storage backend or other options, publish a configuration file:
 ```yaml
 # config/packages/deploy_tasks.yaml
 deploy_tasks:
-    default_timeout: 300          # seconds (>= 0). 0 means every task exceeds the timeout and a warning is logged.
+    default_timeout: 300          # seconds (>= 0). 0 disables the timeout check entirely (no warning emitted).
     storage:
         type: filesystem           # or: database, custom
         filesystem:

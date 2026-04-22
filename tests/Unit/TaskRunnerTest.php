@@ -34,6 +34,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Lock\LockFactory;
@@ -712,23 +713,49 @@ final class TaskRunnerTest extends TestCase
     public function testTimeoutExceededLogsWarningWithoutFailing(): void
     {
         $idResolver = new TaskIdResolver();
+        $logger = new ArrayLogger();
 
-        // Negative timeout guarantees the warning fires regardless of how fast the task runs;
-        // it would otherwise depend on microsecond-level scheduling and flake under load.
+        // 1.1s sleep against a 1s timeout — reliably crosses the threshold without depending
+        // on microsecond-level scheduling. Slow by design (~1.1s per run).
         $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            new TaskRegistry([new SleepingTask('task.1', 1_100_000)], $idResolver),
             $this->storage,
             new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
-            defaultTimeout: -1,
+            logger: $logger,
+            defaultTimeout: 1,
         );
 
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertStringContainsString('exceeded timeout', $this->output->fetch());
+        self::assertTrue($logger->has('warning', 'exceeded timeout'));
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
+    }
+
+    public function testDefaultTimeoutZeroDisablesTimeoutCheck(): void
+    {
+        $idResolver = new TaskIdResolver();
+        $logger = new ArrayLogger();
+
+        // 50ms sleep against a disabled timeout (0): no warning, regardless of duration.
+        $runner = new TaskRunner(
+            new TaskRegistry([new SleepingTask('task.1', 50_000)], $idResolver),
+            $this->storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+            logger: $logger,
+            defaultTimeout: 0,
+        );
+
+        $result = $runner->runOne('task.1', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringNotContainsString('exceeded timeout', $this->output->fetch());
+        self::assertFalse($logger->has('warning', 'exceeded timeout'));
     }
 
     public function testTransactionalTaskWithNonTransactionalStorageRunsUnwrapped(): void
@@ -798,20 +825,20 @@ final class TaskRunnerTest extends TestCase
         $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            new TaskRegistry([new SleepingTask('task.1', 1_100_000)], $idResolver),
             $this->storage,
             new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
-            defaultTimeout: -1,
+            defaultTimeout: 1,
         );
 
         $runner->runOne('task.1', $this->output);
 
-        // Exact format: `Task "{id}" exceeded timeout ({duration}s elapsed, {limit}s limit)` — duration is non-negative int, limit is -1.
+        // Exact format: `Task "{id}" exceeded timeout ({duration}s elapsed, {limit}s limit)`.
         $output = $this->output->fetch();
         self::assertMatchesRegularExpression(
-            '/Task "task\.1" exceeded timeout \(\d+s elapsed, -1s limit\)\./',
+            '/Task "task\.1" exceeded timeout \(\d+s elapsed, 1s limit\)\./',
             $output,
         );
     }
@@ -873,12 +900,12 @@ final class TaskRunnerTest extends TestCase
         $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
+            new TaskRegistry([new SleepingTask('task.1', 1_100_000)], $idResolver),
             $this->storage,
             new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
-            defaultTimeout: -1,
+            defaultTimeout: 1,
             logger: $logger,
         );
 

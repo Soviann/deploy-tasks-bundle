@@ -278,7 +278,7 @@ final class TaskRunner
             $result = $this->wrapInTransaction($task, $attribute, $output);
             $duration = \microtime(true) - $start;
 
-            if ($duration > $timeout) {
+            if ($timeout > 0 && $duration > $timeout) {
                 $output->writeln(\sprintf(
                     '<comment>Task "%s" exceeded timeout (%ds elapsed, %ds limit).</comment>',
                     $taskId,

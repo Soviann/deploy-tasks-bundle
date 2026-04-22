@@ -69,7 +69,7 @@ Root key `deploy_tasks:`.
 deploy_tasks:
     id_generator: ~                         # service ID or null (default: DefaultTaskIdGenerator)
     sorter: ~                               # service ID or null (default: DefaultTaskSorter)
-    default_timeout: 300                    # seconds (>= 0)
+    default_timeout: 300                    # seconds (>= 0); 0 disables the check
     storage:
         type: filesystem                    # filesystem | database | custom
         filesystem:
