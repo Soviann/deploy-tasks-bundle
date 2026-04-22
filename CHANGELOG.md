@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `deploytasks:generate:container` and `deploytasks:generate:host` now reject `--dir` values outside an allowlist of letters, digits, slash, underscore, and dash. The guard runs before any path resolution or namespace derivation, blocking namespace-injection payloads (`<?php`, `;`, whitespace, dots) and path-traversal inputs that escape their starting point after canonicalisation (`../evil`). Rejected inputs surface as `Command::FAILURE` with an `Invalid --dir value` error.
+
 ### Fixed
 
 - `all_or_nothing` runs no longer swallow failures silently. When the wrapping transaction rolls back, `TaskRunner::runAll()` now logs the failure at `error` level (with the original throwable in the log context) and rethrows it, so CLI callers and upstream handlers see the real cause instead of an opaque `RunResult(failed: 1)`.

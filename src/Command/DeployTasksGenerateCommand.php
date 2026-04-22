@@ -86,6 +86,17 @@ final class DeployTasksGenerateCommand extends Command
         $dir = $input->getOption('dir');
         $dir = \rtrim($dir, '/').'/';
 
+        $canonical = Path::canonicalize($dir);
+
+        if (\str_starts_with($canonical, '..') || 1 !== \preg_match('#^[A-Za-z0-9/_\-]+$#', $canonical)) {
+            $io->error(\sprintf(
+                'Invalid --dir value "%s": must be a relative path using only letters, digits, slash, underscore, dash, and must not traverse above its starting point.',
+                $dir,
+            ));
+
+            return Command::FAILURE;
+        }
+
         $absoluteDir = $dir;
 
         if (null !== $this->projectDir) {
