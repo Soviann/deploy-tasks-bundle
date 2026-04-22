@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `default_timeout: 0` (and `#[AsDeployTask(timeout: 0)]`) now disables the timeout check entirely. Previously, a zero timeout made every task trip the "exceeded timeout" warning regardless of actual duration, because the check was `$duration > $timeout` without a non-zero guard. The check now gates on `$timeout > 0`, matching the value's intuitive meaning ("no enforcement") and the `min(0)` config schema. Non-zero timeouts behave exactly as before.
 - `all_or_nothing` runs no longer swallow failures silently. When the wrapping transaction rolls back, `TaskRunner::runAll()` now logs the failure at `error` level (with the original throwable in the log context) and rethrows it, so CLI callers and upstream handlers see the real cause instead of an opaque `RunResult(failed: 1)`.
 - `FilesystemStorage` now wraps corrupted `status` values in a `StorageException` instead of letting the raw `\ValueError` from `TaskStatus::from()` escape, matching `DbalStorage`'s behaviour. The original `\ValueError` is preserved as `getPrevious()`.
 - `deploytasks:generate:container` and `deploytasks:generate:host` now raise a `Symfony\Component\Filesystem\Exception\IOException` (extends `\RuntimeException`) when writing the generated file fails (e.g. non-writable target directory) instead of reporting success with a missing file.

@@ -60,6 +60,8 @@ Per-task override via the attribute:
 
 Timeout is tracked but does not kill the running task — a warning is logged when the threshold is exceeded. Design long-running tasks to handle interruption gracefully.
 
+Set `default_timeout: 0` to disable the check entirely: no warning is emitted regardless of duration. Per-task timeouts set via `#[AsDeployTask(timeout: 0)]` are treated the same way.
+
 ## Transaction Wrapping
 
 For tasks that require database transaction support, set `transactional: true` on the attribute:
