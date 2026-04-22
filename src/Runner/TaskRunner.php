@@ -278,59 +278,82 @@ final class TaskRunner
             $result = $this->wrapInTransaction($task, $attribute, $output);
             $duration = \microtime(true) - $start;
 
-            if ($timeout > 0 && $duration > $timeout) {
-                $output->writeln(\sprintf(
-                    '<comment>Task "%s" exceeded timeout (%ds elapsed, %ds limit).</comment>',
-                    $taskId,
-                    (int) $duration,
-                    $timeout,
-                ));
-                $this->logger->warning('Deploy task exceeded timeout', [
-                    'task_id' => $taskId,
-                    'duration_s' => $duration,
-                    'timeout_s' => $timeout,
-                ]);
-            }
-
-            $status = TaskResult::SKIPPED === $result ? TaskStatus::Skipped : TaskStatus::Ran;
-
-            $this->logger->info('Deploy task executed', [
-                'task_id' => $taskId,
-                'result' => $result->value,
-                'duration_ms' => (int) \round($duration * 1000),
-            ]);
-
-            $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
-
-            return new TaskOutcome(
-                result: $result,
-                status: $status,
-                executedAt: new \DateTimeImmutable(),
-            );
+            return $this->buildSuccessOutcome($task, $taskId, $result, $duration, $timeout, $output);
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
-            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
-
-            $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
-            $this->logger->error('Deploy task failed', [
-                'task_id' => $taskId,
-                'duration_ms' => (int) \round($duration * 1000),
-                'exception' => $e,
-            ]);
+            $outcome = $this->buildFailureOutcome($task, $taskId, $e, $duration, $output);
 
             if ($this->allOrNothing) {
                 // Propagate so the outer transaction rolls everything back
                 throw $e;
             }
 
-            return new TaskOutcome(
-                result: TaskResult::FAILURE,
-                status: TaskStatus::Failed,
-                executedAt: new \DateTimeImmutable(),
-                error: $e->getMessage(),
-            );
+            return $outcome;
         }
+    }
+
+    private function buildSuccessOutcome(
+        DeployTaskInterface $task,
+        string $taskId,
+        TaskResult $result,
+        float $duration,
+        int $timeout,
+        OutputInterface $output,
+    ): TaskOutcome {
+        if ($timeout > 0 && $duration > $timeout) {
+            $output->writeln(\sprintf(
+                '<comment>Task "%s" exceeded timeout (%ds elapsed, %ds limit).</comment>',
+                $taskId,
+                (int) $duration,
+                $timeout,
+            ));
+            $this->logger->warning('Deploy task exceeded timeout', [
+                'task_id' => $taskId,
+                'duration_s' => $duration,
+                'timeout_s' => $timeout,
+            ]);
+        }
+
+        $status = TaskResult::SKIPPED === $result ? TaskStatus::Skipped : TaskStatus::Ran;
+
+        $this->logger->info('Deploy task executed', [
+            'task_id' => $taskId,
+            'result' => $result->value,
+            'duration_ms' => (int) \round($duration * 1000),
+        ]);
+
+        $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
+
+        return new TaskOutcome(
+            result: $result,
+            status: $status,
+            executedAt: new \DateTimeImmutable(),
+        );
+    }
+
+    private function buildFailureOutcome(
+        DeployTaskInterface $task,
+        string $taskId,
+        \Throwable $e,
+        float $duration,
+        OutputInterface $output,
+    ): TaskOutcome {
+        $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
+
+        $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
+        $this->logger->error('Deploy task failed', [
+            'task_id' => $taskId,
+            'duration_ms' => (int) \round($duration * 1000),
+            'exception' => $e,
+        ]);
+
+        return new TaskOutcome(
+            result: TaskResult::FAILURE,
+            status: TaskStatus::Failed,
+            executedAt: new \DateTimeImmutable(),
+            error: $e->getMessage(),
+        );
     }
 
     /**
