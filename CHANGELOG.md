@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** Renamed the task-sorting extension point and its namespace/directory for clarity — the component sorts tasks, it does not resolve anything. Moved `src/Ordering/` → `src/Sorting/` with namespace `Soviann\DeployTasksBundle\Sorting`. Renamed `TaskOrderResolverInterface` → `TaskSorterInterface`, `DefaultTaskOrderResolver` → `DefaultTaskSorter`, `OrderedTaskCollection` → `SortedTaskCollection`, method `resolve()` → `sort()`, config key `deploy_tasks.order_resolver` → `deploy_tasks.sorter`, service ID `deploy_tasks.order_resolver` → `deploy_tasks.sorter`.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** Renamed trait `RunsProcesses` → `ProcessRunnerTrait` (matches Symfony `*Trait` convention) and reshaped `runProcess()` to accept a caller-built `Process` instead of proxying its constructor arguments. Callers now pass `new Process([...], cwd: ..., timeout: ...)` and get full access to the `Process` API (PTY, `fromShellCommandline`, input streams). File renamed `src/RunsProcesses.php` → `src/ProcessRunnerTrait.php`.
 
+### Removed
+
+- Unused `StorageException::readError()` and `StorageException::writeError()` factory methods. Both storage implementations build their own messages inline with richer context (DBAL exception text in `DbalStorage`, file path in `FilesystemStorage`); the factories were never called.
+
 ### Added
 
 - PSR-3 logging from the task runner — run/task lifecycle (start, success, skip, failure, timeout, lock) emitted at `info` / `warning` / `error` levels through the configured logger. `NullLogger` fallback when the application has no logger.

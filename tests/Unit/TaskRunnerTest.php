@@ -339,7 +339,7 @@ final class TaskRunnerTest extends TestCase
         $storage->method('has')->willReturn(false);
         $storage->method('get')->willReturn(null);
         $storage->method('save')->willThrowException(
-            StorageException::writeError('task.1', new \RuntimeException('disk full')),
+            new StorageException('Failed to save task "task.1": disk full', 0, new \RuntimeException('disk full')),
         );
 
         $runner = $this->createRunner(

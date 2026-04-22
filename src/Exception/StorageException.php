@@ -10,30 +10,6 @@ namespace Soviann\DeployTasksBundle\Exception;
 final class StorageException extends \RuntimeException
 {
     /**
-     * Creates an exception for a failed read operation on the given task ID.
-     */
-    public static function readError(string $taskId, \Throwable $previous): self
-    {
-        return new self(
-            \sprintf('Failed to read execution record for task "%s".', $taskId),
-            0,
-            $previous,
-        );
-    }
-
-    /**
-     * Creates an exception for a failed write operation on the given task ID.
-     */
-    public static function writeError(string $taskId, \Throwable $previous): self
-    {
-        return new self(
-            \sprintf('Failed to write execution record for task "%s".', $taskId),
-            0,
-            $previous,
-        );
-    }
-
-    /**
      * Creates an exception for a stored row whose status value does not match any TaskStatus case.
      */
     public static function corruptedRow(string $taskId, ?string $group, string $rawStatus, \Throwable $previous): self
