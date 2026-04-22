@@ -66,7 +66,7 @@ Multi-group tasks are displayed once per declared slot. The `Group` column shows
 | `pending` | Not yet executed |
 | `ran` | Executed successfully |
 | `failed` | Execution failed; will be retried on the next `deploytasks:run` |
-| `skipped` | Manually marked as skipped via `deploytasks:skip` |
+| `skipped` | Manually marked as skipped via `deploytasks:skip`, or returned by a task as `TaskResult::SKIPPED` |
 
 ---
 
@@ -138,9 +138,11 @@ bin/console deploytasks:generate                          # alias
 |---|---|---|
 | `--dir` | `src/DeployTasks/Task/` | Target directory for the generated file |
 
-The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`) — the command takes no positional argument. The task ID is auto-derived from the class name by the configured `TaskIdGeneratorInterface`: the default generator strips the `DeployTask` prefix and prefixes the purely-numeric remainder with `task_` (e.g. `task_20260412143000`). The namespace is derived from the target directory by converting path segments to `PascalCase` (e.g. `src/DeployTasks/Task/` becomes `App\DeployTasks\Task`).
+The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`) — the command takes no positional argument. The task ID is auto-derived from the class name by the configured `TaskIdGeneratorInterface`: the default generator strips the `DeployTask` prefix and prefixes the purely-numeric remainder with `task_` (e.g. `task_20260412143000`).
 
 The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute, and provides a stub `run()` method. Rename the class after generation if you want a more descriptive name — the default ID generator also handles `SeedCategoriesTask` and similar CamelCase names.
+
+The namespace is built by applying `ucfirst` to each path segment of the target directory; use CamelCase directory names (e.g. `src/DeployTasks/Task/`) to produce a CamelCase namespace (e.g. `App\DeployTasks\Task`). Lowercase segments remain lowercase apart from their first letter.
 
 ---
 

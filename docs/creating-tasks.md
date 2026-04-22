@@ -84,7 +84,7 @@ Execution is scoped per `(task, group)` slot:
 - A multi-group task records one row per slot it belongs to, so running `--group=predeploy --group=postdeploy` executes the task twice (once per slot) and stores two rows. Running `--group=predeploy` later only re-runs the predeploy slot.
 - `--group=postdeploy` leaves default-slot tasks untouched; `--group` with no declared match is a success (nothing to run).
 
-`deploytasks:skip` and `deploytasks:reset` require `--group` when the task declares groups. `deploytasks:status` always shows one row per declared slot, and `deploytasks:rollup` marks every slot as run unless `--group` narrows the scope.
+`deploytasks:skip` requires `--group` when the task declares groups. `deploytasks:reset` accepts an optional `--group` (default: reset every declared slot). `deploytasks:status` always shows one row per declared slot, and `deploytasks:rollup` marks every slot as run unless `--group` narrows the scope.
 
 ## Execution order
 
