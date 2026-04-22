@@ -413,6 +413,7 @@ final class TaskRunnerTest extends TestCase
         $storage = new DbalStorage($connection);
         $connection->executeStatement($storage->getCreateTableSql());
         $idResolver = new TaskIdResolver();
+        $logger = new ArrayLogger();
 
         $runner = new TaskRunner(
             new TaskRegistry([new SimpleTask('task.1', 'First'), new FailingTask()], $idResolver),
@@ -426,17 +427,23 @@ final class TaskRunnerTest extends TestCase
             null,
             true,
             true, // allOrNothing
+            $logger,
         );
 
-        $result = $runner->runAll($this->output);
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected rollback to propagate the original throwable.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Task failed!', $e->getMessage());
+        }
 
         // All changes must be rolled back — no records saved
         self::assertSame([], $storage->all());
-        // Rollback path returns fixed-shape result: kills IncrementInteger mutants on the `0, 0, 1` literals.
-        self::assertSame(0, $result->ran);
-        self::assertSame(0, $result->skipped);
-        self::assertSame(1, $result->failed);
-        self::assertFalse($result->isSuccessful());
+
+        $rollback = $logger->recordsMatching('error', 'transaction rolled back');
+        self::assertCount(1, $rollback);
+        self::assertArrayHasKey('exception', $rollback[0]['context']);
+        self::assertInstanceOf(\RuntimeException::class, $rollback[0]['context']['exception']);
     }
 
     public function testAllOrNothingWithNonTransactionalStorageRunsUnwrapped(): void

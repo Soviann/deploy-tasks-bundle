@@ -81,8 +81,12 @@ final class TaskRunner
             if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
                 try {
                     return $this->storage->transactional(fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups));
-                } catch (\Throwable) {
-                    return new RunResult(ran: 0, skipped: 0, failed: 1);
+                } catch (\Throwable $e) {
+                    $this->logger->error('Deploy tasks run failed — transaction rolled back.', [
+                        'exception' => $e,
+                    ]);
+
+                    throw $e;
                 }
             }
 
