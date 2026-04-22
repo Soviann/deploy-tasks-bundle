@@ -51,6 +51,8 @@ deploy_tasks:
 
 See [storage.md](storage.md) for the full storage configuration reference.
 
+> **Warning — ephemeral filesystems.** On Docker, Kubernetes, and similar container platforms, the default filesystem storage path under `%kernel.project_dir%` sits on an overlay filesystem that resets on pod restart or image rebuild. Use a dedicated bind mount or `PersistentVolumeClaim` mapped at `%kernel.project_dir%/var/deploy-tasks/`, or switch to the database backend, so execution records survive restarts.
+
 ## Host-scope tasks
 
 Host-scope tasks run as plain bash scripts outside the container, invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. Host tasks use a separate append-only log (`.deploy-tasks-host.log`, one-shot per machine); `APP_ENV` determines which `.env.*` files are loaded for task execution and does not scope storage. One-time setup:
