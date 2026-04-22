@@ -312,6 +312,43 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testGeneratedFileIsReadableOnlyByOwnerAndGroup(): void
+    {
+        // Run under a fresh /tmp projectDir to dodge the DDEV-mounted var/ chmod quirk.
+        $projectDir = \sys_get_temp_dir().'/generate-perms-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            projectDir: $projectDir,
+        );
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($projectDir.'/tasks/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+
+            self::assertSame(0640, \fileperms($files[0]) & 0777);
+        } finally {
+            $glob = \glob($projectDir.'/tasks/*');
+            $matches = false === $glob ? [] : $glob;
+
+            foreach ($matches as $file) {
+                \unlink($file);
+            }
+
+            @\rmdir($projectDir.'/tasks');
+            @\rmdir($projectDir);
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
