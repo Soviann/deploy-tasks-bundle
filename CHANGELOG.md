@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `all_or_nothing` runs no longer swallow failures silently. When the wrapping transaction rolls back, `TaskRunner::runAll()` now logs the failure at `error` level (with the original throwable in the log context) and rethrows it, so CLI callers and upstream handlers see the real cause instead of an opaque `RunResult(failed: 1)`.
+
 ### Changed
 
 - `DefaultTaskIdGenerator` now prefixes purely-numeric class-name remainders with `task_` (e.g. `DeployTask20260412143000` → `task_20260412143000`). Aligns the default generator output with the recommended `task_YYYYMMDDHHMMSS_…` naming convention. **Breaking** (pre-1.0, per bundle policy: MINOR bump). Existing tasks that relied on the non-prefixed numeric ID can preserve it via `#[AsDeployTask(id: …)]` or `TaskIdProviderInterface`.
