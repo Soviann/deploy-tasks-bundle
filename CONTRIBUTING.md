@@ -67,7 +67,7 @@ CI runs automatically on every pull request. All checks (PHPStan, CS Fixer, test
 
 1. Create a class implementing `Soviann\DeployTasksBundle\Storage\TaskStorageInterface` (or `Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface` for transaction support).
 2. Add unit tests in `tests/Unit/Storage/`.
-3. Register the service and alias `TaskStorageInterface` (and `deploy_tasks.storage`) to it. See [storage.md](docs/storage.md#custom-storage) for an example.
+3. Register the service and alias `TaskStorageInterface` (and `deploy_tasks.storage`) to it. See [storage.md](docs/storage.md#custom) for an example.
 
 ## Releasing
 
