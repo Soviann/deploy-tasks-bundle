@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Soviann\DeployTasksBundle\Command\CommandMessages;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -82,7 +83,10 @@ final class DeployResetCommandTest extends FunctionalTestCase
         $this->tester->execute(['id' => 'nonexistent']);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
-        self::assertStringContainsString('not registered', $this->tester->getDisplay());
+        self::assertStringContainsString(
+            \sprintf(CommandMessages::UNKNOWN_TASK, 'nonexistent'),
+            (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay()),
+        );
     }
 
     public function testResetWithoutGroupRemovesAllSlots(): void

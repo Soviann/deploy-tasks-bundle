@@ -61,7 +61,7 @@ final class DeployTasksSkipCommand extends Command
         $group = $input->getOption('group');
 
         if (!$this->registry->has($id)) {
-            $io->error(\sprintf('Task "%s" is not registered. Run deploytasks:status to see available tasks.', $id));
+            $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));
 
             return Command::FAILURE;
         }
