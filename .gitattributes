@@ -1,9 +1,13 @@
 /.github/              export-ignore
+/.infection/           export-ignore
+/.phpunit.cache/       export-ignore
 /docs/                 export-ignore
 /tests/                export-ignore
+/var/                  export-ignore
 .gitattributes         export-ignore
 .gitignore             export-ignore
 .php-cs-fixer.dist.php export-ignore
+.phpunit.result.cache  export-ignore
 AGENTS.md              export-ignore
 CLAUDE.md              export-ignore
 CONTRIBUTING.md        export-ignore
