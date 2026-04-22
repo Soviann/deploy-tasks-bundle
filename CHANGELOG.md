@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `all_or_nothing` runs no longer swallow failures silently. When the wrapping transaction rolls back, `TaskRunner::runAll()` now logs the failure at `error` level (with the original throwable in the log context) and rethrows it, so CLI callers and upstream handlers see the real cause instead of an opaque `RunResult(failed: 1)`.
+- `FilesystemStorage` now wraps corrupted `status` values in a `StorageException` instead of letting the raw `\ValueError` from `TaskStatus::from()` escape, matching `DbalStorage`'s behaviour. The original `\ValueError` is preserved as `getPrevious()`.
 
 ### Changed
 

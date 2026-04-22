@@ -209,12 +209,20 @@ final class FilesystemStorage implements TaskStorageInterface
             throw new StorageException(\sprintf('Invalid executed_at value "%s" in storage file.', $data['executed_at']));
         }
 
+        $group = $data['group'] ?? null;
+
+        try {
+            $status = TaskStatus::from($data['status']);
+        } catch (\ValueError $e) {
+            throw StorageException::corruptedRow($data['id'], $group, $data['status'], $e);
+        }
+
         return new TaskExecution(
             id: $data['id'],
-            status: TaskStatus::from($data['status']),
+            status: $status,
             executedAt: $executedAt,
             error: $data['error'],
-            group: $data['group'] ?? null,
+            group: $group,
         );
     }
 }
