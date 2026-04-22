@@ -271,6 +271,31 @@ final class FilesystemStorageTest extends TestCase
         $this->storage->get('task.baddate');
     }
 
+    public function testCorruptedStatusThrowsStorageException(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents(
+            $this->storagePath.'/task.badstatus.json',
+            \json_encode([
+                'id' => 'task.badstatus',
+                'status' => 'bogus',
+                'executed_at' => '2026-04-12T14:30:00+00:00',
+                'error' => null,
+            ]),
+        );
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Corrupted storage row.*bogus/');
+
+        try {
+            $this->storage->get('task.badstatus');
+        } catch (StorageException $e) {
+            self::assertInstanceOf(\ValueError::class, $e->getPrevious());
+
+            throw $e;
+        }
+    }
+
     public function testGroupSlugCollisionDetected(): void
     {
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'a-b'));
