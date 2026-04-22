@@ -38,7 +38,7 @@ body:
       description: Minimal steps to reproduce the issue.
       placeholder: |
         1. Configure the bundle with ...
-        2. Run `bin/console deploy:run`
+        2. Run `bin/console deploytasks:run`
         3. Observe ...
     validations:
       required: true
