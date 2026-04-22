@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `all_or_nothing` runs no longer swallow failures silently. When the wrapping transaction rolls back, `TaskRunner::runAll()` now logs the failure at `error` level (with the original throwable in the log context) and rethrows it, so CLI callers and upstream handlers see the real cause instead of an opaque `RunResult(failed: 1)`.
 - `FilesystemStorage` now wraps corrupted `status` values in a `StorageException` instead of letting the raw `\ValueError` from `TaskStatus::from()` escape, matching `DbalStorage`'s behaviour. The original `\ValueError` is preserved as `getPrevious()`.
 - `deploytasks:generate:container` and `deploytasks:generate:host` now raise a `\RuntimeException` when the underlying `file_put_contents()` call fails (e.g. non-writable target directory) instead of reporting success with a missing file.
+- `deploytasks:generate:container` now resolves the target directory against the injected `projectDir` before checking for an existing file, creating the directory, and writing. Running the command from a working directory different from `projectDir` no longer misses pre-existing files, nor writes the generated class into the wrong location. The duplicate-file error now displays the absolute resolved path.
 
 ### Changed
 

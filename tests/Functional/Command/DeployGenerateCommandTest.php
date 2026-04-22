@@ -91,7 +91,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $tester->execute(['--dir' => $this->outputDir]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString('File already exists', $tester->getDisplay());
+        self::assertStringContainsString('already exists', $tester->getDisplay());
     }
 
     public function testGenerateFailsWhenTargetDirectoryIsNotWritable(): void
@@ -115,6 +115,47 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             \chmod($dir, 0o755);
             \rmdir($dir);
         }
+    }
+
+    public function testGenerateExistsGuardUsesResolvedAbsolutePath(): void
+    {
+        // With a relative --dir, the guard must resolve against the injected projectDir,
+        // not the CWD — otherwise pre-existing files inside the resolved target are missed.
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $projectDir = \sys_get_temp_dir().'/generate-absolute-guard-'.\uniqid();
+        \mkdir($projectDir.'/src/Tasks', 0o755, true);
+
+        $fixedNow = new \DateTimeImmutable('2026-04-18 10:00:00');
+        $expectedFile = $projectDir.'/src/Tasks/DeployTask'.$fixedNow->format('YmdHis').'.php';
+        \file_put_contents($expectedFile, '<?php // existing');
+
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            projectDir: $projectDir,
+            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+        );
+        $tester = new CommandTester($command);
+
+        $cwd = \getcwd();
+        self::assertNotFalse($cwd);
+
+        try {
+            \chdir(\sys_get_temp_dir());
+            $tester->execute(['--dir' => 'src/Tasks/']);
+        } finally {
+            \chdir($cwd);
+            \unlink($expectedFile);
+            \rmdir($projectDir.'/src/Tasks');
+            \rmdir($projectDir.'/src');
+            \rmdir($projectDir);
+        }
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        $display = \preg_replace('/\s+/', '', $tester->getDisplay());
+        self::assertNotNull($display);
+        self::assertStringContainsString(\str_replace(' ', '', $expectedFile), $display);
     }
 
     public function testGenerateRejectsAbsolutePathOutsideProjectRoot(): void
@@ -177,13 +218,14 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         // Kills Identical mutation on `'Src' === $namespaceParts[0]` (line 182): when mutated to `'Src' !== ...`,
         // the namespace would stay `Src\*` instead of being rewritten to `App\*`.
         // Also kills UnwrapArrayMap / UnwrapUcFirst / UnwrapRtrim in `dirToNamespace` via the namespace assertions below.
-        $command = new DeployTasksGenerateCommand(
-            new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
-            projectDir: \sys_get_temp_dir(),
-        );
         $subdir = 'src/DeployTasks/Task-'.\uniqid().'/';
         $tmpProject = \sys_get_temp_dir().'/generate-ns-'.\uniqid();
         \mkdir($tmpProject, 0o755, true);
+
+        $command = new DeployTasksGenerateCommand(
+            new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+            projectDir: $tmpProject,
+        );
         $cwd = \getcwd();
         \assert(false !== $cwd);
 
