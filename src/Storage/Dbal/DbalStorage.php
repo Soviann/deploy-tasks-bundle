@@ -253,11 +253,7 @@ final class DbalStorage implements TransactionalStorageInterface
         }
 
         if ($this->configuration->autoCreateTable) {
-            $schemaManager = $this->connection->createSchemaManager();
-
-            if (!$schemaManager->tablesExist([$this->configuration->tableName])) {
-                $this->connection->executeStatement($this->getCreateTableSql());
-            }
+            $this->connection->executeStatement($this->getCreateTableSql());
         }
 
         $this->initialized = true;
