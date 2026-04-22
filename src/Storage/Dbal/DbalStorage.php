@@ -22,12 +22,27 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
  */
 final class DbalStorage implements TransactionalStorageInterface
 {
+    private readonly string $quotedTable;
+    private readonly string $quotedIdColumn;
+    private readonly string $quotedGroupColumn;
+    private readonly string $quotedStatusColumn;
+    private readonly string $quotedExecutedAtColumn;
+    private readonly string $quotedErrorColumn;
+
     private bool $initialized = false;
 
     public function __construct(
         private readonly Connection $connection,
         private readonly DbalStorageConfiguration $configuration = new DbalStorageConfiguration(),
     ) {
+        $platform = $this->connection->getDatabasePlatform();
+
+        $this->quotedTable = $platform->quoteSingleIdentifier($configuration->tableName);
+        $this->quotedIdColumn = $platform->quoteSingleIdentifier($configuration->idColumn);
+        $this->quotedGroupColumn = $platform->quoteSingleIdentifier($configuration->groupColumn);
+        $this->quotedStatusColumn = $platform->quoteSingleIdentifier($configuration->statusColumn);
+        $this->quotedExecutedAtColumn = $platform->quoteSingleIdentifier($configuration->executedAtColumn);
+        $this->quotedErrorColumn = $platform->quoteSingleIdentifier($configuration->errorColumn);
     }
 
     /**
@@ -35,25 +50,18 @@ final class DbalStorage implements TransactionalStorageInterface
      */
     public function getCreateTableSql(): string
     {
-        $t = $this->quoteIdentifier($this->configuration->tableName);
-        $id = $this->quoteIdentifier($this->configuration->idColumn);
-        $group = $this->quoteIdentifier($this->configuration->groupColumn);
-        $status = $this->quoteIdentifier($this->configuration->statusColumn);
-        $executedAt = $this->quoteIdentifier($this->configuration->executedAtColumn);
-        $error = $this->quoteIdentifier($this->configuration->errorColumn);
-
         return \sprintf(
             'CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(%d) NOT NULL, %s VARCHAR(%d) NOT NULL DEFAULT \'\', %s VARCHAR(16) NOT NULL, %s VARCHAR(32) NOT NULL, %s TEXT DEFAULT NULL, PRIMARY KEY (%s, %s))',
-            $t,
-            $id,
+            $this->quotedTable,
+            $this->quotedIdColumn,
             $this->configuration->idColumnLength,
-            $group,
+            $this->quotedGroupColumn,
             $this->configuration->groupColumnLength,
-            $status,
-            $executedAt,
-            $error,
-            $id,
-            $group,
+            $this->quotedStatusColumn,
+            $this->quotedExecutedAtColumn,
+            $this->quotedErrorColumn,
+            $this->quotedIdColumn,
+            $this->quotedGroupColumn,
         );
     }
 
@@ -66,9 +74,9 @@ final class DbalStorage implements TransactionalStorageInterface
             $count = $this->connection->fetchOne(
                 \sprintf(
                     'SELECT COUNT(*) FROM %s WHERE %s = ? AND %s = ?',
-                    $this->quoteIdentifier($this->configuration->tableName),
-                    $this->quoteIdentifier($this->configuration->idColumn),
-                    $this->quoteIdentifier($this->configuration->groupColumn),
+                    $this->quotedTable,
+                    $this->quotedIdColumn,
+                    $this->quotedGroupColumn,
                 ),
                 [$taskId, $group ?? ''],
             );
@@ -87,9 +95,9 @@ final class DbalStorage implements TransactionalStorageInterface
             $row = $this->connection->fetchAssociative(
                 \sprintf(
                     'SELECT * FROM %s WHERE %s = ? AND %s = ?',
-                    $this->quoteIdentifier($this->configuration->tableName),
-                    $this->quoteIdentifier($this->configuration->idColumn),
-                    $this->quoteIdentifier($this->configuration->groupColumn),
+                    $this->quotedTable,
+                    $this->quotedIdColumn,
+                    $this->quotedGroupColumn,
                 ),
                 [$taskId, $group ?? ''],
             );
@@ -108,12 +116,12 @@ final class DbalStorage implements TransactionalStorageInterface
     {
         $this->ensureInitialized();
 
-        $t = $this->quoteIdentifier($this->configuration->tableName);
-        $id = $this->quoteIdentifier($this->configuration->idColumn);
-        $group = $this->quoteIdentifier($this->configuration->groupColumn);
-        $status = $this->quoteIdentifier($this->configuration->statusColumn);
-        $executedAt = $this->quoteIdentifier($this->configuration->executedAtColumn);
-        $error = $this->quoteIdentifier($this->configuration->errorColumn);
+        $t = $this->quotedTable;
+        $id = $this->quotedIdColumn;
+        $group = $this->quotedGroupColumn;
+        $status = $this->quotedStatusColumn;
+        $executedAt = $this->quotedExecutedAtColumn;
+        $error = $this->quotedErrorColumn;
 
         try {
             $this->connection->transactional(static function (Connection $connection) use ($execution, $t, $id, $group, $status, $executedAt, $error): void {
@@ -154,9 +162,9 @@ final class DbalStorage implements TransactionalStorageInterface
             $this->connection->executeStatement(
                 \sprintf(
                     'DELETE FROM %s WHERE %s = ? AND %s = ?',
-                    $this->quoteIdentifier($this->configuration->tableName),
-                    $this->quoteIdentifier($this->configuration->idColumn),
-                    $this->quoteIdentifier($this->configuration->groupColumn),
+                    $this->quotedTable,
+                    $this->quotedIdColumn,
+                    $this->quotedGroupColumn,
                 ),
                 [$taskId, $group ?? ''],
             );
@@ -173,8 +181,8 @@ final class DbalStorage implements TransactionalStorageInterface
             $this->connection->executeStatement(
                 \sprintf(
                     'DELETE FROM %s WHERE %s = ?',
-                    $this->quoteIdentifier($this->configuration->tableName),
-                    $this->quoteIdentifier($this->configuration->idColumn),
+                    $this->quotedTable,
+                    $this->quotedIdColumn,
                 ),
                 [$taskId],
             );
@@ -194,8 +202,8 @@ final class DbalStorage implements TransactionalStorageInterface
             $rows = $this->connection->fetchAllAssociative(
                 \sprintf(
                     'SELECT * FROM %s ORDER BY %s',
-                    $this->quoteIdentifier($this->configuration->tableName),
-                    $this->quoteIdentifier($this->configuration->executedAtColumn),
+                    $this->quotedTable,
+                    $this->quotedExecutedAtColumn,
                 ),
             );
         } catch (DbalException $e) {
@@ -217,7 +225,7 @@ final class DbalStorage implements TransactionalStorageInterface
 
         try {
             $this->connection->executeStatement(
-                \sprintf('DELETE FROM %s', $this->quoteIdentifier($this->configuration->tableName)),
+                \sprintf('DELETE FROM %s', $this->quotedTable),
             );
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to reset all tasks: %s', $e->getMessage()), 0, $e);
@@ -239,11 +247,6 @@ final class DbalStorage implements TransactionalStorageInterface
     public function createSchema(): void
     {
         $this->connection->executeStatement($this->getCreateTableSql());
-    }
-
-    private function quoteIdentifier(string $identifier): string
-    {
-        return $this->connection->getDatabasePlatform()->quoteSingleIdentifier($identifier);
     }
 
     private function ensureInitialized(): void
