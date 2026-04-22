@@ -11,6 +11,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Path;
 
 /** @internal */
 #[AsCommand(
@@ -20,6 +22,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class DeployTasksGenerateCommand extends Command
 {
+    private readonly Filesystem $fs;
+
     /**
      * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic timestamps in tests
      */
@@ -30,6 +34,7 @@ final class DeployTasksGenerateCommand extends Command
         private readonly ?string $projectDir = null,
         private readonly ?\Closure $nowProvider = null,
     ) {
+        $this->fs = new Filesystem();
         parent::__construct();
     }
 
@@ -85,7 +90,7 @@ final class DeployTasksGenerateCommand extends Command
 
         if (null !== $this->projectDir) {
             $absoluteDir = \str_starts_with($dir, '/') ? $dir : $this->projectDir.'/'.$dir;
-            $absoluteDir = $this->normalizePath($absoluteDir).'/';
+            $absoluteDir = Path::canonicalize($absoluteDir).'/';
 
             if (!\str_starts_with($absoluteDir, $this->projectDir)) {
                 $io->error(\sprintf('Directory "%s" is outside the project root.', $dir));
@@ -96,7 +101,7 @@ final class DeployTasksGenerateCommand extends Command
 
         $filePath = $absoluteDir.$className.'.php';
 
-        if (\file_exists($filePath)) {
+        if ($this->fs->exists($filePath)) {
             $io->error(\sprintf('File "%s" already exists.', $filePath));
 
             return Command::FAILURE;
@@ -143,13 +148,8 @@ final class DeployTasksGenerateCommand extends Command
                 PHP;
         }
 
-        if (!\is_dir($absoluteDir) && !\mkdir($absoluteDir, 0755, true) && !\is_dir($absoluteDir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $absoluteDir));
-        }
-
-        if (false === @\file_put_contents($filePath, $fileContent)) {
-            throw new \RuntimeException(\sprintf('Failed to write "%s".', $filePath));
-        }
+        $this->fs->mkdir($absoluteDir, 0755);
+        $this->fs->dumpFile($filePath, $fileContent);
 
         $io->text([
             \sprintf('Generated new deploy task class to "<info>%s</info>"', $filePath),
@@ -161,29 +161,6 @@ final class DeployTasksGenerateCommand extends Command
         ]);
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Resolves `.` and `..` segments without requiring the path to exist.
-     */
-    private function normalizePath(string $path): string
-    {
-        $parts = \explode('/', $path);
-        $normalized = [];
-
-        foreach ($parts as $part) {
-            if ('.' === $part || '' === $part) {
-                continue;
-            }
-
-            if ('..' === $part) {
-                \array_pop($normalized);
-            } else {
-                $normalized[] = $part;
-            }
-        }
-
-        return '/'.\implode('/', $normalized);
     }
 
     private function dirToNamespace(string $dir): string
