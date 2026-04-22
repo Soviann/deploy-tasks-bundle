@@ -35,11 +35,8 @@ final class FilesystemStorage implements TaskStorageInterface
     ) {
         $this->fs = new Filesystem();
 
-        if (\str_contains($storagePath, '/public/')) {
-            \trigger_error(
-                \sprintf('Storage path "%s" contains a /public/ segment, which is unsafe.', $storagePath),
-                \E_USER_WARNING,
-            );
+        if (1 === \preg_match('#(^|/)public(/|$)#i', $storagePath)) {
+            throw new \InvalidArgumentException(\sprintf('Refusing to use filesystem storage under a "public" path: "%s".', $storagePath));
         }
     }
 

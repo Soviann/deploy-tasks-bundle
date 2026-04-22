@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
@@ -224,27 +225,32 @@ final class FilesystemStorageTest extends TestCase
         self::assertFalse($this->storage->has('task.seed_categories-v2'));
     }
 
-    public function testPublicPathWarning(): void
+    /**
+     * @return iterable<string, array{0: string, 1: bool}>
+     */
+    public static function publicPathProvider(): iterable
     {
-        $warningTriggered = false;
-        \set_error_handler(
-            static function (int $errno, string $errstr) use (&$warningTriggered): bool {
-                if (\E_USER_WARNING === $errno && \str_contains($errstr, '/public/')) {
-                    $warningTriggered = true;
-                }
+        yield 'mid-path public segment' => ['/var/www/html/public/deploy-tasks', true];
+        yield 'public as last segment' => ['/var/public', true];
+        yield 'public as final directory (no trailing slash)' => ['/srv/web/public', true];
+        yield 'uppercase PUBLIC segment' => ['/PUBLIC/state', true];
+        yield 'mixed-case Public segment' => ['/srv/Public/state', true];
+        yield 'substring my-public is safe' => ['/var/my-public/state', false];
+        yield 'substring public-static is safe' => ['/public-static/state', false];
+        yield 'substring publication is safe' => ['/var/publications/state', false];
+    }
 
-                return true;
-            },
-            \E_USER_WARNING,
-        );
-
-        try {
-            new FilesystemStorage('/var/www/html/public/deploy-tasks');
-        } finally {
-            \restore_error_handler();
+    #[DataProvider('publicPathProvider')]
+    public function testPublicPathRejection(string $path, bool $shouldThrow): void
+    {
+        if ($shouldThrow) {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessageMatches('/Refusing to use filesystem storage under a "public" path/');
+        } else {
+            $this->expectNotToPerformAssertions();
         }
 
-        self::assertTrue($warningTriggered);
+        new FilesystemStorage($path);
     }
 
     public function testCorruptJsonThrowsJsonException(): void
