@@ -104,3 +104,25 @@ deploy_tasks:
 When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is the third step of task-ID resolution (see [`creating-tasks.md`](creating-tasks.md#task-id-resolution)): it runs only when neither `TaskIdProviderInterface::getTaskId()` nor the attribute `id` produces a non-empty value, and it is also used by `deploytasks:generate` for the initial ID stub.
 
 > **Note:** `generateStatic()` is called at compile time by the compiler pass for duplicate ID detection (see the uniqueness paragraph in [`creating-tasks.md`](creating-tasks.md#task-id-resolution)). If your implementation requires runtime context (e.g. injected services), return `null` to opt out of compile-time detection — duplicates will then be caught at runtime by the `TaskRegistry`.
+
+## Run summary (`RunResult`)
+
+`TaskRunner::runAll()` returns a `Soviann\DeployTasksBundle\Runner\RunResult` value object summarising the outcome. The built-in `deploytasks:run` command consumes it to decide its exit code and to format the user-facing summary line, and it is the shape you read from any custom wrapper that drives `TaskRunner` directly.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ran` | `int` | Tasks executed successfully during this run. In dry-run mode this instead holds the number of pending tasks the runner *would* have executed. |
+| `skipped` | `int` | Tasks the runner skipped — either already recorded, or returned `TaskResult::SKIPPED` from their `run()`. |
+| `failed` | `int` | Tasks whose `run()` threw or returned `TaskResult::FAILURE`, plus tasks a caller-built transaction rolled back. |
+| `locked` | `bool` | `true` when the run was short-circuited because another process held the runner lock. No tasks ran in that case (`ran`/`skipped`/`failed` are all `0`). |
+
+Convenience method: `isSuccessful()` returns `true` iff `failed === 0 && !locked` — use it in custom CLI wrappers to map to process exit codes.
+
+## Task registry: `all()` vs `allRegistered()`
+
+`TaskRegistry` exposes two task accessors with different semantics:
+
+- `all(?string $environment = null, array $groups = []): array<string, DeployTaskInterface>` — returns the subset that matches the current runtime filter. When `$environment` is non-null, tasks whose `#[AsDeployTask(environments: ...)]` attribute excludes that environment are dropped. When `$groups` is non-empty, only tasks declaring at least one of the listed groups are returned. This is the accessor every runtime code path uses (`TaskRunner`, `deploytasks:run`, `deploytasks:status`).
+- `allRegistered(): array<string, DeployTaskInterface>` — returns every task registered with the bundle, unfiltered. Use it for tooling that must inspect the full registered surface regardless of environment or group scoping (compiler-pass diagnostics, admin listings, custom introspection commands).
+
+Both return the same `array<string, DeployTaskInterface>` shape keyed by resolved task ID; the difference is purely the filter scope.
