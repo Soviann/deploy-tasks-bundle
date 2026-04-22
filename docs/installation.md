@@ -53,7 +53,7 @@ See [storage.md](storage.md) for the full storage configuration reference.
 
 ## Host-scope tasks
 
-Host-scope tasks run as plain bash scripts outside the container; they share storage with container-scope tasks but are invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. One-time setup:
+Host-scope tasks run as plain bash scripts outside the container, invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. Host tasks use a separate append-only log (`.deploy-tasks-host.log`, one-shot per machine); `APP_ENV` determines which `.env.*` files are loaded for task execution and does not scope storage. One-time setup:
 
 ```bash
 cp vendor/soviann/deploy-tasks-bundle/bin/deploy-tasks-host.sh.dist bin/deploy-tasks-host.sh
@@ -66,7 +66,7 @@ Add the following entries to `.gitignore`:
 ```
 /.deploy-tasks-host.log
 /.deploy-tasks-host.lock
-/bin/deploy-tasks-host.local.sh
+deploy-tasks-host.local.sh
 ```
 
 See [README → Host-scope tasks](../README.md#host-scope-tasks) for generation, execution, and rollout details.

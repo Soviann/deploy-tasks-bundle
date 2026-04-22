@@ -192,7 +192,7 @@ Creates `deploy/host-tasks/deploy_task_20260418_143022.sh`. Edit the file to imp
 
 ### Storage & idempotency
 
-Each successful task is logged in `.deploy-tasks-host.log` (one ID per line). Re-running the script skips already-logged tasks. A task is one-shot per environment.
+Host tasks use a separate append-only log (`.deploy-tasks-host.log`, one-shot per machine). `APP_ENV` determines which `.env.*` files are loaded for task execution; it does not scope storage.
 
 ### `.env` loading
 
