@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
@@ -191,14 +192,39 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         @\rmdir(\dirname($resolvedDir));
     }
 
-    public function testGenerateRejectsTraversalOutsideProjectRoot(): void
+    public function testGenerateRejectsTraversalEscapingStartingPoint(): void
     {
+        // The --dir allowlist catches leading `..` after canonicalisation before the
+        // project-root guard; the input-level rejection message reflects that.
         $this->tester->execute(['--dir' => 'src/../../../../../../tmp/evil/']);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
         self::assertNotNull($display);
-        self::assertStringContainsString('outside the project root', $display);
+        self::assertStringContainsString('Invalid --dir value', $display);
+    }
+
+    #[DataProvider('invalidDirPayloadsProvider')]
+    public function testGenerateRejectsInvalidDirPayloads(string $dir): void
+    {
+        $this->tester->execute(['--dir' => $dir]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertNotNull($display);
+        self::assertStringContainsString('Invalid --dir value', $display);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidDirPayloadsProvider(): iterable
+    {
+        yield 'relative traversal escapes starting point' => ['../evil'];
+        yield 'php-open-tag injection' => ['<?php'];
+        yield 'semicolon injection' => ['a;b'];
+        yield 'whitespace-padded segment' => ['foo bar'];
+        yield 'dot segment (namespaces disallow dots)' => ['src/Deploy.Tasks'];
     }
 
     public function testGenerateNormalisesTrailingSlashInDirOption(): void

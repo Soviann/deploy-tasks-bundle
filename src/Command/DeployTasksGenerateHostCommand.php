@@ -68,6 +68,17 @@ final class DeployTasksGenerateHostCommand extends Command
         $dirInput = $input->getOption('dir');
         $dirInput = \rtrim($dirInput, '/').'/';
 
+        $canonical = Path::canonicalize($dirInput);
+
+        if (\str_starts_with($canonical, '..') || 1 !== \preg_match('#^[A-Za-z0-9/_\-]+$#', $canonical)) {
+            $io->error(\sprintf(
+                'Invalid --dir value "%s": must be a relative path using only letters, digits, slash, underscore, dash, and must not traverse above its starting point.',
+                $dirInput,
+            ));
+
+            return Command::FAILURE;
+        }
+
         if (null !== $this->projectDir) {
             $absoluteDir = \str_starts_with($dirInput, '/') ? $dirInput : $this->projectDir.'/'.$dirInput;
             $dir = Path::canonicalize($absoluteDir).'/';
