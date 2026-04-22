@@ -161,6 +161,7 @@ final class DeployTasksGenerateCommand extends Command
 
         $this->fs->mkdir($absoluteDir, 0755);
         $this->fs->dumpFile($filePath, $fileContent);
+        $this->fs->chmod($filePath, 0640);
 
         $io->text([
             \sprintf('Generated new deploy task class to "<info>%s</info>"', $filePath),
