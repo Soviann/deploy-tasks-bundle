@@ -18,13 +18,19 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
 final class AsDeployTask
 {
     /**
+     * Allowlist for group names — mirrors the task-ID allowlist and keeps every
+     * accepted value safe for use in filesystem paths, DB primary keys, and URLs.
+     */
+    public const GROUP_NAME_PATTERN = '/^[a-zA-Z0-9._-]+$/';
+
+    /**
      * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or FQCN auto-deduction)
      * @param int                  $priority      Execution priority (higher runs first, default 0)
      * @param string|string[]|null $env           Restrict to specific environment(s), null for all
      * @param int|null             $timeout       Max execution time in seconds, null for default
      * @param bool|null            $transactional Wrap execution in a database transaction. Null = use global config default.
      * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
-     * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group)
+     * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group). Names must match AsDeployTask::GROUP_NAME_PATTERN.
      */
     public function __construct(
         public readonly string $id = '',
@@ -35,6 +41,13 @@ final class AsDeployTask
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
     ) {
+        $groupList = null === $groups ? [] : (\is_array($groups) ? \array_values($groups) : [$groups]);
+
+        foreach ($groupList as $group) {
+            if (1 !== \preg_match(self::GROUP_NAME_PATTERN, $group)) {
+                throw new \InvalidArgumentException(\sprintf('Invalid group name "%s" in #[AsDeployTask]: must match %s.', $group, self::GROUP_NAME_PATTERN));
+            }
+        }
     }
 
     /**

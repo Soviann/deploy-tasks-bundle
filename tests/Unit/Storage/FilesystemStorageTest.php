@@ -320,8 +320,11 @@ final class FilesystemStorageTest extends TestCase
         $this->storage->removeAll('../../etc/passwd');
     }
 
-    public function testGroupNameWithTraversalCharsIsSlugifiedSafely(): void
+    public function testSaveRejectsGroupNamesContainingPathTraversal(): void
     {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid group name/');
+
         $this->storage->save(new TaskExecution(
             'task.1',
             TaskStatus::Ran,
@@ -329,16 +332,32 @@ final class FilesystemStorageTest extends TestCase
             null,
             '../../../etc/passwd',
         ));
+    }
 
-        $files = \glob($this->storagePath.'/*.json');
-        self::assertNotFalse($files);
-        self::assertCount(1, $files);
+    public function testGetRejectsGroupNamesContainingSlash(): void
+    {
+        // The pre-2.3 slugifier mapped both `a/b` and `a_b` to `a_b`, colliding at the
+        // file layer. Groups containing `/` are now rejected at the storage boundary,
+        // so collisions cannot happen by construction.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid group name/');
 
-        $resolvedFile = \realpath($files[0]);
-        $resolvedDir = \realpath($this->storagePath);
+        $this->storage->get('task.1', 'a/b');
+    }
 
-        self::assertNotFalse($resolvedFile);
-        self::assertNotFalse($resolvedDir);
-        self::assertStringStartsWith($resolvedDir.'/', $resolvedFile, 'Slugified group must not escape the storage directory');
+    public function testSlashAndUnderscoreGroupsNoLongerCollideBecauseSlashIsRejected(): void
+    {
+        $this->storage->save(new TaskExecution(
+            'task.1',
+            TaskStatus::Ran,
+            new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+            null,
+            'a_b',
+        ));
+
+        self::assertTrue($this->storage->has('task.1', 'a_b'));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->storage->has('task.1', 'a/b');
     }
 }
