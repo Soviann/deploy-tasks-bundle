@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Storage\Filesystem;
 
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -16,9 +17,9 @@ use Symfony\Component\Filesystem\Filesystem;
  *
  * Filename layout:
  * - Default slot (group = null): `<id>.json`
- * - Named group slot: `<id>@<slug>.json` where `<slug>` is the group name with
- *   non-filesystem-safe characters replaced by `_`. The `@` separator is
- *   unambiguous because task IDs are restricted to `[a-zA-Z0-9._-]`.
+ * - Named group slot: `<id>@<group>.json`. Both task IDs and group names are
+ *   constrained to `[a-zA-Z0-9._-]+` (see AsDeployTask::GROUP_NAME_PATTERN),
+ *   so the `@` separator is unambiguous and no character escaping is needed.
  *
  * @internal
  */
@@ -173,7 +174,9 @@ final class FilesystemStorage implements TaskStorageInterface
             return $this->storagePath.'/'.$taskId.'.json';
         }
 
-        return $this->storagePath.'/'.$taskId.'@'.self::slugifyGroup($group).'.json';
+        $this->validateGroup($group);
+
+        return $this->storagePath.'/'.$taskId.'@'.$group.'.json';
     }
 
     private function validateTaskId(string $taskId): void
@@ -183,9 +186,11 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
-    private static function slugifyGroup(string $group): string
+    private function validateGroup(string $group): void
     {
-        return (string) \preg_replace('/[^a-z0-9._-]+/i', '_', $group);
+        if (1 !== \preg_match(AsDeployTask::GROUP_NAME_PATTERN, $group)) {
+            throw new \InvalidArgumentException(\sprintf('Invalid group name "%s": must match %s.', $group, AsDeployTask::GROUP_NAME_PATTERN));
+        }
     }
 
     private function ensureDirectoryExists(): void

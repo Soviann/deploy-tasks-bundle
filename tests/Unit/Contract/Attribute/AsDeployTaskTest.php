@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Unit\Contract\Attribute;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
@@ -117,6 +118,35 @@ final class AsDeployTaskTest extends TestCase
     public function testGroupsOfReturnsList(): void
     {
         self::assertSame(['predeploy', 'postdeploy'], AsDeployTask::groupsOf(new MultiGroupTestTask()));
+    }
+
+    #[DataProvider('invalidGroupNameProvider')]
+    public function testConstructorRejectsGroupsContainingDisallowedCharacters(string $group): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid group name/');
+
+        new AsDeployTask(id: 'task.bad-group', groups: $group);
+    }
+
+    public function testConstructorRejectsBadEntryInsideGroupArray(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid group name/');
+
+        new AsDeployTask(id: 'task.mixed', groups: ['predeploy', 'a/b']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidGroupNameProvider(): iterable
+    {
+        yield 'slash separator' => ['a/b'];
+        yield 'path traversal' => ['../etc/passwd'];
+        yield 'whitespace' => ['pre deploy'];
+        yield 'shell metacharacter' => ['pre;rm'];
+        yield 'empty string' => [''];
     }
 }
 
