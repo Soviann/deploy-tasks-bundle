@@ -104,7 +104,7 @@ final class DeployTasksRunCommand extends Command
     private function executeOne(SymfonyStyle $io, OutputInterface $output, string $taskId, array $groups, bool $force): int
     {
         if (!$this->registry->has($taskId)) {
-            $io->error(\sprintf('Task "%s" is not registered. Run deploytasks:status to see available tasks.', $taskId));
+            $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $taskId));
 
             return Command::FAILURE;
         }
