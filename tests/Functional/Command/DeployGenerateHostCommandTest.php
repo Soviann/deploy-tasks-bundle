@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Filesystem\Exception\IOException;
 
 #[CoversClass(DeployTasksGenerateHostCommand::class)]
 final class DeployGenerateHostCommandTest extends FunctionalTestCase
@@ -55,8 +56,8 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         try {
             $tester->execute(['--dir' => $dir]);
             self::fail('Expected host generator to fail when target directory is not writable.');
-        } catch (\RuntimeException $e) {
-            self::assertMatchesRegularExpression('/Failed to write .*deploy_task_/', $e->getMessage());
+        } catch (IOException $e) {
+            self::assertMatchesRegularExpression('/deploy_task_\d+_\d+\.sh/', $e->getMessage());
         } finally {
             \chmod($dir, 0o755);
             \rmdir($dir);

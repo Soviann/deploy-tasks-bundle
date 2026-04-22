@@ -8,6 +8,8 @@ use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Symfony\Component\Filesystem\Exception\IOException;
+use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * Filesystem-backed task storage — stores one JSON file per (task id, group) pair.
@@ -22,12 +24,16 @@ use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
  */
 final class FilesystemStorage implements TaskStorageInterface
 {
+    private readonly Filesystem $fs;
+
     /**
      * @param string $storagePath Directory where task JSON files are stored
      */
     public function __construct(
         private readonly string $storagePath,
     ) {
+        $this->fs = new Filesystem();
+
         if (\str_contains($storagePath, '/public/')) {
             \trigger_error(
                 \sprintf('Storage path "%s" contains a /public/ segment, which is unsafe.', $storagePath),
@@ -38,14 +44,14 @@ final class FilesystemStorage implements TaskStorageInterface
 
     public function has(string $taskId, ?string $group = null): bool
     {
-        return \file_exists($this->filePath($taskId, $group));
+        return $this->fs->exists($this->filePath($taskId, $group));
     }
 
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
         $path = $this->filePath($taskId, $group);
 
-        if (!\file_exists($path)) {
+        if (!$this->fs->exists($path)) {
             return null;
         }
 
@@ -65,6 +71,9 @@ final class FilesystemStorage implements TaskStorageInterface
         $path = $this->filePath($execution->id, $execution->group);
         $json = \json_encode($this->toArray($execution), \JSON_THROW_ON_ERROR);
 
+        // Native file_put_contents with LOCK_EX retained deliberately: advisory lock preserves
+        // writer-vs-writer serialisation when callers don't install the optional symfony/lock
+        // suggestion. Filesystem::dumpFile() is atomic but drops that guarantee.
         if (false === \file_put_contents($path, $json, \LOCK_EX)) {
             throw new StorageException(\sprintf('Failed to write storage file "%s".', $path));
         }
@@ -74,12 +83,14 @@ final class FilesystemStorage implements TaskStorageInterface
     {
         $path = $this->filePath($taskId, $group);
 
-        if (!\file_exists($path)) {
+        if (!$this->fs->exists($path)) {
             return;
         }
 
-        if (!\unlink($path)) {
-            throw new StorageException(\sprintf('Failed to remove storage file "%s".', $path));
+        try {
+            $this->fs->remove($path);
+        } catch (IOException $e) {
+            throw new StorageException(\sprintf('Failed to remove storage file "%s".', $path), 0, $e);
         }
     }
 
@@ -100,8 +111,10 @@ final class FilesystemStorage implements TaskStorageInterface
             }
 
             foreach ($files as $file) {
-                if (!\unlink($file)) {
-                    throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file));
+                try {
+                    $this->fs->remove($file);
+                } catch (IOException $e) {
+                    throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file), 0, $e);
                 }
             }
         }
@@ -144,8 +157,10 @@ final class FilesystemStorage implements TaskStorageInterface
         }
 
         foreach ($files as $file) {
-            if (!\unlink($file)) {
-                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file));
+            try {
+                $this->fs->remove($file);
+            } catch (IOException $e) {
+                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file), 0, $e);
             }
         }
     }
@@ -175,12 +190,10 @@ final class FilesystemStorage implements TaskStorageInterface
 
     private function ensureDirectoryExists(): void
     {
-        if (\is_dir($this->storagePath)) {
-            return;
-        }
-
-        if (!\mkdir($this->storagePath, 0755, true) && !\is_dir($this->storagePath)) {
-            throw new StorageException(\sprintf('Failed to create storage directory "%s".', $this->storagePath));
+        try {
+            $this->fs->mkdir($this->storagePath, 0755);
+        } catch (IOException $e) {
+            throw new StorageException(\sprintf('Failed to create storage directory "%s".', $this->storagePath), 0, $e);
         }
     }
 
