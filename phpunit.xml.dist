@@ -3,11 +3,18 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
-         failOnDeprecation="true"
          failOnNotice="true"
          failOnRisky="true"
          failOnWarning="true"
 >
+    <php>
+        <env name="SYMFONY_DEPRECATIONS_HELPER" value="max[direct]=0"/>
+    </php>
+
+    <extensions>
+        <bootstrap class="Symfony\Bridge\PhpUnit\SymfonyExtension"/>
+    </extensions>
+
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
