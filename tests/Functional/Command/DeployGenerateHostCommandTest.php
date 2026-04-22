@@ -43,6 +43,26 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testGenerateFailsWhenTargetDirectoryIsNotWritable(): void
+    {
+        // The DDEV-mounted `var/` path has a PHP chmod quirk — test inside tmpfs (/tmp) instead.
+        $dir = \sys_get_temp_dir().'/generate-host-test-readonly-'.\uniqid().'/';
+        \mkdir($dir, 0o500, true);
+
+        $command = new DeployTasksGenerateHostCommand();
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => $dir]);
+            self::fail('Expected host generator to fail when target directory is not writable.');
+        } catch (\RuntimeException $e) {
+            self::assertMatchesRegularExpression('/Failed to write .*deploy_task_/', $e->getMessage());
+        } finally {
+            \chmod($dir, 0o755);
+            \rmdir($dir);
+        }
+    }
+
     public function testGenerateCreatesExecutableBashStubWithTimestampedName(): void
     {
         $this->tester->execute(['--dir' => $this->outputDir]);

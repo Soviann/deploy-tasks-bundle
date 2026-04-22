@@ -145,7 +145,9 @@ final class DeployTasksGenerateCommand extends Command
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
         }
 
-        \file_put_contents($filePath, $fileContent);
+        if (false === @\file_put_contents($filePath, $fileContent)) {
+            throw new \RuntimeException(\sprintf('Failed to write "%s".', $filePath));
+        }
 
         $io->text([
             \sprintf('Generated new deploy task class to "<info>%s</info>"', $filePath),
