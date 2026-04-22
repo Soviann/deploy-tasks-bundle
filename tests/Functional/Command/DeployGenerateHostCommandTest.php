@@ -191,6 +191,37 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString('//deploy_task_', $files[0]);
     }
 
+    public function testGeneratedFileIsReadableOnlyByOwnerAndGroup(): void
+    {
+        // Run under a fresh /tmp projectDir to dodge the DDEV-mounted var/ chmod quirk.
+        $projectDir = \sys_get_temp_dir().'/generate-host-perms-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'host-tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($projectDir.'/host-tasks/deploy_task_*.sh');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+
+            self::assertSame(0750, \fileperms($files[0]) & 0777);
+        } finally {
+            $glob = \glob($projectDir.'/host-tasks/*');
+            $matches = false === $glob ? [] : $glob;
+
+            foreach ($matches as $file) {
+                \unlink($file);
+            }
+
+            @\rmdir($projectDir.'/host-tasks');
+            @\rmdir($projectDir);
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

@@ -116,7 +116,7 @@ final class DeployTasksGenerateHostCommand extends Command
             BASH;
 
         $this->fs->dumpFile($filePath, $fileContent);
-        $this->fs->chmod($filePath, 0755);
+        $this->fs->chmod($filePath, 0750);
 
         $io->text([
             \sprintf('Generated new host deploy task to "<info>%s</info>"', $filePath),
