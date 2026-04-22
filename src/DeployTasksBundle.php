@@ -308,11 +308,11 @@ final class DeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        $builder->setParameter('deploy_tasks.host_dir_default', 'deploy/host-tasks');
+        $builder->setParameter('env(DEPLOY_TASKS_HOST_DIR)', 'deploy/host-tasks');
 
         $services->set('deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
             ->args([
-                '%env(default:deploy_tasks.host_dir_default:DEPLOY_TASKS_HOST_DIR)%',
+                '%env(DEPLOY_TASKS_HOST_DIR)%',
                 '%kernel.project_dir%',
             ])
             ->tag('console.command')
