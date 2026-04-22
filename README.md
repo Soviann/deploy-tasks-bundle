@@ -209,6 +209,18 @@ Values in host task scripts reference exported env vars (`$NAS_HOST`, etc.).
 
 A `flock` lock at `.deploy-tasks-host.lock` prevents concurrent runs on the same machine.
 
+### Environment variables
+
+The runner honours three environment variables for path overrides (useful for CI, shared-machine deployments, or keeping state outside the repo root). Each one has a sensible default; you rarely need to set them explicitly.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DEPLOY_TASKS_HOST_DIR` | `deploy/host-tasks` | Directory scanned for `*.sh` task scripts. |
+| `DEPLOY_TASKS_HOST_STORAGE` | `.deploy-tasks-host.log` | Append-only log of completed task IDs (one-shot per machine). |
+| `DEPLOY_TASKS_HOST_LOCK` | `.deploy-tasks-host.lock` | `flock` file guarding against concurrent runs. |
+
+Paths are resolved relative to the runner's current working directory (the repo root by convention). Set them via shell environment, CI secrets, or the `deploy-tasks-host.local.sh` override file.
+
 ## Commands
 
 | Command | Description | Options |

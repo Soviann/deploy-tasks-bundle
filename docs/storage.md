@@ -79,6 +79,19 @@ The `task_group` column stores the empty string for the default slot (SQL forbid
 
 These are the default column names and widths; adjust them to match your `storage.database.id_column*` configuration if you've overridden them.
 
+The `task_group` column name and its `VARCHAR(128)` width are currently fixed. A forthcoming release will expose them via `storage.database.group_column` and `storage.database.group_column_length`, mirroring the existing `id_column*` knobs. Until then, align custom table definitions with the defaults above.
+
+<!-- TODO (phase 12 / N1.2): once wired, document group_column / group_column_length next to id_column* in the override paragraph. -->
+
+## Ephemeral filesystems (Docker, Kubernetes)
+
+Filesystem storage writes task-execution records under `%kernel.project_dir%` by default. On container platforms this directory sits on an overlay filesystem that resets with every pod restart or image rebuild, so execution records silently disappear and one-shot tasks run again.
+
+For containerised deployments, prefer one of:
+
+- a dedicated bind mount (Docker) or `PersistentVolumeClaim` (Kubernetes) mapped at `%kernel.project_dir%/var/deploy-tasks/`;
+- the database backend, which records executions in a durable SQL table and is not affected by overlay-FS resets.
+
 ### Transactional tasks
 
 Transaction wrapping is configured per storage backend under `storage.<type>`:
@@ -106,6 +119,8 @@ use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 
 $storage = new InMemoryStorage();
 ```
+
+`InMemoryStorage` is **not transactional** on its own — it does not implement `TransactionalStorageInterface`, so runner config keys `transactional` / `all_or_nothing` have no effect against it. Tests that need transactional behaviour should pair it with `TransactionalInMemoryStorageFixture` (see `tests/Fixtures/`), which wraps `InMemoryStorage` to implement the transactional interface.
 
 ## Custom
 
