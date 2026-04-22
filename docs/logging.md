@@ -29,7 +29,7 @@ deploy_tasks:
 | `warning` | `Deploy tasks runner has no lock factory — concurrent execution is not protected` | — |
 | `error` | `Deploy task failed` | `task_id`, `duration_ms`, `exception` |
 
-`task_id` is always a string. `result` is the `TaskResult` enum value. `duration_ms` is an int (rounded), `duration_s` a float. `exception` is the raw `\Throwable` per PSR-3 — Monolog's default formatter renders class, message, and trace.
+`task_id` is always a string. `result` is an `int` — the backing value of the `TaskResult` enum (logger records `$result->value`). `duration_ms` is an int (rounded), `duration_s` a float. `exception` is the raw `\Throwable` per PSR-3 — Monolog's default formatter renders class, message, and trace.
 
 ## Monolog Routing
 

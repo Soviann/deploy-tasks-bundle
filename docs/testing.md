@@ -24,7 +24,7 @@ $runner = new TaskRunner(
 );
 ```
 
-`TaskRunner`'s full constructor signature is `(TaskRegistry $registry, TaskStorageInterface $storage, TaskSorterInterface $sorter, TaskIdResolver $idResolver, TaskDescriptionResolver $descriptionResolver, ?EventDispatcherInterface $dispatcher = null, ?LockFactory $lockFactory = null, int $defaultTimeout = 300, ?string $environment = null, bool $transactional = true, bool $allOrNothing = false)`. The example above supplies only the required arguments; add optional ones as needed.
+`TaskRunner`'s full constructor signature is `(TaskRegistry $registry, TaskStorageInterface $storage, TaskSorterInterface $sorter, TaskIdResolver $idResolver, TaskDescriptionResolver $descriptionResolver, ?EventDispatcherInterface $dispatcher = null, ?LockFactory $lockFactory = null, int $defaultTimeout = 300, ?string $environment = null, bool $transactional = true, bool $allOrNothing = false, LoggerInterface $logger = new NullLogger())`. The example above supplies only the required arguments; add optional ones as needed.
 
 ## Functional Testing with a Test Kernel
 
