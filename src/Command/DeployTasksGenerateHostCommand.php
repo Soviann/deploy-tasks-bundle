@@ -10,6 +10,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Path;
 
 /** @internal */
 #[AsCommand(
@@ -18,6 +20,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class DeployTasksGenerateHostCommand extends Command
 {
+    private readonly Filesystem $fs;
+
     /**
      * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic timestamps in tests
      */
@@ -26,6 +30,7 @@ final class DeployTasksGenerateHostCommand extends Command
         private readonly ?string $projectDir = null,
         private readonly ?\Closure $nowProvider = null,
     ) {
+        $this->fs = new Filesystem();
         parent::__construct();
     }
 
@@ -65,7 +70,7 @@ final class DeployTasksGenerateHostCommand extends Command
 
         if (null !== $this->projectDir) {
             $absoluteDir = \str_starts_with($dirInput, '/') ? $dirInput : $this->projectDir.'/'.$dirInput;
-            $dir = $this->normalizePath($absoluteDir).'/';
+            $dir = Path::canonicalize($absoluteDir).'/';
 
             if (!\str_starts_with($dir, $this->projectDir)) {
                 $io->error(\sprintf('Directory "%s" is outside the project root.', $dirInput));
@@ -80,15 +85,13 @@ final class DeployTasksGenerateHostCommand extends Command
         $filename = 'deploy_task_'.$now->format('Ymd_His').'.sh';
         $filePath = $dir.$filename;
 
-        if (\file_exists($filePath)) {
+        if ($this->fs->exists($filePath)) {
             $io->error(\sprintf('File already exists: %s', $filePath));
 
             return Command::FAILURE;
         }
 
-        if (!\is_dir($dir) && !\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
-        }
+        $this->fs->mkdir($dir, 0755);
 
         $generatedAt = $now->format(\DateTimeInterface::ATOM);
         $fileContent = <<<BASH
@@ -101,11 +104,8 @@ final class DeployTasksGenerateHostCommand extends Command
 
             BASH;
 
-        if (false === @\file_put_contents($filePath, $fileContent)) {
-            throw new \RuntimeException(\sprintf('Failed to write "%s".', $filePath));
-        }
-
-        \chmod($filePath, 0755);
+        $this->fs->dumpFile($filePath, $fileContent);
+        $this->fs->chmod($filePath, 0755);
 
         $io->text([
             \sprintf('Generated new host deploy task to "<info>%s</info>"', $filePath),
@@ -115,28 +115,5 @@ final class DeployTasksGenerateHostCommand extends Command
         ]);
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Resolves `.` and `..` segments without requiring the path to exist.
-     */
-    private function normalizePath(string $path): string
-    {
-        $parts = \explode('/', $path);
-        $normalized = [];
-
-        foreach ($parts as $part) {
-            if ('.' === $part || '' === $part) {
-                continue;
-            }
-
-            if ('..' === $part) {
-                \array_pop($normalized);
-            } else {
-                $normalized[] = $part;
-            }
-        }
-
-        return '/'.\implode('/', $normalized);
     }
 }
