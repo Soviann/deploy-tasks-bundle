@@ -81,21 +81,23 @@ final class DeployTasksGenerateCommand extends Command
         $dir = $input->getOption('dir');
         $dir = \rtrim($dir, '/').'/';
 
+        $absoluteDir = $dir;
+
         if (null !== $this->projectDir) {
             $absoluteDir = \str_starts_with($dir, '/') ? $dir : $this->projectDir.'/'.$dir;
-            $normalized = $this->normalizePath($absoluteDir);
+            $absoluteDir = $this->normalizePath($absoluteDir).'/';
 
-            if (!\str_starts_with($normalized, $this->projectDir)) {
+            if (!\str_starts_with($absoluteDir, $this->projectDir)) {
                 $io->error(\sprintf('Directory "%s" is outside the project root.', $dir));
 
                 return Command::FAILURE;
             }
         }
 
-        $filePath = $dir.$className.'.php';
+        $filePath = $absoluteDir.$className.'.php';
 
         if (\file_exists($filePath)) {
-            $io->error(\sprintf('File already exists: %s', $filePath));
+            $io->error(\sprintf('File "%s" already exists.', $filePath));
 
             return Command::FAILURE;
         }
@@ -141,8 +143,8 @@ final class DeployTasksGenerateCommand extends Command
                 PHP;
         }
 
-        if (!\is_dir($dir) && !\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
+        if (!\is_dir($absoluteDir) && !\mkdir($absoluteDir, 0755, true) && !\is_dir($absoluteDir)) {
+            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $absoluteDir));
         }
 
         if (false === @\file_put_contents($filePath, $fileContent)) {
