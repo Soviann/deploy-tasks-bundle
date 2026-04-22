@@ -20,6 +20,10 @@ for arg in "$@"; do
     esac
 done
 APP_ENV="${APP_ENV_ARG:-${APP_ENV:-dev}}"
+if [[ ! "$APP_ENV" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    printf '%s\n' "Invalid APP_ENV value: $APP_ENV" >&2
+    exit 1
+fi
 export APP_ENV
 
 _load_env() {
