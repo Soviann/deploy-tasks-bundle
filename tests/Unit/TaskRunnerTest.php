@@ -313,7 +313,7 @@ final class TaskRunnerTest extends TestCase
         self::assertSame('Task failed!', $dispatched[1]->exception->getMessage());
     }
 
-    public function testNoLockFactoryWarning(): void
+    public function testNoLockFactoryWarningIsSilentByDefault(): void
     {
         $runner = $this->createRunner([
             new SimpleTask('task.1', 'First'),
@@ -321,7 +321,20 @@ final class TaskRunnerTest extends TestCase
 
         $runner->runAll($this->output);
 
-        self::assertStringContainsString('No lock factory configured', $this->output->fetch());
+        self::assertStringNotContainsString('No lock factory configured', $this->output->fetch());
+    }
+
+    public function testNoLockFactoryWarningIsShownInVerboseMode(): void
+    {
+        $output = new BufferedOutput(BufferedOutput::VERBOSITY_VERBOSE);
+
+        $runner = $this->createRunner([
+            new SimpleTask('task.1', 'First'),
+        ]);
+
+        $runner->runAll($output);
+
+        self::assertStringContainsString('No lock factory configured', $output->fetch());
     }
 
     public function testStorageFailureDuringPersistPropagates(): void
@@ -674,14 +687,26 @@ final class TaskRunnerTest extends TestCase
         self::assertFalse($this->storage->has('task.1'));
     }
 
-    public function testRunOneWithoutLockFactoryWarns(): void
+    public function testRunOneWithoutLockFactoryIsSilentByDefault(): void
     {
         $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
 
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::SUCCESS, $result);
-        self::assertStringContainsString('No lock factory configured', $this->output->fetch());
+        self::assertStringNotContainsString('No lock factory configured', $this->output->fetch());
+    }
+
+    public function testRunOneWithoutLockFactoryWarnsInVerboseMode(): void
+    {
+        $output = new BufferedOutput(BufferedOutput::VERBOSITY_VERBOSE);
+
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
+
+        $result = $runner->runOne('task.1', $output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('No lock factory configured', $output->fetch());
     }
 
     public function testTimeoutExceededLogsWarningWithoutFailing(): void

@@ -159,7 +159,9 @@ final class TaskRunner
     private function withLock(OutputInterface $output, \Closure $operation): mixed
     {
         if (null === $this->lockFactory) {
-            $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
+            if ($output->isVerbose()) {
+                $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
+            }
             $this->logger->warning('Deploy tasks runner has no lock factory — concurrent execution is not protected');
         }
 
