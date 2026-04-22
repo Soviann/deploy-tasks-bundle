@@ -101,7 +101,10 @@ final class DeployTasksGenerateHostCommand extends Command
 
             BASH;
 
-        \file_put_contents($filePath, $fileContent);
+        if (false === @\file_put_contents($filePath, $fileContent)) {
+            throw new \RuntimeException(\sprintf('Failed to write "%s".', $filePath));
+        }
+
         \chmod($filePath, 0755);
 
         $io->text([

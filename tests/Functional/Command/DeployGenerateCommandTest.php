@@ -94,6 +94,29 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::assertStringContainsString('File already exists', $tester->getDisplay());
     }
 
+    public function testGenerateFailsWhenTargetDirectoryIsNotWritable(): void
+    {
+        // The DDEV-mounted `var/` path has a PHP chmod quirk — test inside tmpfs (/tmp) instead.
+        $dir = \sys_get_temp_dir().'/generate-test-readonly-'.\uniqid().'/';
+        \mkdir($dir, 0o500, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = new DeployTasksGenerateCommand(idGenerator: $idGenerator);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => $dir]);
+            self::fail('Expected generator to fail when target directory is not writable.');
+        } catch (\RuntimeException $e) {
+            self::assertMatchesRegularExpression('/Failed to write .*DeployTask/', $e->getMessage());
+        } finally {
+            \chmod($dir, 0o755);
+            \rmdir($dir);
+        }
+    }
+
     public function testGenerateRejectsAbsolutePathOutsideProjectRoot(): void
     {
         $this->tester->execute(['--dir' => '/tmp/outside-project/']);
