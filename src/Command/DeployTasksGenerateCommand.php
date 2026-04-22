@@ -180,9 +180,7 @@ final class DeployTasksGenerateCommand extends Command
         $dir = \rtrim($dir, '/');
         $parts = \explode('/', $dir);
 
-        $namespaceParts = \array_map(static function (string $part): string {
-            return \ucfirst($part);
-        }, $parts);
+        $namespaceParts = \array_map(\ucfirst(...), $parts);
 
         if ('Src' === $namespaceParts[0]) {
             $namespaceParts[0] = 'App';
