@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Helper\PathNormalizer;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -12,7 +13,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\Filesystem\Path;
 
 /** @internal */
 #[AsCommand(
@@ -86,7 +86,7 @@ final class DeployTasksGenerateCommand extends Command
         $dir = $input->getOption('dir');
         $dir = \rtrim($dir, '/').'/';
 
-        $canonical = Path::canonicalize($dir);
+        $canonical = PathNormalizer::normalize($dir);
 
         if (\str_starts_with($canonical, '..') || 1 !== \preg_match('#^[A-Za-z0-9/_\-]+$#', $canonical)) {
             $io->error(\sprintf(
@@ -101,7 +101,7 @@ final class DeployTasksGenerateCommand extends Command
 
         if (null !== $this->projectDir) {
             $absoluteDir = \str_starts_with($dir, '/') ? $dir : $this->projectDir.'/'.$dir;
-            $absoluteDir = Path::canonicalize($absoluteDir).'/';
+            $absoluteDir = PathNormalizer::normalize($absoluteDir).'/';
 
             if (!\str_starts_with($absoluteDir, $this->projectDir)) {
                 $io->error(\sprintf('Directory "%s" is outside the project root.', $dir));
