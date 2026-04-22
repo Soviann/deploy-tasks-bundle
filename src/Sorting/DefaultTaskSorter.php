@@ -32,21 +32,19 @@ final class DefaultTaskSorter implements TaskSorterInterface
      */
     public function sort(array $tasks): SortedTaskCollection
     {
-        /** @var array<int, array{task: DeployTaskInterface, priority: int, date: string|null, index: int}> $indexed */
-        $indexed = \array_map(
-            function (DeployTaskInterface $task, int $index): array {
-                $attribute = AsDeployTask::of($task);
+        /** @var list<array{task: DeployTaskInterface, priority: int, date: string|null, index: int}> $indexed */
+        $indexed = [];
 
-                return [
-                    'task' => $task,
-                    'priority' => null !== $attribute ? $attribute->priority : 0,
-                    'date' => $this->extractDate($this->idResolver->resolve($task)),
-                    'index' => $index,
-                ];
-            },
-            $tasks,
-            \array_keys($tasks),
-        );
+        foreach ($tasks as $index => $task) {
+            $attribute = AsDeployTask::of($task);
+
+            $indexed[] = [
+                'task' => $task,
+                'priority' => null !== $attribute ? $attribute->priority : 0,
+                'date' => $this->extractDate($this->idResolver->resolve($task)),
+                'index' => $index,
+            ];
+        }
 
         \usort($indexed, function (array $a, array $b): int {
             // 1. Priority DESC
