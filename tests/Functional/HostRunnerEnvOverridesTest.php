@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
@@ -77,6 +78,28 @@ final class HostRunnerEnvOverridesTest extends TestCase
         self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         self::assertFileExists($this->workspace.'/.alt-lock');
         self::assertFileDoesNotExist($this->workspace.'/.deploy-tasks-host.lock');
+    }
+
+    #[DataProvider('invalidAppEnvProvider')]
+    public function testInvalidAppEnvIsRejectedBeforeEnvLoading(string $appEnv): void
+    {
+        // No host-tasks directory needed — the runner must bail before env loading.
+        $process = $this->runRunner(['APP_ENV' => $appEnv]);
+
+        self::assertNotSame(0, $process->getExitCode());
+        self::assertStringContainsString('Invalid APP_ENV', $process->getErrorOutput());
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidAppEnvProvider(): iterable
+    {
+        yield 'path traversal' => ['../../tmp/foo'];
+        yield 'slash-only traversal' => ['../evil'];
+        yield 'shell metacharacter' => ['prod;rm'];
+        yield 'whitespace' => ['prod env'];
+        yield 'leading dot' => ['.prod'];
     }
 
     /**
