@@ -194,6 +194,36 @@ final class DbalStorage implements TransactionalStorageInterface
     /**
      * @return list<TaskExecution>
      */
+    public function findByTaskId(string $taskId): iterable
+    {
+        $this->ensureInitialized();
+
+        try {
+            $rows = $this->connection->fetchAllAssociative(
+                \sprintf(
+                    'SELECT * FROM %s WHERE %s = ? ORDER BY %s',
+                    $this->quotedTable,
+                    $this->quotedIdColumn,
+                    $this->quotedExecutedAtColumn,
+                ),
+                [$taskId],
+            );
+        } catch (DbalException $e) {
+            throw new StorageException(\sprintf('Failed to fetch task "%s": %s', $taskId, $e->getMessage()), 0, $e);
+        }
+
+        $executions = [];
+
+        foreach ($rows as $row) {
+            $executions[] = $this->hydrate($row);
+        }
+
+        return $executions;
+    }
+
+    /**
+     * @return list<TaskExecution>
+     */
     public function all(): array
     {
         $this->ensureInitialized();

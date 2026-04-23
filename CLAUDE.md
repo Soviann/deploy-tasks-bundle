@@ -51,7 +51,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 - `TaskOutcome` — per-task outcome value object
 
 **`Storage/`** — persistence
-- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`.
+- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `findByTaskId()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`; `findByTaskId()` returns every slot for one id as `iterable<TaskExecution>`.
 - `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
 - `TaskExecution` — readonly value object: id, status, executedAt, error, group
 - `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
