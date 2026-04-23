@@ -95,6 +95,36 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('bar', $output->fetch());
     }
 
+    public function testFailureOutputOmitsCommandLine(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->invoke(
+            new Process(['php', '-r', 'exit(3);', '--password=s3cret']),
+            $output,
+        );
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        $rendered = $output->fetch();
+        self::assertStringNotContainsString('s3cret', $rendered);
+        self::assertStringNotContainsString('--password', $rendered);
+    }
+
+    public function testTimeoutOutputOmitsCommandLine(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->invoke(
+            new Process(['php', '-r', 'sleep(5);', '--password=s3cret'], timeout: 1),
+            $output,
+        );
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        $rendered = $output->fetch();
+        self::assertStringNotContainsString('s3cret', $rendered);
+        self::assertStringNotContainsString('--password', $rendered);
+    }
+
     public function testProcessExceptionReturnsFailure(): void
     {
         $output = self::createRawOutput();
