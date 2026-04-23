@@ -29,8 +29,10 @@ final class DefaultTaskSorter implements TaskSorterInterface
      * Sorts the given tasks according to priority, date, and original order.
      *
      * @param array<DeployTaskInterface> $tasks
+     *
+     * @return list<DeployTaskInterface>
      */
-    public function sort(array $tasks): SortedTaskCollection
+    public function sort(array $tasks): array
     {
         /** @var list<array{task: DeployTaskInterface, priority: int, date: string|null, index: int}> $indexed */
         $indexed = [];
@@ -63,7 +65,7 @@ final class DefaultTaskSorter implements TaskSorterInterface
             return $a['index'] <=> $b['index'];
         });
 
-        return new SortedTaskCollection(...\array_map(static fn (array $entry): DeployTaskInterface => $entry['task'], $indexed));
+        return \array_map(static fn (array $entry): DeployTaskInterface => $entry['task'], $indexed);
     }
 
     /**

@@ -41,8 +41,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 - `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
 
 **`Sorting/`** — execution order
-- `TaskSorterInterface` — sorts tasks into execution order via `sort(array): SortedTaskCollection`
-- `SortedTaskCollection` — immutable, variadic-typed collection of `DeployTaskInterface`
+- `TaskSorterInterface` — sorts tasks into execution order via `sort(array): list<DeployTaskInterface>`
 - `DefaultTaskSorter` — sort: priority DESC → date-from-id ASC → stable original order
 
 **`Runner/`** — discovery and execution

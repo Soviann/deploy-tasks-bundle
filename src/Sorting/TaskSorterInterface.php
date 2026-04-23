@@ -15,6 +15,8 @@ interface TaskSorterInterface
      * Returns the tasks sorted in the order they should be executed.
      *
      * @param array<DeployTaskInterface> $tasks
+     *
+     * @return list<DeployTaskInterface>
      */
-    public function sort(array $tasks): SortedTaskCollection;
+    public function sort(array $tasks): array;
 }
