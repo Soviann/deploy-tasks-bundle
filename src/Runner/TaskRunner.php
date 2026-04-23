@@ -15,7 +15,6 @@ use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
-use Soviann\DeployTasksBundle\Sorting\SortedTaskCollection;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -184,9 +183,10 @@ final class TaskRunner
     /**
      * Lists pending (task, slot) pairs without executing them.
      *
-     * @param list<?string> $effectiveGroups
+     * @param list<DeployTaskInterface> $tasks
+     * @param list<?string>             $effectiveGroups
      */
-    private function dryRun(SortedTaskCollection $tasks, OutputInterface $output, array $effectiveGroups): RunResult
+    private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups): RunResult
     {
         $pending = 0;
         $skipped = 0;
@@ -216,9 +216,10 @@ final class TaskRunner
     /**
      * Executes all ordered tasks, recording one storage row per matching slot.
      *
-     * @param list<?string> $effectiveGroups
+     * @param list<DeployTaskInterface> $tasks
+     * @param list<?string>             $effectiveGroups
      */
-    private function executeAll(SortedTaskCollection $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
+    private function executeAll(array $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
     {
         $ran = 0;
         $skipped = 0;
