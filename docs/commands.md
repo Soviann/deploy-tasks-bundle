@@ -70,6 +70,32 @@ Multi-group tasks are displayed once per declared slot. The `Group` column shows
 
 ---
 
+## deploytasks:show
+
+Inspect a single deploy task by ID — metadata, declared groups, and every stored execution record (full error text, no truncation).
+
+```bash
+bin/console deploytasks:show task_20260412143000_seed_categories
+```
+
+**Arguments:**
+
+| Argument | Description |
+|---|---|
+| `id` (required) | The deploy task ID to inspect |
+
+**Output sections:**
+
+- `ID`, `Class` (FQCN), `Description`, `Declared groups` (or "default slot only")
+- `Execution records` — one block per stored slot with `Group`, `Status`, `Executed at`, and `Error` (full text, only when the slot failed)
+- `Related commands` hints — `deploytasks:reset <id>` and `deploytasks:run --id=<id>`
+
+**Exit codes:** `0` on success; `1` when the task ID is not registered.
+
+Use this command after `deploytasks:status` surfaces a `failed` row and you need the complete error payload (the status table truncates errors to 60 chars).
+
+---
+
 ## deploytasks:skip
 
 Mark a task as skipped without executing it. The task will not be executed on subsequent runs.
