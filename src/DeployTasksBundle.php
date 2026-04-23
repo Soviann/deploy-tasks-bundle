@@ -246,7 +246,7 @@ final class DeployTasksBundle extends AbstractBundle
      */
     private function registerStorage(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
     {
-        /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{connection: string, table: string, auto_create_table: bool, id_column: string, id_column_length: int, status_column: string, executed_at_column: string, error_column: string, transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
+        /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{connection: string, table: string, auto_create_table: bool, id_column: string, id_column_length: int, status_column: string, executed_at_column: string, error_column: string, group_column: string, group_column_length: int, transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
         $storageConfig = $config['storage'];
 
         switch ($storageConfig['type']) {
@@ -263,6 +263,8 @@ final class DeployTasksBundle extends AbstractBundle
                         '$autoCreateTable' => $dbConfig['auto_create_table'],
                         '$errorColumn' => $dbConfig['error_column'],
                         '$executedAtColumn' => $dbConfig['executed_at_column'],
+                        '$groupColumn' => $dbConfig['group_column'],
+                        '$groupColumnLength' => $dbConfig['group_column_length'],
                         '$idColumn' => $dbConfig['id_column'],
                         '$idColumnLength' => $dbConfig['id_column_length'],
                         '$statusColumn' => $dbConfig['status_column'],
