@@ -17,11 +17,14 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+use function Symfony\Component\String\u;
+
 /** @internal */
 #[AsCommand(name: 'deploytasks:status', description: 'View the status of all registered deploy tasks.')]
 final class DeployTasksStatusCommand extends Command
 {
     private const DEFAULT_SLOT_LABEL = '—';
+    private const ERROR_COLUMN_MAX_WIDTH = 60;
 
     public function __construct(
         private readonly TaskRegistry $registry,
@@ -73,7 +76,7 @@ final class DeployTasksStatusCommand extends Command
         $tasks = $this->registry->allRegistered();
         $executions = $this->indexExecutions();
 
-        $headers = $noState ? ['ID', 'Group', 'Description'] : ['ID', 'Group', 'Description', 'Status', 'Executed At'];
+        $headers = $noState ? ['ID', 'Group', 'Description'] : ['ID', 'Group', 'Description', 'Status', 'Error', 'Executed At'];
         $rows = [];
         $slotCount = 0;
 
@@ -91,7 +94,14 @@ final class DeployTasksStatusCommand extends Command
             }
         }
 
-        $io->table($headers, $rows);
+        $table = $io->createTable();
+        $table->setHeaders($headers);
+        $table->setRows($rows);
+        if (!$noState) {
+            $table->setColumnMaxWidth(4, self::ERROR_COLUMN_MAX_WIDTH);
+        }
+        $table->render();
+        $io->newLine();
         $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), $slotCount));
 
         return Command::SUCCESS;
@@ -127,7 +137,7 @@ final class DeployTasksStatusCommand extends Command
         $execution = $executions[self::executionKey($id, $slot)] ?? null;
 
         if (null === $execution) {
-            return [$id, $groupLabel, $description, '<comment>pending</comment>', ''];
+            return [$id, $groupLabel, $description, '<comment>pending</comment>', '', ''];
         }
 
         $status = match ($execution->status) {
@@ -136,7 +146,11 @@ final class DeployTasksStatusCommand extends Command
             TaskStatus::Skipped => '<comment>skipped</comment>',
         };
 
-        return [$id, $groupLabel, $description, $status, $execution->executedAt->format('Y-m-d H:i:s')];
+        $errorCell = TaskStatus::Failed === $execution->status && null !== $execution->error
+            ? u($execution->error)->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')->toString()
+            : '';
+
+        return [$id, $groupLabel, $description, $status, $errorCell, $execution->executedAt->format('Y-m-d H:i:s')];
     }
 
     private static function executionKey(string $id, ?string $slot): string

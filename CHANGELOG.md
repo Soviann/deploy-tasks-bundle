@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `deploytasks:status` gained an `Error` column that surfaces the stored failure message for `FAILED` executions (truncated to 60 chars with `…`) and stays empty otherwise. The column wraps rather than overflowing the terminal thanks to `Table::setColumnMaxWidth()`. Not shown with `--no-state`.
 - Add `deploy_tasks.storage.database.group_column` and `group_column_length` config keys for existing-table compatibility.
 - PSR-3 logging from the task runner — run/task lifecycle (start, success, skip, failure, timeout, lock) emitted at `info` / `warning` / `error` levels through the configured logger. `NullLogger` fallback when the application has no logger.
 - Monolog channel `deploy_tasks` automatically registered when `symfony/monolog-bundle` is installed; no-op otherwise. Route it to a dedicated handler via standard `monolog.yaml`.
