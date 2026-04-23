@@ -75,6 +75,11 @@ final class FilesystemStorage implements TaskStorageInterface
         if (false === \file_put_contents($path, $json, \LOCK_EX)) {
             throw new StorageException(\sprintf('Failed to write storage file "%s".', $path));
         }
+
+        // Deploy-task payloads can carry error messages, DSN fragments, or other sensitive
+        // context; restrict reads to the owning user so unrelated accounts on the host
+        // can't inspect them.
+        \chmod($path, 0600);
     }
 
     public function remove(string $taskId, ?string $group = null): void
@@ -228,7 +233,7 @@ final class FilesystemStorage implements TaskStorageInterface
     private function ensureDirectoryExists(): void
     {
         try {
-            $this->fs->mkdir($this->storagePath, 0755);
+            $this->fs->mkdir($this->storagePath, 0700);
         } catch (IOException $e) {
             throw new StorageException(\sprintf('Failed to create storage directory "%s".', $this->storagePath), 0, $e);
         }
