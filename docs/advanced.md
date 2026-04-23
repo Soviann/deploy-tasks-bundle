@@ -6,16 +6,19 @@ Implement `TaskSorterInterface` to define a custom task execution order.
 
 ```php
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
-use Soviann\DeployTasksBundle\Sorting\SortedTaskCollection;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 
 final class MySorter implements TaskSorterInterface
 {
-    /** @param array<DeployTaskInterface> $tasks */
-    public function sort(array $tasks): SortedTaskCollection
+    /**
+     * @param array<DeployTaskInterface> $tasks
+     *
+     * @return list<DeployTaskInterface>
+     */
+    public function sort(array $tasks): array
     {
         // Your custom ordering logic
-        return new SortedTaskCollection(...$tasks);
+        return \array_values($tasks);
     }
 }
 ```

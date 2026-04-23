@@ -26,8 +26,7 @@ final class DefaultTaskSorterTest extends TestCase
         $lowPriority = new SimpleTask('task.low');
         $highPriority = new PrioritizedTask();
 
-        $result = $this->sorter->sort([$lowPriority, $highPriority]);
-        $tasks = $result->toArray();
+        $tasks = $this->sorter->sort([$lowPriority, $highPriority]);
 
         self::assertSame($highPriority, $tasks[0]);
         self::assertSame($lowPriority, $tasks[1]);
@@ -38,8 +37,7 @@ final class DefaultTaskSorterTest extends TestCase
         $newer = new SimpleTask('task_20260415_foo');
         $older = new SimpleTask('task_20260410_bar');
 
-        $result = $this->sorter->sort([$newer, $older]);
-        $tasks = $result->toArray();
+        $tasks = $this->sorter->sort([$newer, $older]);
 
         self::assertSame($older, $tasks[0]);
         self::assertSame($newer, $tasks[1]);
@@ -50,8 +48,7 @@ final class DefaultTaskSorterTest extends TestCase
         $noDate = new SimpleTask('no_date_task');
         $dated = new SimpleTask('task_20260410');
 
-        $result = $this->sorter->sort([$noDate, $dated]);
-        $tasks = $result->toArray();
+        $tasks = $this->sorter->sort([$noDate, $dated]);
 
         self::assertSame($dated, $tasks[0]);
         self::assertSame($noDate, $tasks[1]);
@@ -62,8 +59,7 @@ final class DefaultTaskSorterTest extends TestCase
         $first = new SimpleTask('task.alpha');
         $second = new SimpleTask('task.beta');
 
-        $result = $this->sorter->sort([$first, $second]);
-        $tasks = $result->toArray();
+        $tasks = $this->sorter->sort([$first, $second]);
 
         self::assertSame($first, $tasks[0]);
         self::assertSame($second, $tasks[1]);
@@ -71,10 +67,7 @@ final class DefaultTaskSorterTest extends TestCase
 
     public function testEmptyCollection(): void
     {
-        $result = $this->sorter->sort([]);
-
-        self::assertTrue($result->isEmpty());
-        self::assertCount(0, $result);
+        self::assertSame([], $this->sorter->sort([]));
     }
 
     public function testMixedScenario(): void
@@ -88,8 +81,7 @@ final class DefaultTaskSorterTest extends TestCase
         // Priority 0, no date → last
         $noDate = new SimpleTask('task.no_date');
 
-        $result = $this->sorter->sort([$noDate, $newerDated, $olderDated, $highPriority]);
-        $tasks = $result->toArray();
+        $tasks = $this->sorter->sort([$noDate, $newerDated, $olderDated, $highPriority]);
 
         self::assertSame($highPriority, $tasks[0]);
         self::assertSame($olderDated, $tasks[1]);
