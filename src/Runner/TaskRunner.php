@@ -81,9 +81,7 @@ final class TaskRunner
                 try {
                     return $this->storage->transactional(fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups));
                 } catch (\Throwable $e) {
-                    $this->logger->error('Deploy tasks run failed — transaction rolled back.', [
-                        'exception' => $e,
-                    ]);
+                    $this->logger->error('Deploy tasks run failed — transaction rolled back.', $this->buildExceptionLogContext($e));
 
                     throw $e;
                 }
@@ -346,7 +344,7 @@ final class TaskRunner
         $this->logger->error('Deploy task failed', [
             'task_id' => $taskId,
             'duration_ms' => (int) \round($duration * 1000),
-            'exception' => $e,
+            ...$this->buildExceptionLogContext($e),
         ]);
 
         return new TaskOutcome(
@@ -355,6 +353,43 @@ final class TaskRunner
             executedAt: new \DateTimeImmutable(),
             error: $e->getMessage(),
         );
+    }
+
+    /**
+     * Builds the `exception`-bearing part of a failure log context, scrubbing the
+     * full throwable when a Doctrine DBAL exception sits anywhere in the chain.
+     *
+     * Monolog's default normaliser serialises `$e->getPrevious()->getTrace()`
+     * alongside the outer throwable, and DBAL wraps the raw DSN into its driver-
+     * exception traces on connection errors (`Connection to postgres://user:pass@host
+     * failed: …`). Forwarding that object would export credentials into every log
+     * handler. When a DBAL exception is detected, we drop the object entirely and
+     * substitute a string digest: class, message, and the previous message only.
+     *
+     * @return array<string, scalar|\Throwable|null>
+     */
+    private function buildExceptionLogContext(\Throwable $e): array
+    {
+        if ($this->hasDbalExceptionInChain($e)) {
+            return [
+                'exception_class' => $e::class,
+                'exception_message' => $e->getMessage(),
+                'previous_message' => $e->getPrevious()?->getMessage(),
+            ];
+        }
+
+        return ['exception' => $e];
+    }
+
+    private function hasDbalExceptionInChain(\Throwable $e): bool
+    {
+        for ($current = $e; null !== $current; $current = $current->getPrevious()) {
+            if ($current instanceof \Doctrine\DBAL\Exception) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
