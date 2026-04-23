@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** `deploytasks:run` now exits with 75 (`EX_TEMPFAIL`) on lock contention instead of 1 (`FAILURE`). CI pipelines can distinguish "retry recommended" from a genuine failure.
 - **Breaking:** `deploytasks:run --force` renamed to `--rerun-all` (clearer intent). `--force` stays as a deprecated alias and emits a warning when used.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** `FilesystemStorage` now **throws** `\InvalidArgumentException` when its storage path contains a `public` directory segment (case-insensitive). Previously it emitted a `trigger_error(E_USER_WARNING)` that was easy to miss and let misconfigured installations write task-result JSON into a web-accessible directory. The segment-aware regex (`(^|/)public(/|$)`) no longer false-matches unrelated substrings like `my-public`, `public-static`, or `publications`.
 - The `deploytasks:run` "No lock factory configured" console warning is now only printed at verbose output levels (`-v` and higher). The matching PSR-3 `warning` log record is still emitted at every verbosity so operators can observe the condition without cluttering normal console output.
