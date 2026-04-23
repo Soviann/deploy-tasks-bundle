@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Storage\Dbal;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception as DbalException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
+use Soviann\DeployTasksBundle\Storage\SchemaManageable;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
@@ -20,7 +21,7 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
  *
  * @internal
  */
-final class DbalStorage implements TransactionalStorageInterface
+final class DbalStorage implements SchemaManageable, TransactionalStorageInterface
 {
     private readonly string $quotedTable;
     private readonly string $quotedIdColumn;

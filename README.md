@@ -249,6 +249,34 @@ See [`docs/creating-tasks.md`](docs/creating-tasks.md#group-filtering) and [`doc
 
 See the [`docs/`](docs/) directory for detailed documentation.
 
+## Security
+
+### Logger routing for DBAL-backed storage
+
+The bundle emits PSR-3 `error` records from the task runner on every task failure.
+The context carries the original throwable so handlers can surface stack traces,
+but when the failure chain contains a `Doctrine\DBAL\Exception` the runner drops
+the full throwable and substitutes string-only fields (`exception_class`,
+`exception_message`, `previous_message`). This is a defence-in-depth measure:
+DBAL driver exceptions raised during connection or authentication typically embed
+the full DSN, including credentials, into their message and stack trace — forwarding
+that object to a handler that renders `previous.trace` (the Monolog default) would
+export the password into every sink the channel writes to.
+
+Operators routing the `deploy_tasks` Monolog channel to a shared destination
+(central logging, stderr slurpers, chat alerts) should still take care:
+
+- Prefer a handler that renders context as JSON with a normaliser configured to
+  limit trace depth (Monolog's `LineFormatter` with `$allowInlineLineBreaks = false`
+  or the `JsonFormatter` + `NormalizerFormatter::setMaxNormalizeDepth(1)`) rather
+  than rolling dumps that serialise every nested exception verbatim.
+- Keep the dedicated `deploy_tasks` channel routed to a handler you control — don't
+  fan it into generic "application error" sinks whose redaction guarantees are not
+  under your control.
+- Set the application's Doctrine connection DSN via environment variables, not
+  inline configuration, so accidental exception dumps in other code paths can't
+  capture the password from the container parameters.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
