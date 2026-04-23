@@ -84,6 +84,46 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringContainsString('pending', $display);
     }
 
+    public function testFailedTaskDisplaysTruncatedErrorColumn(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $longError = \str_repeat('A very long error message that should be truncated. ', 5);
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable(), $longError));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Error', $display);
+        self::assertStringContainsString('failed', $display);
+        self::assertStringContainsString('…', $display);
+        self::assertStringNotContainsString($longError, $display);
+    }
+
+    public function testErrorColumnEmptyForNonFailedExecutions(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+        $storage->save(new TaskExecution('test.prod_only', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->tester->execute([]);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Error', $display);
+        self::assertStringNotContainsString('…', $display);
+    }
+
+    public function testErrorColumnAbsentWithNoStateFlag(): void
+    {
+        $this->tester->execute(['--no-state' => true]);
+
+        self::assertStringNotContainsString('Error', $this->tester->getDisplay());
+    }
+
     public function testShowsOneRowPerTaskGroup(): void
     {
         $this->tester->execute([]);
