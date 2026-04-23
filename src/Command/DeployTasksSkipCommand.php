@@ -45,6 +45,10 @@ final class DeployTasksSkipCommand extends Command
                 This is useful when a task is no longer relevant or was handled manually.
                 A skipped task can be re-enabled with <info>deploytasks:reset</info>.
 
+                You will be prompted for confirmation. To skip the prompt (e.g. in CI), use <comment>--no-interaction</comment>:
+
+                    <info>%command.full_name% task_20260412143000_seed_categories --no-interaction</info>
+
                 To see available task IDs, use <info>deploytasks:status</info>.
 
                 To run only this task, use <info>deploytasks:run --id=<id></info>.
@@ -93,6 +97,18 @@ final class DeployTasksSkipCommand extends Command
             }
 
             $slot = $group;
+        }
+
+        if (!(bool) $input->getOption('no-interaction')) {
+            $prompt = null === $slot
+                ? \sprintf('Skip task "%s"? This marks it done without executing.', $id)
+                : \sprintf('Skip task "%s" in group "%s"? This marks it done without executing.', $id, $slot);
+
+            if (!$io->confirm($prompt, false)) {
+                $io->warning('Aborted.');
+
+                return Command::SUCCESS;
+            }
         }
 
         $this->storage->save(new TaskExecution($id, TaskStatus::Skipped, new \DateTimeImmutable(), null, $slot));

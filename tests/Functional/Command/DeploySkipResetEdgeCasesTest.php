@@ -40,11 +40,11 @@ final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
 
     public function testSkipAlreadySkippedTaskIsIdempotent(): void
     {
-        $this->skipTester->execute(['id' => 'test.simple']);
+        $this->skipTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
         self::assertSame(Command::SUCCESS, $this->skipTester->getStatusCode());
 
         // Skip the same task a second time — should still succeed
-        $this->skipTester->execute(['id' => 'test.simple']);
+        $this->skipTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
         self::assertSame(Command::SUCCESS, $this->skipTester->getStatusCode());
 
         // Status must remain Skipped

@@ -31,7 +31,22 @@ final class DeploySkipCommandTest extends FunctionalTestCase
 
     public function testSkipTask(): void
     {
+        $this->tester->setInputs(['yes']);
         $this->tester->execute(['id' => 'test.simple']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('marked as skipped', $this->tester->getDisplay());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        $execution = $storage->get('test.simple');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    public function testSkipWithNoInteraction(): void
+    {
+        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('marked as skipped', $this->tester->getDisplay());
@@ -66,6 +81,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
 
     public function testSkipMarksOnlyTargetSlot(): void
     {
+        $this->tester->setInputs(['yes']);
         $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
@@ -87,6 +103,19 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $this->tester->execute(['id' => 'test.predeploy', '--group' => 'postdeploy']);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+    }
+
+    public function testSkipAbortedOnConfirmationDecline(): void
+    {
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.simple']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->tester->getDisplay());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        self::assertFalse($storage->has('test.simple'));
     }
 
     public function testHelpCrossReferencesRun(): void
