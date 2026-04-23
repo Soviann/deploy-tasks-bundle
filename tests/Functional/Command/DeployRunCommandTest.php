@@ -19,12 +19,13 @@ use Symfony\Component\Console\Tester\CommandTester;
 final class DeployRunCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
+    private Application $application;
 
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::kernel());
-        $this->tester = new CommandTester($application->find('deploytasks:run'));
+        $this->application = new Application(self::kernel());
+        $this->tester = new CommandTester($this->application->find('deploytasks:run'));
         $this->cleanStorage();
     }
 
@@ -303,6 +304,14 @@ final class DeployRunCommandTest extends FunctionalTestCase
 
         self::assertTrue($storage->has('test.multi_group', 'predeploy'));
         self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testHelpCrossReferencesSkipAndReset(): void
+    {
+        $help = $this->application->find('deploytasks:run')->getHelp();
+
+        self::assertStringContainsString('deploytasks:skip', $help);
+        self::assertStringContainsString('deploytasks:reset', $help);
     }
 
     protected static function getKernelClass(): string

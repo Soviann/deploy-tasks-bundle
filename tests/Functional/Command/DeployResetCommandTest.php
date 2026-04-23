@@ -21,12 +21,13 @@ final class DeployResetCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
     private TaskStorageInterface $storage;
+    private Application $application;
 
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::kernel());
-        $this->tester = new CommandTester($application->find('deploytasks:reset'));
+        $this->application = new Application(self::kernel());
+        $this->tester = new CommandTester($this->application->find('deploytasks:reset'));
 
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
@@ -111,6 +112,13 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
         self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testHelpCrossReferencesRun(): void
+    {
+        $help = $this->application->find('deploytasks:reset')->getHelp();
+
+        self::assertStringContainsString('deploytasks:run --id=', $help);
     }
 
     protected static function getKernelClass(): string

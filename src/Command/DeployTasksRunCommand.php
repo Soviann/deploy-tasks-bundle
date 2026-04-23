@@ -78,6 +78,9 @@ final class DeployTasksRunCommand extends Command
                 Tasks are executed in priority order (highest first), then by date extracted
                 from the task ID (oldest first). A lock prevents concurrent execution when
                 symfony/lock is installed.
+
+                To act on a single task without running it, use <info>deploytasks:skip <id></info>
+                (mark as skipped) or <info>deploytasks:reset <id></info> (clear execution record).
                 EOT)
         ;
     }
