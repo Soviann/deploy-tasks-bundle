@@ -204,6 +204,55 @@ final class FilesystemStorageTest extends TestCase
         self::assertSame([], $this->storage->all());
     }
 
+    public function testFindByTaskIdReturnsEverySlot(): void
+    {
+        $default = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
+        $pre = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy');
+        $post = new TaskExecution('task.1', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'), null, 'postdeploy');
+        $other = new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:50:00+00:00'));
+
+        $this->storage->save($default);
+        $this->storage->save($pre);
+        $this->storage->save($post);
+        $this->storage->save($other);
+
+        $matches = [...$this->storage->findByTaskId('task.1')];
+        $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $matches);
+        $groups = \array_map(static fn (TaskExecution $e): ?string => $e->group, $matches);
+
+        self::assertCount(3, $matches);
+        self::assertSame(['task.1', 'task.1', 'task.1'], $ids);
+        self::assertEqualsCanonicalizing([null, 'predeploy', 'postdeploy'], $groups);
+    }
+
+    public function testFindByTaskIdReturnsSingleSlotWhenOnlyDefaultStored(): void
+    {
+        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
+
+        $this->storage->save($execution);
+
+        $matches = [...$this->storage->findByTaskId('task.1')];
+
+        self::assertCount(1, $matches);
+        self::assertSame('task.1', $matches[0]->id);
+        self::assertNull($matches[0]->group);
+    }
+
+    public function testFindByTaskIdUnknownIdReturnsEmpty(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        self::assertSame([], [...$this->storage->findByTaskId('task.missing')]);
+    }
+
+    public function testFindByTaskIdValidatesTaskId(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid task ID/');
+
+        [...$this->storage->findByTaskId('../../etc/passwd')];
+    }
+
     public function testRejectsPathTraversalInTaskId(): void
     {
         $this->expectException(\InvalidArgumentException::class);
