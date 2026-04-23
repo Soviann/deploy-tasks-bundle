@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
-use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
+use Soviann\DeployTasksBundle\Storage\SchemaManageable;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class DeployTasksCreateSchemaCommand extends Command
 {
     public function __construct(
-        private readonly DbalStorage $storage,
+        private readonly SchemaManageable $storage,
     ) {
         parent::__construct();
     }

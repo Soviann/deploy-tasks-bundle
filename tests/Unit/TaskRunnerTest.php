@@ -29,6 +29,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ArrayLogger;
+use Soviann\DeployTasksBundle\Tests\Fixtures\DbalFailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
@@ -892,6 +893,31 @@ final class TaskRunnerTest extends TestCase
         self::assertSame('test.failing', $matches[0]['context']['task_id'] ?? null);
         self::assertIsInt($matches[0]['context']['duration_ms'] ?? null);
         self::assertInstanceOf(\Throwable::class, $matches[0]['context']['exception'] ?? null);
+    }
+
+    public function testFailingTaskWithDbalCauseScrubsExceptionContext(): void
+    {
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [new DbalFailingTask()],
+            logger: $logger,
+        );
+
+        $runner->runAll($this->output);
+
+        $matches = $logger->recordsMatching('error', 'Deploy task failed');
+        self::assertCount(1, $matches);
+
+        $context = $matches[0]['context'];
+
+        // Full Throwable object must not be logged when a DBAL exception sits in the
+        // chain; Monolog's normaliser would otherwise serialise previous->trace and
+        // export the DSN embedded in the DBAL message.
+        self::assertArrayNotHasKey('exception', $context);
+        self::assertSame(StorageException::class, $context['exception_class'] ?? null);
+        self::assertSame('Failed to save task "test.dbal-failing".', $context['exception_message'] ?? null);
+        self::assertSame(DbalFailingTask::DBAL_MESSAGE, $context['previous_message'] ?? null);
     }
 
     public function testTimeoutExceedsLogsWarning(): void
