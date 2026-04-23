@@ -54,6 +54,17 @@ final class InMemoryStorage implements TaskStorageInterface
     /**
      * @return list<TaskExecution>
      */
+    public function findByTaskId(string $taskId): iterable
+    {
+        return \array_values(\array_filter(
+            $this->executions,
+            static fn (TaskExecution $execution): bool => $execution->id === $taskId,
+        ));
+    }
+
+    /**
+     * @return list<TaskExecution>
+     */
     public function all(): array
     {
         return \array_values($this->executions);

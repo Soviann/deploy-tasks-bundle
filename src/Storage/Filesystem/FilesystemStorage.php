@@ -121,6 +121,41 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @return list<TaskExecution>
      */
+    public function findByTaskId(string $taskId): iterable
+    {
+        $this->validateTaskId($taskId);
+
+        $patterns = [
+            $this->storagePath.'/'.$taskId.'.json',
+            $this->storagePath.'/'.$taskId.'@*.json',
+        ];
+
+        $executions = [];
+
+        foreach ($patterns as $pattern) {
+            $files = \glob($pattern);
+
+            if (false === $files) {
+                throw new StorageException(\sprintf('Failed to glob storage path "%s".', $pattern));
+            }
+
+            foreach ($files as $file) {
+                $contents = \file_get_contents($file);
+
+                if (false === $contents) {
+                    throw new StorageException(\sprintf('Failed to read storage file "%s".', $file));
+                }
+
+                $executions[] = $this->decode($contents);
+            }
+        }
+
+        return $executions;
+    }
+
+    /**
+     * @return list<TaskExecution>
+     */
     public function all(): array
     {
         $pattern = $this->storagePath.'/*.json';

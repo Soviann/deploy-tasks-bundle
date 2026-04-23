@@ -117,10 +117,8 @@ final class DeployTasksResetCommand extends Command
     {
         $slots = [];
 
-        foreach ($this->storage->all() as $execution) {
-            if ($execution->id === $id) {
-                $slots[] = $execution->group;
-            }
+        foreach ($this->storage->findByTaskId($id) as $execution) {
+            $slots[] = $execution->group;
         }
 
         return $slots;

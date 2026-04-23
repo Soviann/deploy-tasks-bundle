@@ -42,6 +42,17 @@ interface TaskStorageInterface
     public function removeAll(string $taskId): void;
 
     /**
+     * Returns every execution record for the given task ID across all group slots.
+     *
+     * Backends with an indexed ID column (DBAL) filter at the storage layer so
+     * the runner never has to page through the full execution set just to inspect
+     * one task.
+     *
+     * @return iterable<TaskExecution>
+     */
+    public function findByTaskId(string $taskId): iterable;
+
+    /**
      * Returns all stored execution records as a flat list.
      *
      * Multi-group tasks yield multiple entries (one per group slot). No particular
