@@ -21,6 +21,7 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\CustomSorterFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Functional\AutoconfigTaskKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\CustomGroupColumnKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomSorterTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageMissingServiceTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
@@ -212,6 +213,37 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         \assert($config instanceof DbalStorageConfiguration);
 
         self::assertSame(255, $config->idColumnLength);
+    }
+
+    public function testDbalGroupColumnDefaultIsTaskGroup(): void
+    {
+        // Pins the `group_column` default literal ('task_group') — kills constant mutation on DbalStorageConfiguration.
+        static::$class = DbalTestKernel::class;
+        self::bootKernel();
+        $config = self::getContainer()->get('deploy_tasks.storage.configuration');
+        \assert($config instanceof DbalStorageConfiguration);
+
+        self::assertSame('task_group', $config->groupColumn);
+        self::assertSame(128, $config->groupColumnLength);
+    }
+
+    public function testCustomGroupColumnAndLengthAreWiredFromConfig(): void
+    {
+        // Verifies that group_column / group_column_length DI config keys flow through to DbalStorageConfiguration
+        // and are reflected in the generated CREATE TABLE SQL.
+        static::$class = CustomGroupColumnKernel::class;
+        self::bootKernel();
+        $config = self::getContainer()->get('deploy_tasks.storage.configuration');
+        \assert($config instanceof DbalStorageConfiguration);
+
+        self::assertSame('grp', $config->groupColumn);
+        self::assertSame(64, $config->groupColumnLength);
+
+        $storage = self::getContainer()->get('deploy_tasks.storage');
+        \assert($storage instanceof \Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage);
+
+        self::assertStringContainsString('grp', $storage->getCreateTableSql());
+        self::assertStringContainsString('VARCHAR(64)', $storage->getCreateTableSql());
     }
 
     public function testTaskIdGeneratorInterfaceAliasIsPublic(): void
