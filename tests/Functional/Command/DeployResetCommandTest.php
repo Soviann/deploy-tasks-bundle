@@ -60,6 +60,18 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertTrue($this->storage->has('test.simple'));
     }
 
+    public function testResetTaskAbortedOnEmptyConfirmation(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->setInputs(['']);
+        $this->tester->execute(['id' => 'test.simple']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->tester->getDisplay());
+        self::assertTrue($this->storage->has('test.simple'));
+    }
+
     public function testResetWithNoInteraction(): void
     {
         $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));

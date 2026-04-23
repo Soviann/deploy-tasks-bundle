@@ -118,6 +118,19 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertFalse($storage->has('test.simple'));
     }
 
+    public function testSkipAbortedOnEmptyConfirmation(): void
+    {
+        $this->tester->setInputs(['']);
+        $this->tester->execute(['id' => 'test.simple']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->tester->getDisplay());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        self::assertFalse($storage->has('test.simple'));
+    }
+
     public function testHelpCrossReferencesRun(): void
     {
         $help = $this->application->find('deploytasks:skip')->getHelp();
