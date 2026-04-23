@@ -45,6 +45,8 @@ final class DeployTasksResetCommand extends Command
                     <info>%command.full_name% task_20260412143000_seed_categories --no-interaction</info>
 
                 To see available task IDs and their current state, use <info>deploytasks:status</info>.
+
+                To run only this task, use <info>deploytasks:run --id=<id></info>.
                 EOT)
         ;
     }

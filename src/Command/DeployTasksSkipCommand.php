@@ -46,6 +46,8 @@ final class DeployTasksSkipCommand extends Command
                 A skipped task can be re-enabled with <info>deploytasks:reset</info>.
 
                 To see available task IDs, use <info>deploytasks:status</info>.
+
+                To run only this task, use <info>deploytasks:run --id=<id></info>.
                 EOT)
         ;
     }
