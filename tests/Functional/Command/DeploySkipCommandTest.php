@@ -19,12 +19,13 @@ use Symfony\Component\Console\Tester\CommandTester;
 final class DeploySkipCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
+    private Application $application;
 
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::kernel());
-        $this->tester = new CommandTester($application->find('deploytasks:skip'));
+        $this->application = new Application(self::kernel());
+        $this->tester = new CommandTester($this->application->find('deploytasks:skip'));
         $this->cleanStorage();
     }
 
@@ -86,6 +87,13 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $this->tester->execute(['id' => 'test.predeploy', '--group' => 'postdeploy']);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+    }
+
+    public function testHelpCrossReferencesRun(): void
+    {
+        $help = $this->application->find('deploytasks:skip')->getHelp();
+
+        self::assertStringContainsString('deploytasks:run --id=', $help);
     }
 
     protected static function getKernelClass(): string
