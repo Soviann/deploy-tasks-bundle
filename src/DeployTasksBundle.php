@@ -12,6 +12,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksShowCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
@@ -202,6 +203,19 @@ final class DeployTasksBundle extends AbstractBundle
                 service('deploy_tasks.storage'),
             ])
             ->tag('console.command')
+        ;
+
+        // Manual name/description via tag attributes (no #[AsCommand]) — Doctrine-bundle style.
+        $services->set('deploy_tasks.command.show', DeployTasksShowCommand::class)
+            ->args([
+                service('deploy_tasks.registry'),
+                service('deploy_tasks.storage'),
+                service('deploy_tasks.description_resolver'),
+            ])
+            ->tag('console.command', [
+                'command' => 'deploytasks:show',
+                'description' => 'Show metadata and stored execution records for a single deploy task.',
+            ])
         ;
 
         /** @var array{directory: string, template: string|null} $generateConfig */
