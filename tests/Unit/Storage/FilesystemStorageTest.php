@@ -39,6 +39,28 @@ final class FilesystemStorageTest extends TestCase
         }
     }
 
+    public function testDirectoryCreatedWithOwnerOnlyPermissions(): void
+    {
+        if ('/' !== \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('POSIX file permissions not enforced on non-Unix systems.');
+        }
+
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        self::assertSame(0700, \fileperms($this->storagePath) & 0777);
+    }
+
+    public function testStateFilePersistedWithOwnerOnlyPermissions(): void
+    {
+        if ('/' !== \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('POSIX file permissions not enforced on non-Unix systems.');
+        }
+
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        self::assertSame(0600, \fileperms($this->storagePath.'/task.1.json') & 0777);
+    }
+
     public function testDirectoryNotCreatedOnConstruct(): void
     {
         self::assertDirectoryDoesNotExist($this->storagePath);
