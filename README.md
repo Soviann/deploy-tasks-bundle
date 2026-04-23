@@ -82,7 +82,7 @@ Then compose the trait into your task:
 ```php
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
-use Soviann\DeployTasksBundle\ProcessRunnerTrait;
+use Soviann\DeployTasksBundle\Helper\ProcessRunnerTrait;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
