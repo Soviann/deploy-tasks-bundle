@@ -80,7 +80,9 @@ final class DeployTasksResetCommand extends Command
                 return Command::SUCCESS;
             }
 
-            if (!$io->confirm(\sprintf('Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.', $id, $group))) {
+            if (!(bool) $input->getOption('no-interaction')
+                && !$io->confirm(\sprintf('Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.', $id, $group), false)
+            ) {
                 $io->note('Aborted.');
 
                 return Command::SUCCESS;
@@ -99,7 +101,9 @@ final class DeployTasksResetCommand extends Command
             return Command::SUCCESS;
         }
 
-        if (!$io->confirm(\sprintf('Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.', $id))) {
+        if (!(bool) $input->getOption('no-interaction')
+            && !$io->confirm(\sprintf('Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.', $id), false)
+        ) {
             $io->note('Aborted.');
 
             return Command::SUCCESS;
