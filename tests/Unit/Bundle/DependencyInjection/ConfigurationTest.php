@@ -68,6 +68,8 @@ final class ConfigurationTest extends TestCase
                         'status_column' => 'status',
                         'executed_at_column' => 'executed_at',
                         'error_column' => 'error',
+                        'group_column' => 'task_group',
+                        'group_column_length' => 128,
                         'transactional' => true,
                         'all_or_nothing' => true,
                     ],
@@ -105,6 +107,8 @@ final class ConfigurationTest extends TestCase
                         'status_column' => 'status',
                         'executed_at_column' => 'executed_at',
                         'error_column' => 'error',
+                        'group_column' => 'task_group',
+                        'group_column_length' => 128,
                         'transactional' => true,
                         'all_or_nothing' => true,
                     ],
@@ -156,6 +160,8 @@ final class ConfigurationTest extends TestCase
                         'status_column' => 'status',
                         'executed_at_column' => 'executed_at',
                         'error_column' => 'error',
+                        'group_column' => 'task_group',
+                        'group_column_length' => 128,
                         'transactional' => true,
                         'all_or_nothing' => true,
                     ],
@@ -191,6 +197,8 @@ final class ConfigurationTest extends TestCase
                         'status_column' => 's',
                         'executed_at_column' => 'e',
                         'error_column' => 'er',
+                        'group_column' => 'grp',
+                        'group_column_length' => 64,
                         'transactional' => false,
                         'all_or_nothing' => false,
                     ],
@@ -221,6 +229,8 @@ final class ConfigurationTest extends TestCase
                         'status_column' => 's',
                         'executed_at_column' => 'e',
                         'error_column' => 'er',
+                        'group_column' => 'grp',
+                        'group_column_length' => 64,
                         'transactional' => false,
                         'all_or_nothing' => false,
                     ],
@@ -235,6 +245,57 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/T/',
                     'template' => '/tpl.php',
+                ],
+            ],
+        ];
+
+        yield 'non-default group_column and group_column_length round-trip unchanged' => [
+            'input' => [
+                'storage' => [
+                    'type' => 'database',
+                    'database' => [
+                        'group_column' => 'slot',
+                        'group_column_length' => 32,
+                    ],
+                ],
+            ],
+            'expected' => [
+                'storage' => [
+                    'type' => 'database',
+                    'database' => [
+                        'group_column' => 'slot',
+                        'group_column_length' => 32,
+                        'connection' => 'default',
+                        'table' => 'deploy_task_executions',
+                        'auto_create_table' => true,
+                        'id_column' => 'id',
+                        'id_column_length' => 255,
+                        'status_column' => 'status',
+                        'executed_at_column' => 'executed_at',
+                        'error_column' => 'error',
+                        'transactional' => true,
+                        'all_or_nothing' => true,
+                    ],
+                    'filesystem' => [
+                        'path' => '%kernel.project_dir%/var/deploy-tasks',
+                        'transactional' => false,
+                        'all_or_nothing' => false,
+                    ],
+                    'custom' => [
+                        'service' => null,
+                        'transactional' => false,
+                        'all_or_nothing' => false,
+                    ],
+                ],
+                'id_generator' => null,
+                'sorter' => null,
+                'logger' => null,
+                'default_timeout' => 300,
+                'events' => ['enabled' => true],
+                'lock' => ['enabled' => true],
+                'generate' => [
+                    'directory' => 'src/DeployTasks/Task/',
+                    'template' => null,
                 ],
             ],
         ];

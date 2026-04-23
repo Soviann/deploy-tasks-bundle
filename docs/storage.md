@@ -77,11 +77,28 @@ CREATE TABLE IF NOT EXISTS deploy_task_executions (
 
 The `task_group` column stores the empty string for the default slot (SQL forbids `NULL` in a primary key), and the declared group name for grouped slots. The composite primary key `(id, task_group)` allows one row per `(task, group)` slot — a task declared in multiple groups therefore records one row per slot.
 
-These are the default column names and widths; adjust them to match your `storage.database.id_column*` configuration if you've overridden them.
+These are the default column names and widths; adjust them to match your configuration if you've overridden them.
 
-The `task_group` column name and its `VARCHAR(128)` width are currently fixed. A forthcoming release will expose them via `storage.database.group_column` and `storage.database.group_column_length`, mirroring the existing `id_column*` knobs. Until then, align custom table definitions with the defaults above.
+### Reusing an existing table (custom column names)
 
-<!-- TODO (phase 12 / N1.2): once wired, document group_column / group_column_length next to id_column* in the override paragraph. -->
+When deploying the bundle into an application that already has a tracking table with different column names or sizes, all six column identifiers and both `VARCHAR` widths are configurable:
+
+```yaml
+deploy_tasks:
+    storage:
+        type: database
+        database:
+            table: app_deploy_history           # existing table name
+            id_column: task_name                # default: id
+            id_column_length: 128               # default: 255
+            status_column: state                # default: status
+            executed_at_column: ran_at          # default: executed_at
+            error_column: failure_message       # default: error
+            group_column: slot                  # default: task_group
+            group_column_length: 64             # default: 128
+```
+
+`group_column` and `group_column_length` control the column that stores the task group slot. Override them when your existing table uses a different column name or a shorter/longer `VARCHAR` definition. The column must allow an empty-string default (not `NULL`) because the bundle stores `''` for the default (ungrouped) slot — SQL forbids `NULL` in a composite primary key.
 
 ## Ephemeral filesystems (Docker, Kubernetes)
 

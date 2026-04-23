@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `deploy_tasks.storage.database.group_column` and `group_column_length` config keys for existing-table compatibility.
 - PSR-3 logging from the task runner — run/task lifecycle (start, success, skip, failure, timeout, lock) emitted at `info` / `warning` / `error` levels through the configured logger. `NullLogger` fallback when the application has no logger.
 - Monolog channel `deploy_tasks` automatically registered when `symfony/monolog-bundle` is installed; no-op otherwise. Route it to a dedicated handler via standard `monolog.yaml`.
 - New config option `deploy_tasks.logger` to point the runner at any PSR-3 service.
