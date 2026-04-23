@@ -55,10 +55,55 @@ final class DeployRunCommandTest extends FunctionalTestCase
         $this->tester->execute([]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
-        // Force re-run all
+        // Force re-run all (deprecated alias — still works)
         $this->tester->execute(['--force' => true]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('ran', $this->tester->getDisplay());
+    }
+
+    public function testForceEmitsDeprecationWarning(): void
+    {
+        $this->tester->execute(['--force' => true]);
+
+        self::assertStringContainsString(
+            'The --force option is deprecated; use --rerun-all.',
+            $this->tester->getDisplay(),
+        );
+    }
+
+    public function testRerunAllRerunsAllTasks(): void
+    {
+        // First run
+        $this->tester->execute([]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        // Rerun with primary option
+        $this->tester->execute(['--rerun-all' => true]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('ran', $this->tester->getDisplay());
+    }
+
+    public function testRerunAllDoesNotEmitDeprecationWarning(): void
+    {
+        $this->tester->execute(['--rerun-all' => true]);
+
+        self::assertStringNotContainsString(
+            'The --force option is deprecated; use --rerun-all.',
+            $this->tester->getDisplay(),
+        );
+    }
+
+    public function testRerunAllAndForceTogetherNoDoubleWarning(): void
+    {
+        // When both are passed, only one deprecation warning should appear (or none at all,
+        // since --rerun-all is the primary option and takes precedence)
+        $this->tester->execute(['--rerun-all' => true, '--force' => true]);
+
+        $display = $this->tester->getDisplay();
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        // Exactly one deprecation warning (--force was provided alongside --rerun-all)
+        $count = \substr_count($display, 'The --force option is deprecated; use --rerun-all.');
+        self::assertLessThanOrEqual(1, $count, 'At most one deprecation warning must appear.');
     }
 
     public function testIdRunsSingleTask(): void
@@ -100,8 +145,19 @@ final class DeployRunCommandTest extends FunctionalTestCase
         $this->tester->execute(['--id' => 'test.simple']);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
-        // Force re-run single task
+        // Force re-run single task (deprecated alias — still works)
         $this->tester->execute(['--force' => true, '--id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+    }
+
+    public function testRerunAllWithIdRerunsSingleTask(): void
+    {
+        // First run
+        $this->tester->execute(['--id' => 'test.simple']);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        // Re-run single task with primary option
+        $this->tester->execute(['--rerun-all' => true, '--id' => 'test.simple']);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
     }
 
