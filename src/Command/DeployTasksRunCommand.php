@@ -32,7 +32,8 @@ final class DeployTasksRunCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them.')
-            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force re-execution of all tasks regardless of their current state.')
+            ->addOption('rerun-all', null, InputOption::VALUE_NONE, 'Re-execute all tasks regardless of their current state.')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Deprecated alias for --rerun-all. Use --rerun-all instead.')
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.')
             ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID.')
             ->setHelp(<<<'EOT'
@@ -55,9 +56,9 @@ final class DeployTasksRunCommand extends Command
                     <info>%command.full_name% --dry-run</info>
                     <info>%command.full_name% --dry-run --group=postdeploy</info>
 
-                To force re-execution of all matching tasks regardless of state:
+                To re-execute all matching tasks regardless of state:
 
-                    <info>%command.full_name% --force</info>
+                    <info>%command.full_name% --rerun-all</info>
 
                 To run a single task by its ID (only if pending):
 
@@ -78,7 +79,14 @@ final class DeployTasksRunCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $force = (bool) $input->getOption('force');
+        $forceLegacy = (bool) $input->getOption('force');
+        $rerunAll = (bool) $input->getOption('rerun-all');
+
+        if ($forceLegacy && !$rerunAll) {
+            $io->warning('The --force option is deprecated; use --rerun-all.');
+        }
+
+        $force = $rerunAll || $forceLegacy;
 
         /** @var string|null $taskId */
         $taskId = $input->getOption('id');
