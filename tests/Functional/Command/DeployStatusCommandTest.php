@@ -154,6 +154,82 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringContainsString('2 slot(s) displayed', $display);
     }
 
+    public function testFilterStatusFailedHidesNonFailedRows(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+        $storage->save(new TaskExecution('test.prod_only', TaskStatus::Failed, new \DateTimeImmutable(), 'boom'));
+
+        $this->tester->execute(['--filter-status' => 'FAILED']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('test.prod_only', $display);
+        self::assertStringNotContainsString('test.simple', $display);
+    }
+
+    public function testFilterStatusPendingHidesRowsWithExecutionRecord(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute(['--filter-status' => 'PENDING']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringNotContainsString('test.simple  ', $display);
+        self::assertStringContainsString('test.prod_only', $display);
+    }
+
+    public function testFilterStatusAcceptsCommaSeparatedList(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+        $storage->save(new TaskExecution('test.prod_only', TaskStatus::Failed, new \DateTimeImmutable(), 'boom'));
+        $storage->save(new TaskExecution('test.prioritized', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->tester->execute(['--filter-status' => 'FAILED,SKIPPED']);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('test.prod_only', $display);
+        self::assertStringContainsString('test.prioritized', $display);
+        self::assertStringNotContainsString('test.simple  ', $display);
+    }
+
+    public function testFilterStatusIsCaseInsensitive(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable(), 'boom'));
+
+        $this->tester->execute(['--filter-status' => 'failed']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('test.simple', $this->tester->getDisplay());
+    }
+
+    public function testFilterStatusRejectsInvalidValue(): void
+    {
+        $this->tester->execute(['--filter-status' => 'BOGUS']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('BOGUS', $this->tester->getDisplay());
+    }
+
+    public function testFilterStatusRejectedWithNoStateFlag(): void
+    {
+        $this->tester->execute(['--filter-status' => 'FAILED', '--no-state' => true]);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
