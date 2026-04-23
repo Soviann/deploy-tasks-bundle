@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Soviann\DeployTasksBundle;
+namespace Soviann\DeployTasksBundle\Helper;
 
+use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ExceptionInterface as ProcessExceptionInterface;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;

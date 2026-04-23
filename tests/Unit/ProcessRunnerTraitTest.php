@@ -6,7 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\TestCase;
-use Soviann\DeployTasksBundle\ProcessRunnerTrait;
+use Soviann\DeployTasksBundle\Helper\ProcessRunnerTrait;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\BufferedOutput;
