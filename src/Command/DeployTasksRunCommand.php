@@ -21,6 +21,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:run', description: 'Execute pending deploy tasks in order.')]
 final class DeployTasksRunCommand extends Command
 {
+    /**
+     * Exit code returned when the run lock is already held by another process.
+     * Signals "temporary failure — retry recommended" (POSIX EX_TEMPFAIL, sysexits.h 75).
+     */
+    public const int EX_TEMPFAIL = 75;
+
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskRunner $runner,
@@ -103,6 +109,10 @@ final class DeployTasksRunCommand extends Command
 
         $this->writeSummary($io, $result, $dryRun, [] !== $groups);
 
+        if ($result->locked) {
+            return self::EX_TEMPFAIL;
+        }
+
         return $result->isSuccessful() ? Command::SUCCESS : Command::FAILURE;
     }
 
@@ -128,7 +138,7 @@ final class DeployTasksRunCommand extends Command
         if (TaskResult::LOCKED === $taskResult) {
             $io->warning('Run skipped: another process is already running.');
 
-            return Command::FAILURE;
+            return self::EX_TEMPFAIL;
         }
 
         return TaskResult::FAILURE === $taskResult ? Command::FAILURE : Command::SUCCESS;
