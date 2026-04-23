@@ -28,9 +28,8 @@ trait ProcessRunnerTrait
             });
         } catch (ProcessTimedOutException) {
             $output->writeln(\sprintf(
-                '<error>Process timed out after %ss: %s</error>',
+                '<error>Process timed out after %ss.</error>',
                 $process->getTimeout() ?? '0',
-                $process->getCommandLine(),
             ));
 
             return TaskResult::FAILURE;
@@ -41,11 +40,7 @@ trait ProcessRunnerTrait
         }
 
         if (0 !== $exitCode) {
-            $output->writeln(\sprintf(
-                '<error>Process exited with code %d: %s</error>',
-                $exitCode,
-                $process->getCommandLine(),
-            ));
+            $output->writeln(\sprintf('<error>Process exited with code %d.</error>', $exitCode));
 
             return TaskResult::FAILURE;
         }
