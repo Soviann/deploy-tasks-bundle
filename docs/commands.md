@@ -56,6 +56,7 @@ bin/console deploytasks:status --group=predeploy --group=postdeploy
 |---|---|
 | `--no-state` | Show only task IDs and descriptions; omit execution state (useful for scripting) |
 | `--group=<name>` | Only display rows for the given group slot(s); repeatable. |
+| `--filter-status=<list>` | Comma-separated statuses to display (`RAN`, `FAILED`, `SKIPPED`, `PENDING` — case-insensitive). Rejected when combined with `--no-state`. |
 
 Multi-group tasks are displayed once per declared slot. The `Group` column shows the slot name; the default slot is rendered as `—`.
 

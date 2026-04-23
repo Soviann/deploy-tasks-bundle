@@ -25,6 +25,8 @@ final class DeployTasksStatusCommand extends Command
 {
     private const DEFAULT_SLOT_LABEL = '—';
     private const ERROR_COLUMN_MAX_WIDTH = 60;
+    private const PENDING_FILTER_VALUE = 'PENDING';
+    private const FILTER_STATUS_ALLOWED = ['RAN', 'FAILED', 'SKIPPED', self::PENDING_FILTER_VALUE];
 
     public function __construct(
         private readonly TaskRegistry $registry,
@@ -39,6 +41,7 @@ final class DeployTasksStatusCommand extends Command
         $this
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only display rows for these group slot(s) (repeatable).')
             ->addOption('no-state', null, InputOption::VALUE_NONE, 'Only show task IDs and descriptions, omitting execution state.')
+            ->addOption('filter-status', null, InputOption::VALUE_REQUIRED, 'Comma-separated list of statuses to display (RAN, FAILED, SKIPPED, PENDING — case-insensitive). Incompatible with --no-state.')
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command displays a table of all registered deploy tasks and their current execution state:
 
@@ -73,6 +76,14 @@ final class DeployTasksStatusCommand extends Command
         /** @var list<string> $groupFilter */
         $groupFilter = \array_values((array) $input->getOption('group'));
 
+        /** @var string|null $filterStatusRaw */
+        $filterStatusRaw = $input->getOption('filter-status');
+        $filterStatus = $this->parseFilterStatus($filterStatusRaw, $noState, $io);
+
+        if (false === $filterStatus) {
+            return Command::INVALID;
+        }
+
         $tasks = $this->registry->allRegistered();
         $executions = $this->indexExecutions();
 
@@ -89,7 +100,13 @@ final class DeployTasksStatusCommand extends Command
                     continue;
                 }
 
-                $rows[] = $this->buildRow($id, $slot, $this->descriptionResolver->resolve($task), $executions, $noState);
+                $execution = $executions[self::executionKey($id, $slot)] ?? null;
+
+                if ([] !== $filterStatus && !$this->matchesStatusFilter($execution, $filterStatus)) {
+                    continue;
+                }
+
+                $rows[] = $this->buildRow($id, $slot, $this->descriptionResolver->resolve($task), $execution, $noState);
                 ++$slotCount;
             }
         }
@@ -122,19 +139,15 @@ final class DeployTasksStatusCommand extends Command
     }
 
     /**
-     * @param array<string, TaskExecution> $executions
-     *
      * @return list<string>
      */
-    private function buildRow(string $id, ?string $slot, string $description, array $executions, bool $noState): array
+    private function buildRow(string $id, ?string $slot, string $description, ?TaskExecution $execution, bool $noState): array
     {
         $groupLabel = $slot ?? self::DEFAULT_SLOT_LABEL;
 
         if ($noState) {
             return [$id, $groupLabel, $description];
         }
-
-        $execution = $executions[self::executionKey($id, $slot)] ?? null;
 
         if (null === $execution) {
             return [$id, $groupLabel, $description, '<comment>pending</comment>', '', ''];
@@ -151,6 +164,51 @@ final class DeployTasksStatusCommand extends Command
             : '';
 
         return [$id, $groupLabel, $description, $status, $errorCell, $execution->executedAt->format('Y-m-d H:i:s')];
+    }
+
+    /**
+     * @return list<string>|false `false` on invalid input (command returns Command::INVALID), empty list = no filter
+     */
+    private function parseFilterStatus(?string $raw, bool $noState, SymfonyStyle $io): array|false
+    {
+        if (null === $raw || '' === $raw) {
+            return [];
+        }
+
+        if ($noState) {
+            $io->error('Cannot combine --filter-status with --no-state: there is no status column to filter.');
+
+            return false;
+        }
+
+        $values = [];
+        foreach (\explode(',', $raw) as $part) {
+            $normalized = \strtoupper(\trim($part));
+
+            if ('' === $normalized) {
+                continue;
+            }
+
+            if (!\in_array($normalized, self::FILTER_STATUS_ALLOWED, true)) {
+                $io->error(\sprintf('Invalid --filter-status value "%s". Allowed: %s.', $normalized, \implode(', ', self::FILTER_STATUS_ALLOWED)));
+
+                return false;
+            }
+
+            $values[] = $normalized;
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param list<string> $filterStatus
+     */
+    private function matchesStatusFilter(?TaskExecution $execution, array $filterStatus): bool
+    {
+        $label = null === $execution ? self::PENDING_FILTER_VALUE : \strtoupper($execution->status->name);
+
+        return \in_array($label, $filterStatus, true);
     }
 
     private static function executionKey(string $id, ?string $slot): string
