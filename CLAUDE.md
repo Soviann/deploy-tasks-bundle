@@ -125,8 +125,8 @@ Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tas
 | `deploytasks:skip <id>` | Record a task as `Skipped` without running it. |
 | `deploytasks:reset <id>` | Remove a task's execution record. Interactive unless `--no-interaction`. |
 | `deploytasks:rollup` | Clear execution history and mark all registered tasks as `Ran`. |
-| `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` container-scope task stub. |
-| `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` host-scope task stub. |
+| `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). |
+| `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). |
 | `deploytasks:create-schema` | Emit/execute the SQL to create the DBAL storage table. Registered only when `storage.type: database`. |
 
 ## Development Commands

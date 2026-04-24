@@ -16,7 +16,7 @@ use Symfony\Component\Filesystem\Filesystem;
 /** @internal */
 #[AsCommand(
     name: 'deploytasks:generate:host',
-    description: 'Generate a blank host-scope deploy task shell script.',
+    description: 'Generate a blank deploy task (bash script, runs on the host outside the container).',
 )]
 final class DeployTasksGenerateHostCommand extends Command
 {
