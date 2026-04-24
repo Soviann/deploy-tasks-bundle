@@ -26,7 +26,6 @@ use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
-use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ArrayLogger;
 use Soviann\DeployTasksBundle\Tests\Fixtures\DbalFailingTask;
@@ -36,6 +35,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Lock\LockFactory;
@@ -397,14 +397,7 @@ final class TaskRunnerTest extends TestCase
 
     public function testTransactionalWrapping(): void
     {
-        $storage = $this->createMock(TransactionalStorageInterface::class);
-        $storage->method('has')->willReturn(false);
-        $storage->method('get')->willReturn(null);
-        $storage->expects(self::once())
-            ->method('transactional')
-            ->willReturnCallback(static fn (\Closure $callback): mixed => $callback());
-        $storage->expects(self::once())->method('save');
-
+        $storage = new TransactionalInMemoryStorageFixture();
         $idResolver = new TaskIdResolver();
 
         $runner = new TaskRunner(
@@ -416,6 +409,9 @@ final class TaskRunnerTest extends TestCase
         );
 
         $runner->runAll($this->output);
+
+        self::assertTrue($storage->has('test.transactional'), 'Transactional task must persist through the transactional() wrapper.');
+        self::assertSame(TaskStatus::Ran, $storage->get('test.transactional')?->status);
     }
 
     public function testRunOneFailingTask(): void
