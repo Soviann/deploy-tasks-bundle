@@ -6,6 +6,8 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -75,6 +77,26 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString('[INFO]', $display);
         self::assertStringNotContainsString('was created on', $display);
         self::assertStringContainsString('CREATE TABLE', $display);
+    }
+
+    public function testSchemaCreationAllowsRoundTripStorageUse(): void
+    {
+        $this->tester->execute([]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = $this->storage();
+        $execution = new TaskExecution(
+            'test.roundtrip',
+            TaskStatus::Ran,
+            new \DateTimeImmutable('2026-04-24 12:00:00'),
+        );
+        $storage->save($execution);
+
+        self::assertTrue($storage->has('test.roundtrip'));
+        $retrieved = $storage->get('test.roundtrip');
+        self::assertNotNull($retrieved);
+        self::assertSame('test.roundtrip', $retrieved->id);
+        self::assertSame(TaskStatus::Ran, $retrieved->status);
     }
 
     protected static function getKernelClass(): string
