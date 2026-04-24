@@ -19,6 +19,11 @@ abstract class AbstractTestKernel extends Kernel
         yield new DeployTasksBundle();
     }
 
+    public function getProjectDir(): string
+    {
+        return \dirname(__DIR__, 2);
+    }
+
     public function getCacheDir(): string
     {
         return \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-cache-'.\getmypid().'/'.$this->environment;
