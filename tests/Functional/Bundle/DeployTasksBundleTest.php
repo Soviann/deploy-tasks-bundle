@@ -27,10 +27,8 @@ use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageMissingServiceTestKe
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomTransactionalStorageTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\EventsEnabledTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\IncompatibleAllOrNothingTestKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\LockEnabledTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Component\Lock\LockFactory;
 
@@ -86,7 +84,8 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testKernelBootsWithEventsEnabled(): void
     {
-        static::$class = EventsEnabledTestKernel::class;
+        static::$class = TestKernel::class;
+        self::$testKernelOptions = ['eventsEnabled' => true];
         self::bootKernel();
 
         // If we get here, the kernel compiled without errors with events=true
@@ -96,7 +95,8 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testEventDispatcherIsWiredOnRunner(): void
     {
-        static::$class = EventsEnabledTestKernel::class;
+        static::$class = TestKernel::class;
+        self::$testKernelOptions = ['eventsEnabled' => true];
         self::bootKernel();
         $container = self::getContainer();
 
@@ -113,7 +113,8 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testKernelBootsWithLockEnabled(): void
     {
-        static::$class = LockEnabledTestKernel::class;
+        static::$class = TestKernel::class;
+        self::$testKernelOptions = ['lockEnabled' => true];
         self::bootKernel();
 
         $container = self::getContainer();
@@ -122,7 +123,8 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testLockFactoryIsWiredOnRunner(): void
     {
-        static::$class = LockEnabledTestKernel::class;
+        static::$class = TestKernel::class;
+        self::$testKernelOptions = ['lockEnabled' => true];
         self::bootKernel();
         $container = self::getContainer();
 
