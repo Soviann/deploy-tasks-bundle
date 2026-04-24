@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
-use Soviann\DeployTasksBundle\Tests\Functional\FailingTaskKernel;
+use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -24,7 +24,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testRunWithFailingTaskReturnsFailure(): void
     {
-        $this->bootAndBuildTester(FailingTaskKernel::class);
+        $this->bootAndBuildTester(['extraTasks' => [FailingTask::class]]);
 
         $this->tester->execute([]);
 
@@ -35,7 +35,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testFailedTaskIsRecordedInStorage(): void
     {
-        $this->bootAndBuildTester(FailingTaskKernel::class);
+        $this->bootAndBuildTester(['extraTasks' => [FailingTask::class]]);
 
         $this->tester->execute([]);
 
@@ -51,7 +51,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testFailedTaskIsRetriedOnNextRun(): void
     {
-        $this->bootAndBuildTester(FailingTaskKernel::class);
+        $this->bootAndBuildTester(['extraTasks' => [FailingTask::class]]);
 
         $this->tester->execute([]); // first run — test.failing stored as Failed
         $this->tester->execute([]); // second run — Failed tasks are retried
@@ -66,7 +66,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testProdOnlyTaskIsExcludedInTestEnv(): void
     {
-        $this->bootAndBuildTester(TestKernel::class);
+        $this->bootAndBuildTester();
 
         $this->tester->execute([]);
 
@@ -78,7 +78,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testProdOnlyTaskRunsInProdEnv(): void
     {
-        $this->bootAndBuildTester(TestKernel::class, ['environment' => 'prod']);
+        $this->bootAndBuildTester([], ['environment' => 'prod']);
 
         $this->tester->execute([]);
 
@@ -90,7 +90,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testMultiEnvTaskRunsInTestEnv(): void
     {
-        $this->bootAndBuildTester(TestKernel::class);
+        $this->bootAndBuildTester();
 
         $this->tester->execute([]);
 
@@ -102,7 +102,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
     public function testMultiEnvTaskIsExcludedInProdEnv(): void
     {
-        $this->bootAndBuildTester(TestKernel::class, ['environment' => 'prod']);
+        $this->bootAndBuildTester([], ['environment' => 'prod']);
 
         $this->tester->execute([]);
 
@@ -113,12 +113,14 @@ final class DeployRunEnvTest extends FunctionalTestCase
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param array{eventsEnabled?: bool, lockEnabled?: bool, extraTasks?: list<class-string<\Soviann\DeployTasksBundle\DeployTaskInterface>>} $kernelOptions
+     * @param array<string, mixed>                                                                                                             $bootOptions
      */
-    private function bootAndBuildTester(string $kernelClass, array $options = []): void
+    private function bootAndBuildTester(array $kernelOptions = [], array $bootOptions = []): void
     {
-        static::$class = $kernelClass;
-        self::bootKernel($options);
+        static::$class = TestKernel::class;
+        self::$testKernelOptions = $kernelOptions;
+        self::bootKernel($bootOptions);
         $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:run'));
         $this->cleanStorage();
