@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `deploytasks:run` now emits a `[i/N] FQCN` progress line before each executed task and a `→ <status> (<ms>ms)` completion line after, giving real-time feedback on which task is running and how long it took.
 - `deploytasks:status --filter-status=<comma-list>` — restricts the table to the given statuses (`RAN`, `FAILED`, `SKIPPED`, `PENDING`, case-insensitive). Combining with `--no-state` is rejected (`Command::INVALID`). Unknown values also surface as `Command::INVALID` with an explanation.
 - `deploytasks:show <id>` — new command that inspects a single registered task. Prints id, class FQCN, description, declared groups, and every stored execution record (group, status, executed-at, full untruncated error text) plus cross-reference hints for `deploytasks:reset <id>` / `deploytasks:run --id=<id>`. Exits with `1` when the ID is not registered.
 - `deploytasks:status` gained an `Error` column that surfaces the stored failure message for `FAILED` executions (truncated to 60 chars with `…`) and stays empty otherwise. The column wraps rather than overflowing the terminal thanks to `Table::setColumnMaxWidth()`. Not shown with `--no-state`.
