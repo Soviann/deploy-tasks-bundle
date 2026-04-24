@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Runner\TaskRunner;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 abstract class FunctionalTestCase extends KernelTestCase
@@ -19,8 +22,14 @@ abstract class FunctionalTestCase extends KernelTestCase
     protected function tearDown(): void
     {
         parent::tearDown();
+        static::$class = null;
         self::$testKernelOptions = [];
         \restore_exception_handler();
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return TestKernel::class;
     }
 
     protected static function kernel(): KernelInterface
@@ -58,10 +67,37 @@ abstract class FunctionalTestCase extends KernelTestCase
         return $kernel;
     }
 
-    protected function cleanStorage(): void
+    protected function storage(): TaskStorageInterface
     {
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
-        $storage->reset();
+
+        return $storage;
+    }
+
+    protected function runner(): TaskRunner
+    {
+        $runner = self::getContainer()->get(TaskRunner::class);
+        \assert($runner instanceof TaskRunner);
+
+        return $runner;
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     * @param array<string, mixed> $opts
+     */
+    protected function runCommand(string $name, array $args = [], array $opts = []): CommandTester
+    {
+        $application = new Application(self::kernel());
+        $tester = new CommandTester($application->find($name));
+        $tester->execute($args, $opts);
+
+        return $tester;
+    }
+
+    protected function cleanStorage(): void
+    {
+        $this->storage()->reset();
     }
 }
