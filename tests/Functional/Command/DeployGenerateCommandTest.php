@@ -227,6 +227,53 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         yield 'dot segment (namespaces disallow dots)' => ['src/Deploy.Tasks'];
     }
 
+    public function testGenerateSuccessMessageContainsAbsolutePath(): void
+    {
+        // Without a projectDir, the command resolves the file relative to CWD.
+        // After writing the file, $filePath is relative — we expect realpath() in the output.
+        $tmpDir = \sys_get_temp_dir().'/generate-realpath-'.\uniqid();
+        \mkdir($tmpDir, 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        // No projectDir — file is written relative to CWD (which we control via chdir).
+        $command = new DeployTasksGenerateCommand(idGenerator: $idGenerator);
+        $tester = new CommandTester($command);
+
+        $cwd = \getcwd();
+        self::assertNotFalse($cwd);
+
+        try {
+            \chdir($tmpDir);
+            $tester->execute(['--dir' => 'tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($tmpDir.'/tasks/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+
+            $expectedAbsolutePath = \realpath($files[0]);
+            self::assertNotFalse($expectedAbsolutePath);
+
+            $display = \strip_tags($tester->getDisplay());
+            // The success message must contain the absolute (realpath) path, not a relative one.
+            self::assertStringContainsString($expectedAbsolutePath, $display);
+        } finally {
+            \chdir($cwd);
+
+            $glob = \glob($tmpDir.'/tasks/*');
+            $matches = false === $glob ? [] : $glob;
+
+            foreach ($matches as $file) {
+                \unlink($file);
+            }
+
+            @\rmdir($tmpDir.'/tasks');
+            @\rmdir($tmpDir);
+        }
+    }
+
     public function testGenerateNormalisesTrailingSlashInDirOption(): void
     {
         // Pass the dir with an extra trailing slash — the file path must still have exactly one.

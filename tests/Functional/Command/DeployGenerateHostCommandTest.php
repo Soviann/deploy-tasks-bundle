@@ -180,6 +180,50 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         @\rmdir(\dirname($resolvedDir));
     }
 
+    public function testGenerateSuccessMessageContainsAbsolutePath(): void
+    {
+        // Without a projectDir, the command writes relative to CWD.
+        // After writing the file, $filePath is relative — we expect realpath() in the output.
+        $tmpDir = \sys_get_temp_dir().'/generate-host-realpath-'.\uniqid();
+        \mkdir($tmpDir, 0o755, true);
+
+        // No projectDir — file is written relative to CWD (which we control via chdir).
+        $command = new DeployTasksGenerateHostCommand();
+        $tester = new CommandTester($command);
+
+        $cwd = \getcwd();
+        self::assertNotFalse($cwd);
+
+        try {
+            \chdir($tmpDir);
+            $tester->execute(['--dir' => 'host-tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($tmpDir.'/host-tasks/deploy_task_*.sh');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+
+            $expectedAbsolutePath = \realpath($files[0]);
+            self::assertNotFalse($expectedAbsolutePath);
+
+            $display = \strip_tags($tester->getDisplay());
+            // The success message must contain the absolute (realpath) path, not a relative one.
+            self::assertStringContainsString($expectedAbsolutePath, $display);
+        } finally {
+            \chdir($cwd);
+
+            $glob = \glob($tmpDir.'/host-tasks/*');
+            $matches = false === $glob ? [] : $glob;
+
+            foreach ($matches as $file) {
+                \unlink($file);
+            }
+
+            @\rmdir($tmpDir.'/host-tasks');
+            @\rmdir($tmpDir);
+        }
+    }
+
     public function testGenerateNormalisesTrailingSlashInDirOption(): void
     {
         $this->tester->execute(['--dir' => $this->outputDir.'/']);

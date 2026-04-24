@@ -118,8 +118,11 @@ final class DeployTasksGenerateHostCommand extends Command
         $this->fs->dumpFile($filePath, $fileContent);
         $this->fs->chmod($filePath, 0750);
 
+        $resolvedPath = \realpath($filePath);
+        $displayPath = false !== $resolvedPath ? $resolvedPath : $filePath;
+
         $io->text([
-            \sprintf('Generated new host deploy task to "<info>%s</info>"', $filePath),
+            \sprintf('Generated new host deploy task to "<info>%s</info>"', $displayPath),
             '',
             'To run pending host tasks, use <info>bash bin/deploy-tasks-host.sh [APP_ENV]</info>.',
             '',
