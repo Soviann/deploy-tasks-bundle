@@ -6,22 +6,25 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
 use Soviann\DeployTasksBundle\DeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
-use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Pins the wiring contract for the runner's logger argument and the monolog channel tag.
  *
- * Runs the extension + RegisterTasksCompilerPass directly instead of a full
- * `$container->compile()` — the full pipeline would inline/remove the runner service,
- * and these assertions target definition-time wiring, not the runtime container.
+ * The runner is injected with a NULL_ON_INVALID_REFERENCE reference to the app `logger`
+ * service when no user override is configured, or with the `deploy_tasks.logger` alias
+ * when the user sets `deploy_tasks.logger: <service_id>`. No compiler pass is involved
+ * in logger selection — the reference is wired at extension load so that
+ * MonologBundle's LoggerChannelPass can rewrite the literal `logger` reference to the
+ * channel-scoped logger via the runner's `monolog.logger` tag regardless of pass
+ * ordering, and TaskRunner falls back to a NullLogger at runtime when the app has no
+ * logger service.
  */
 #[CoversClass(DeployTasksBundle::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
@@ -39,42 +42,21 @@ final class LoggerWiringTest extends TestCase
         FilesystemTestHelper::cleanup($this->projectDir);
     }
 
-    public function testRunnerUsesNullLoggerWhenAppHasNoLogger(): void
+    public function testRunnerReferencesAppLoggerWithNullOnInvalidBehavior(): void
     {
         $container = $this->buildContainer();
-        (new RegisterTasksCompilerPass())->process($container);
 
-        $runner = $container->getDefinition('deploy_tasks.runner');
-        $loggerArg = $runner->getArgument(11);
-
-        self::assertInstanceOf(Reference::class, $loggerArg);
-        self::assertSame('deploy_tasks.null_logger', (string) $loggerArg);
-        self::assertMonologChannelTag($runner);
-        self::assertInternalParameterCleaned($container);
-    }
-
-    public function testRunnerUsesAppLoggerWhenAvailableAndNotOverridden(): void
-    {
-        $container = $this->buildContainer();
-        $this->registerStubLogger($container, 'logger');
-        (new RegisterTasksCompilerPass())->process($container);
-
-        $runner = $container->getDefinition('deploy_tasks.runner');
-        $loggerArg = $runner->getArgument(11);
+        $loggerArg = $container->getDefinition('deploy_tasks.runner')->getArgument(11);
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('logger', (string) $loggerArg);
-        self::assertMonologChannelTag($runner);
-        self::assertInternalParameterCleaned($container);
+        self::assertSame(ContainerInterface::NULL_ON_INVALID_REFERENCE, $loggerArg->getInvalidBehavior());
+        self::assertMonologChannelTag($container->getDefinition('deploy_tasks.runner'));
     }
 
-    public function testRunnerUsesDeployTasksLoggerAliasWhenUserOverrides(): void
+    public function testRunnerReferencesDeployTasksLoggerAliasWhenUserOverrides(): void
     {
         $container = $this->buildContainer(['logger' => 'my_logger']);
-        // Also register the app logger to prove override wins over auto-detection.
-        $this->registerStubLogger($container, 'logger');
-        $this->registerStubLogger($container, 'my_logger');
-        (new RegisterTasksCompilerPass())->process($container);
 
         $runner = $container->getDefinition('deploy_tasks.runner');
         $loggerArg = $runner->getArgument(11);
@@ -83,7 +65,18 @@ final class LoggerWiringTest extends TestCase
         self::assertSame('deploy_tasks.logger', (string) $loggerArg);
         self::assertSame('my_logger', (string) $container->getAlias('deploy_tasks.logger'));
         self::assertMonologChannelTag($runner);
-        self::assertInternalParameterCleaned($container);
+    }
+
+    public function testCompilerPassDoesNotTouchLoggerArgument(): void
+    {
+        $container = $this->buildContainer();
+        $loggerArgBefore = $container->getDefinition('deploy_tasks.runner')->getArgument(11);
+
+        (new RegisterTasksCompilerPass())->process($container);
+
+        $loggerArgAfter = $container->getDefinition('deploy_tasks.runner')->getArgument(11);
+
+        self::assertEquals($loggerArgBefore, $loggerArgAfter);
     }
 
     private static function assertMonologChannelTag(Definition $runner): void
@@ -91,14 +84,6 @@ final class LoggerWiringTest extends TestCase
         $tags = $runner->getTag('monolog.logger');
         self::assertCount(1, $tags, 'runner must carry a single monolog.logger tag');
         self::assertSame('deploy_tasks', $tags[0]['channel'] ?? null);
-    }
-
-    private static function assertInternalParameterCleaned(ContainerBuilder $container): void
-    {
-        self::assertFalse(
-            $container->hasParameter('deploy_tasks.logger.user_overridden'),
-            'deploy_tasks.logger.user_overridden must be removed after the compiler pass runs',
-        );
     }
 
     /**
@@ -127,14 +112,5 @@ final class LoggerWiringTest extends TestCase
         ], $container);
 
         return $container;
-    }
-
-    private function registerStubLogger(ContainerBuilder $container, string $serviceId): void
-    {
-        $container->setDefinition($serviceId, new Definition(NullLogger::class));
-        // Keep the interface alias aligned so autowiring-style lookups still resolve if ever needed.
-        if (!$container->hasAlias(LoggerInterface::class)) {
-            $container->setAlias(LoggerInterface::class, new Alias($serviceId));
-        }
     }
 }
