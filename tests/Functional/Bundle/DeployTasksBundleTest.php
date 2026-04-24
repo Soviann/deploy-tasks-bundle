@@ -281,7 +281,6 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         yield 'reset' => ['deploy_tasks.command.reset', 'deploytasks:reset'];
         yield 'rollup' => ['deploy_tasks.command.rollup', 'deploytasks:rollup'];
         yield 'generate:container' => ['deploy_tasks.command.generate', 'deploytasks:generate:container'];
-        yield 'generate (alias)' => ['deploy_tasks.command.generate', 'deploytasks:generate'];
         yield 'generate:host' => ['deploy_tasks.command.generate.host', 'deploytasks:generate:host'];
     }
 
