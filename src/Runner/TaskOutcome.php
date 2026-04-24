@@ -19,6 +19,7 @@ final readonly class TaskOutcome
         public TaskResult $result,
         public TaskStatus $status,
         public \DateTimeImmutable $executedAt,
+        public float $durationSeconds = 0.0,
         public ?string $error = null,
     ) {
     }
