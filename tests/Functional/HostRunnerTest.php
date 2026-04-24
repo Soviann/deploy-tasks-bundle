@@ -135,10 +135,15 @@ final class HostRunnerTest extends FunctionalTestCase
         ));
 
         $first = $this->startRunner();
-        // Busy-wait until the first invocation has actually grabbed the lock.
-        $deadline = \microtime(true) + 5.0;
-        while (!\file_exists($this->workspace.'/.deploy-tasks-host.lock') && \microtime(true) < $deadline) {
-            \usleep(20_000);
+        $lockFile = $this->workspace.'/.deploy-tasks-host.lock';
+        $deadline = \microtime(true) + 2.0;
+        while (!\file_exists($lockFile)) {
+            if (\microtime(true) >= $deadline) {
+                \file_put_contents($barrier, '');
+                $first->wait();
+                self::fail('First runner did not acquire the host lock within 2 s.');
+            }
+            \usleep(50_000);
         }
 
         $second = $this->runRunner();
