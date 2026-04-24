@@ -109,7 +109,12 @@ final class DeployTasksGenerateHostCommand extends Command
             #!/usr/bin/env bash
             # Host deploy task
             # Generated at {$generatedAt}
+            #
+            # Exit 0 = success, non-zero = failure (host runner collects stdout/stderr).
+            # Available env vars: APP_ENV, DATABASE_URL (forwarded from the project's .env).
+            # This script is executed by bin/deploy-tasks-host.sh — see docs/creating-tasks.md.
             set -euo pipefail
+            IFS=\$'\\n\\t'
 
             # TODO: implement
 
