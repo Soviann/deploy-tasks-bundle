@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\CommandMessages;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
@@ -14,6 +15,7 @@ use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 #[CoversClass(DeployTasksRunCommand::class)]
 final class DeployRunCommandTest extends FunctionalTestCase
@@ -176,18 +178,30 @@ final class DeployRunCommandTest extends FunctionalTestCase
 
     public function testPrioritizedTaskRunsBeforeSimpleTask(): void
     {
-        $this->tester->execute(['--dry-run' => true]);
+        // Reboot with events enabled so execution order is observable via AfterTaskEvent rather than
+        // console display ordering (sub-second execution makes storage timestamps non-discriminating).
+        self::ensureKernelShutdown();
+        self::$testKernelOptions = ['eventsEnabled' => true];
+        self::bootKernel();
+        $this->cleanStorage();
 
-        $display = $this->tester->getDisplay();
-        self::assertStringContainsString('test.prioritized', $display);
-        self::assertStringContainsString('test.simple', $display);
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        \assert($dispatcher instanceof EventDispatcherInterface);
 
-        $prioritizedPos = \strpos($display, 'test.prioritized');
-        $simplePos = \strpos($display, 'test.simple');
+        $executionOrder = [];
+        $dispatcher->addListener(AfterTaskEvent::class, static function (AfterTaskEvent $event) use (&$executionOrder): void {
+            $executionOrder[] = $event->taskId;
+        });
 
-        self::assertNotFalse($prioritizedPos);
-        self::assertNotFalse($simplePos);
-        self::assertLessThan($simplePos, $prioritizedPos, 'test.prioritized (priority=10) must appear before test.simple (priority=0)');
+        $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+        $tester->execute([]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $prioritizedIndex = \array_search('test.prioritized', $executionOrder, true);
+        $simpleIndex = \array_search('test.simple', $executionOrder, true);
+        self::assertIsInt($prioritizedIndex, 'test.prioritized must have fired AfterTaskEvent.');
+        self::assertIsInt($simpleIndex, 'test.simple must have fired AfterTaskEvent.');
+        self::assertLessThan($simpleIndex, $prioritizedIndex, 'test.prioritized (priority=10) must execute before test.simple (priority=0).');
     }
 
     public function testSkippingTaskIsStoredAsSkipped(): void
