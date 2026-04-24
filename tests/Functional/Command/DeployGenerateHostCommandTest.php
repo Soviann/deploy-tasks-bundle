@@ -165,14 +165,9 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
         $resolvedDir = $projectDir.'/var/nested-host/generate-host-test-'.$uniqueId.'/';
-        $files = \glob($resolvedDir.'deploy_task_*.sh');
-        self::assertNotFalse($files);
+        self::assertDirectoryExists($resolvedDir);
 
-        foreach ($files as $file) {
-            \unlink($file);
-        }
-
-        \rmdir($resolvedDir);
+        FilesystemTestHelper::cleanup($resolvedDir);
         @\rmdir(\dirname($resolvedDir));
     }
 
