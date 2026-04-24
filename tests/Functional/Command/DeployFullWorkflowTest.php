@@ -47,14 +47,14 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         $runner->execute(['--group' => ['predeploy']]);
         self::assertSame(Command::SUCCESS, $runner->getStatusCode());
         $ran = $storage->get('test.predeploy', 'predeploy');
-        self::assertNotNull($ran);
+        \assert(null !== $ran);
         self::assertSame(TaskStatus::Ran, $ran->status);
 
         // 4. Skip the predeploy slot
         $skipper->execute(['id' => 'test.predeploy', '--group' => 'predeploy', '--no-interaction' => true]);
         self::assertSame(Command::SUCCESS, $skipper->getStatusCode());
         $skipped = $storage->get('test.predeploy', 'predeploy');
-        self::assertNotNull($skipped);
+        \assert(null !== $skipped);
         self::assertSame(TaskStatus::Skipped, $skipped->status);
 
         // 5. Reset the predeploy slot back to pending
@@ -70,7 +70,7 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         // command mutates storage between then and now, which PHPStan can't observe.
         /** @var ?TaskExecution $reRan */
         $reRan = $storage->get('test.predeploy', 'predeploy');
-        self::assertNotNull($reRan);
+        \assert(null !== $reRan);
         self::assertSame(TaskStatus::Ran, $reRan->status);
     }
 

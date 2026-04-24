@@ -49,7 +49,7 @@ final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
 
         // Status must remain Skipped
         $execution = $this->storage->get('test.simple');
-        self::assertNotNull($execution);
+        \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 

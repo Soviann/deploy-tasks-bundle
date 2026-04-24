@@ -212,7 +212,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
         \assert($storage instanceof TaskStorageInterface);
 
         $execution = $storage->get('test.skipping');
-        self::assertNotNull($execution, 'SkippingTask should be stored after run');
+        \assert(null !== $execution, 'SkippingTask should be stored after run');
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 
