@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -21,6 +22,14 @@ abstract class FunctionalTestCase extends KernelTestCase
 
     protected function tearDown(): void
     {
+        if (null !== self::$kernel) {
+            try {
+                $this->cleanStorage();
+            } catch (StorageException) {
+                // Test intentionally left storage unavailable (e.g. dropped table); nothing to reset.
+            }
+        }
+
         parent::tearDown();
         static::$class = null;
         self::$testKernelOptions = [];
