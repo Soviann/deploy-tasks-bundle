@@ -53,12 +53,4 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         /* @phpstan-ignore argument.type */
         self::assertSame($expectedId, DefaultTaskIdGenerator::generateStatic($className));
     }
-
-    public function testGenerateStaticReturnsNonEmptyString(): void
-    {
-        /* @phpstan-ignore argument.type */
-        $result = DefaultTaskIdGenerator::generateStatic('App\Tasks\SeedCategories');
-
-        self::assertNotEmpty($result);
-    }
 }
