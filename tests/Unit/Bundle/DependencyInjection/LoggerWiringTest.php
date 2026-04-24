@@ -10,6 +10,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
 use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -26,6 +27,18 @@ use Symfony\Component\DependencyInjection\Reference;
 #[CoversClass(RegisterTasksCompilerPass::class)]
 final class LoggerWiringTest extends TestCase
 {
+    private string $projectDir;
+
+    protected function setUp(): void
+    {
+        $this->projectDir = FilesystemTestHelper::tempDir('deploy-tasks-logger-wiring-');
+    }
+
+    protected function tearDown(): void
+    {
+        FilesystemTestHelper::cleanup($this->projectDir);
+    }
+
     public function testRunnerUsesNullLoggerWhenAppHasNoLogger(): void
     {
         $container = $this->buildContainer();
@@ -94,7 +107,7 @@ final class LoggerWiringTest extends TestCase
     private function buildContainer(array $extraConfig = []): ContainerBuilder
     {
         $container = new ContainerBuilder();
-        $projectDir = \sys_get_temp_dir().'/deploy-tasks-logger-wiring';
+        $projectDir = $this->projectDir;
         $container->setParameter('kernel.environment', 'test');
         $container->setParameter('kernel.project_dir', $projectDir);
         $container->setParameter('kernel.debug', false);
