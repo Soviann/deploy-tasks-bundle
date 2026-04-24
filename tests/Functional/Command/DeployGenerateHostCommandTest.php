@@ -26,7 +26,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         self::bootKernel();
         $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:generate:host'));
-        $this->outputDir = \dirname(__DIR__, 3).'/var/generate-host-test-'.\uniqid().'/';
+        $this->outputDir = self::projectDir().'/var/generate-host-test-'.\uniqid().'/';
     }
 
     protected function tearDown(): void
@@ -158,12 +158,13 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
     public function testGenerateAllowsTraversalWithinProjectRoot(): void
     {
         $uniqueId = \uniqid();
-        $dir = \dirname(__DIR__, 3).'/var/nested-host/deep/../generate-host-test-'.$uniqueId.'/';
+        $projectDir = self::projectDir();
+        $dir = $projectDir.'/var/nested-host/deep/../generate-host-test-'.$uniqueId.'/';
         $this->tester->execute(['--dir' => $dir]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
-        $resolvedDir = \dirname(__DIR__, 3).'/var/nested-host/generate-host-test-'.$uniqueId.'/';
+        $resolvedDir = $projectDir.'/var/nested-host/generate-host-test-'.$uniqueId.'/';
         $files = \glob($resolvedDir.'deploy_task_*.sh');
         self::assertNotFalse($files);
 
