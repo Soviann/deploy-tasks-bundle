@@ -27,6 +27,12 @@ final class DeployTasksRunCommand extends Command
      */
     public const int EX_TEMPFAIL = 75;
 
+    /**
+     * Exit code returned when --require-some is set but no task matched the provided filters.
+     * Signals "command line usage error" (POSIX EX_USAGE, sysexits.h 64).
+     */
+    public const int EX_USAGE = 64;
+
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskRunner $runner,
@@ -42,6 +48,7 @@ final class DeployTasksRunCommand extends Command
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Deprecated alias for --rerun-all. Use --rerun-all instead.')
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.')
             ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID.')
+            ->addOption('require-some', null, InputOption::VALUE_NONE, 'Exit 64 if no task matched the provided filters.')
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command executes pending deploy tasks:
 
@@ -90,6 +97,7 @@ final class DeployTasksRunCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $forceLegacy = (bool) $input->getOption('force');
         $rerunAll = (bool) $input->getOption('rerun-all');
+        $requireSome = (bool) $input->getOption('require-some');
 
         if ($forceLegacy && !$rerunAll) {
             $io->warning('The --force option is deprecated; use --rerun-all.');
@@ -104,7 +112,19 @@ final class DeployTasksRunCommand extends Command
         $groups = \array_values((array) $input->getOption('group'));
 
         if (null !== $taskId) {
+            if ($requireSome && !$this->registry->has($taskId)) {
+                $io->error('No task matched the provided filter(s).');
+
+                return self::EX_USAGE;
+            }
+
             return $this->executeOne($io, $output, $taskId, $groups, $force);
+        }
+
+        if ($requireSome && 0 === \count($this->registry->all(groups: $groups))) {
+            $io->error('No task matched the provided filter(s).');
+
+            return self::EX_USAGE;
         }
 
         $dryRun = (bool) $input->getOption('dry-run');
