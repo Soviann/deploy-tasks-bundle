@@ -239,6 +239,61 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString('//deploy_task_', $files[0]);
     }
 
+    public function testGenerateWarnsWhenHostRunnerMissing(): void
+    {
+        $projectDir = \sys_get_temp_dir().'/generate-host-runner-missing-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'host-tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $display = \preg_replace('/\s+/', ' ', $tester->getDisplay());
+            self::assertNotNull($display);
+            self::assertStringContainsString('Host runner not found', $display);
+            self::assertStringContainsString('bin/deploy-tasks-host.sh', $display);
+            self::assertStringContainsString('deploy-tasks-host.sh.dist', $display);
+        } finally {
+            $glob = \glob($projectDir.'/host-tasks/*');
+            foreach (false === $glob ? [] : $glob as $file) {
+                \unlink($file);
+            }
+            @\rmdir($projectDir.'/host-tasks');
+            @\rmdir($projectDir);
+        }
+    }
+
+    public function testGenerateDoesNotWarnWhenHostRunnerPresent(): void
+    {
+        $projectDir = \sys_get_temp_dir().'/generate-host-runner-present-'.\uniqid();
+        \mkdir($projectDir.'/bin', 0o755, true);
+        \file_put_contents($projectDir.'/bin/deploy-tasks-host.sh', "#!/usr/bin/env bash\n");
+
+        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'host-tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $display = \preg_replace('/\s+/', ' ', $tester->getDisplay());
+            self::assertNotNull($display);
+            self::assertStringNotContainsString('Host runner not found', $display);
+        } finally {
+            $glob = \glob($projectDir.'/host-tasks/*');
+            foreach (false === $glob ? [] : $glob as $file) {
+                \unlink($file);
+            }
+            @\rmdir($projectDir.'/host-tasks');
+            @\unlink($projectDir.'/bin/deploy-tasks-host.sh');
+            @\rmdir($projectDir.'/bin');
+            @\rmdir($projectDir);
+        }
+    }
+
     public function testGeneratedFileIsReadableOnlyByOwnerAndGroup(): void
     {
         // Run under a fresh /tmp projectDir to dodge the DDEV-mounted var/ chmod quirk.
