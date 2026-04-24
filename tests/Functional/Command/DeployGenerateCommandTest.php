@@ -62,6 +62,11 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $content = \file_get_contents($files[0]);
         self::assertNotFalse($content);
         self::assertStringContainsString('DeployTaskInterface', $content);
+        self::assertStringContainsString("description: 'TODO: describe this task'", $content);
+        self::assertStringContainsString('Available attribute knobs', $content);
+        self::assertStringContainsString('priority: 0', $content);
+        self::assertStringContainsString('Inject services here if needed', $content);
+        self::assertStringContainsString('docs/creating-tasks.md', $content);
     }
 
     public function testGenerateCreatesDirectory(): void
