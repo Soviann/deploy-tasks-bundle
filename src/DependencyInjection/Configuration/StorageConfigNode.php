@@ -12,6 +12,10 @@ final class StorageConfigNode
     {
         $node = new ArrayNodeDefinition('storage');
         $node
+            ->beforeNormalization()
+                ->ifString()
+                ->then(static fn (string $value): array => ['type' => $value])
+            ->end()
             ->addDefaultsIfNotSet()
             ->children()
                 ->enumNode('type')
