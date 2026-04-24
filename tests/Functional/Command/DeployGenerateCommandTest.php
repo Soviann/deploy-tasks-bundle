@@ -27,7 +27,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::bootKernel();
         $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:generate:container'));
-        $this->outputDir = \dirname(__DIR__, 3).'/var/generate-test-'.\uniqid().'/';
+        $this->outputDir = self::projectDir().'/var/generate-test-'.\uniqid().'/';
     }
 
     protected function tearDown(): void
@@ -169,14 +169,15 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     public function testGenerateAllowsTraversalWithinProjectRoot(): void
     {
         $uniqueId = \uniqid();
-        $dir = \dirname(__DIR__, 3).'/var/nested/deep/../generate-test-'.$uniqueId.'/';
+        $projectDir = self::projectDir();
+        $dir = $projectDir.'/var/nested/deep/../generate-test-'.$uniqueId.'/';
         $this->tester->execute(['--dir' => $dir]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
 
         // The command normalizes the path, so clean up at the resolved location
-        $resolvedDir = \dirname(__DIR__, 3).'/var/nested/generate-test-'.$uniqueId.'/';
+        $resolvedDir = $projectDir.'/var/nested/generate-test-'.$uniqueId.'/';
         $files = \glob($resolvedDir.'DeployTask*.php');
         self::assertNotFalse($files);
 

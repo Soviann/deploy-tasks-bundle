@@ -76,6 +76,14 @@ abstract class FunctionalTestCase extends KernelTestCase
         return $kernel;
     }
 
+    protected static function projectDir(): string
+    {
+        $projectDir = self::getContainer()->getParameter('kernel.project_dir');
+        \assert(\is_string($projectDir));
+
+        return $projectDir;
+    }
+
     protected function storage(): TaskStorageInterface
     {
         $storage = self::getContainer()->get(TaskStorageInterface::class);
