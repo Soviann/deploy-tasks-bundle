@@ -271,13 +271,17 @@ final class TaskRunnerTest extends TestCase
             dispatcher: $dispatcher,
         );
 
+        $start = \microtime(true);
         $runner->runAll($this->output);
+        $elapsed = \microtime(true) - $start;
 
         self::assertCount(2, $dispatched);
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
         self::assertInstanceOf(AfterTaskEvent::class, $dispatched[1]);
         self::assertSame('task.1', $dispatched[0]->taskId);
         self::assertSame(TaskResult::SUCCESS, $dispatched[1]->result);
+        self::assertGreaterThanOrEqual(0.0, $dispatched[1]->duration);
+        self::assertLessThanOrEqual($elapsed + 0.1, $dispatched[1]->duration);
     }
 
     public function testEventsNotDispatchedWhenNoDispatcher(): void
@@ -307,12 +311,16 @@ final class TaskRunnerTest extends TestCase
             dispatcher: $dispatcher,
         );
 
+        $start = \microtime(true);
         $runner->runAll($this->output);
+        $elapsed = \microtime(true) - $start;
 
         self::assertCount(2, $dispatched);
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
         self::assertInstanceOf(TaskFailedEvent::class, $dispatched[1]);
         self::assertSame('Task failed!', $dispatched[1]->exception->getMessage());
+        self::assertGreaterThanOrEqual(0.0, $dispatched[1]->duration);
+        self::assertLessThanOrEqual($elapsed + 0.1, $dispatched[1]->duration);
     }
 
     public function testNoLockFactoryWarningIsSilentByDefault(): void
