@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
+use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 
 #[CoversClass(FilesystemStorage::class)]
 final class FilesystemStorageTest extends TestCase
@@ -26,17 +27,7 @@ final class FilesystemStorageTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (\is_dir($this->storagePath)) {
-            $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($this->storagePath, \FilesystemIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::CHILD_FIRST,
-            );
-            foreach ($files as $file) {
-                \assert($file instanceof \SplFileInfo);
-                $file->isDir() ? \rmdir($file->getPathname()) : \unlink($file->getPathname());
-            }
-            \rmdir($this->storagePath);
-        }
+        FilesystemTestHelper::cleanup($this->storagePath);
     }
 
     public function testDirectoryCreatedWithOwnerOnlyPermissions(): void
@@ -47,7 +38,7 @@ final class FilesystemStorageTest extends TestCase
 
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
 
-        self::assertSame(0700, \fileperms($this->storagePath) & 0777);
+        FilesystemTestHelper::assertPermissions($this->storagePath, 0o700);
     }
 
     public function testStateFilePersistedWithOwnerOnlyPermissions(): void
@@ -58,7 +49,7 @@ final class FilesystemStorageTest extends TestCase
 
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
 
-        self::assertSame(0600, \fileperms($this->storagePath.'/task.1.json') & 0777);
+        FilesystemTestHelper::assertPermissions($this->storagePath.'/task.1.json', 0o600);
     }
 
     public function testDirectoryNotCreatedOnConstruct(): void

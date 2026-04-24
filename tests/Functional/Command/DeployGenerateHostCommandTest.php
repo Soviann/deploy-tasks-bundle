@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
+use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -32,17 +33,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
     {
         parent::tearDown();
 
-        if (\is_dir($this->outputDir)) {
-            $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($this->outputDir, \FilesystemIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::CHILD_FIRST,
-            );
-            foreach ($files as $file) {
-                \assert($file instanceof \SplFileInfo);
-                $file->isDir() ? \rmdir($file->getPathname()) : \unlink($file->getPathname());
-            }
-            \rmdir($this->outputDir);
-        }
+        FilesystemTestHelper::cleanup($this->outputDir);
     }
 
     public function testGenerateFailsWhenTargetDirectoryIsNotWritable(): void
@@ -311,7 +302,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
             self::assertNotFalse($files);
             self::assertCount(1, $files);
 
-            self::assertSame(0750, \fileperms($files[0]) & 0777);
+            FilesystemTestHelper::assertPermissions($files[0], 0o750);
         } finally {
             $glob = \glob($projectDir.'/host-tasks/*');
             $matches = false === $glob ? [] : $glob;
