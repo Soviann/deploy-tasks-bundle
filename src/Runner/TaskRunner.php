@@ -131,7 +131,7 @@ final class TaskRunner
                 return TaskResult::SKIPPED;
             }
 
-            $outcome = $this->executeTask($task, $output);
+            $outcome = $this->executeTask($task, $output, 1, 1);
 
             $this->persistOutcome($taskId, $outcome, $pendingSlots);
 
@@ -223,6 +223,10 @@ final class TaskRunner
         $skipped = 0;
         $failed = 0;
 
+        // Pre-compute which tasks will actually be executed, so progress counters are accurate.
+        /** @var list<array{task: DeployTaskInterface, taskId: string, pendingSlots: list<?string>}> $executable */
+        $executable = [];
+
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
             $slots = self::computeSlots($task, $effectiveGroups);
@@ -239,10 +243,18 @@ final class TaskRunner
                 continue;
             }
 
-            $outcome = $this->executeTask($task, $output);
-            $this->persistOutcome($taskId, $outcome, $pendingSlots);
+            $executable[] = ['task' => $task, 'taskId' => $taskId, 'pendingSlots' => $pendingSlots];
+        }
 
-            $count = \count($pendingSlots);
+        $total = \count($executable);
+        $current = 0;
+
+        foreach ($executable as $item) {
+            ++$current;
+            $outcome = $this->executeTask($item['task'], $output, $current, $total);
+            $this->persistOutcome($item['taskId'], $outcome, $item['pendingSlots']);
+
+            $count = \count($item['pendingSlots']);
 
             if (TaskResult::FAILURE === $outcome->result) {
                 $failed += $count;
@@ -259,13 +271,18 @@ final class TaskRunner
     /**
      * Executes a single task with event dispatching, timeout check, and transactional wrapping.
      *
+     * Emits a `[current/total] FQCN` progress line before execution and a
+     * `→ status (ms)` completion line after.
+     *
      * Storage writes are performed by the caller (one row per matching slot).
      */
-    private function executeTask(DeployTaskInterface $task, OutputInterface $output): TaskOutcome
+    private function executeTask(DeployTaskInterface $task, OutputInterface $output, int $current, int $total): TaskOutcome
     {
         $taskId = $this->idResolver->resolve($task);
         $attribute = AsDeployTask::of($task);
         $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
+
+        $output->writeln(\sprintf(' [%d/%d] %s', $current, $total, $task::class));
 
         $this->logger->info('Deploy task starting', ['task_id' => $taskId]);
 
@@ -277,11 +294,15 @@ final class TaskRunner
             $result = $this->wrapInTransaction($task, $attribute, $output);
             $duration = \microtime(true) - $start;
 
-            return $this->buildSuccessOutcome($task, $taskId, $result, $duration, $timeout, $output);
+            $outcome = $this->buildSuccessOutcome($task, $taskId, $result, $duration, $timeout, $output);
+            $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+
+            return $outcome;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
             $outcome = $this->buildFailureOutcome($task, $taskId, $e, $duration, $output);
+            $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
 
             if ($this->allOrNothing) {
                 // Propagate so the outer transaction rolls everything back
@@ -328,6 +349,7 @@ final class TaskRunner
             result: $result,
             status: $status,
             executedAt: new \DateTimeImmutable(),
+            durationSeconds: $duration,
         );
     }
 
@@ -351,6 +373,7 @@ final class TaskRunner
             result: TaskResult::FAILURE,
             status: TaskStatus::Failed,
             executedAt: new \DateTimeImmutable(),
+            durationSeconds: $duration,
             error: $e->getMessage(),
         );
     }
