@@ -284,7 +284,7 @@ final class TaskRunnerTest extends TestCase
         self::assertLessThanOrEqual($elapsed + 0.1, $dispatched[1]->duration);
     }
 
-    public function testEventsNotDispatchedWhenNoDispatcher(): void
+    public function testRunSucceedsWithoutDispatcher(): void
     {
         $runner = $this->createRunner([
             new SimpleTask('task.1', 'First'),
