@@ -40,7 +40,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
         $execution = $storage->get('test.simple');
-        self::assertNotNull($execution);
+        \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 
@@ -54,7 +54,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
         $execution = $storage->get('test.simple');
-        self::assertNotNull($execution);
+        \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 
@@ -74,8 +74,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $this->tester->execute(['id' => 'test.predeploy']);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
-        $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
-        self::assertNotNull($display);
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
         self::assertStringContainsString('specify --group', $display);
     }
 
@@ -94,7 +93,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertFalse($storage->has('test.multi_group'));
 
         $execution = $storage->get('test.multi_group', 'predeploy');
-        self::assertNotNull($execution);
+        \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 

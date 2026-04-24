@@ -67,7 +67,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
         \assert($storage instanceof TaskStorageInterface);
 
         $execution = $storage->get('test.transactional');
-        self::assertNotNull($execution);
+        \assert(null !== $execution);
         self::assertSame(TaskStatus::Ran, $execution->status);
     }
 
@@ -94,7 +94,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
         \assert($storage instanceof TaskStorageInterface);
 
         $execution = $storage->get('test.simple');
-        self::assertNotNull($execution);
+        \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 
