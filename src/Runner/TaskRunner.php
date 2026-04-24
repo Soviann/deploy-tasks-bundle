@@ -32,6 +32,8 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  */
 final class TaskRunner
 {
+    private readonly LoggerInterface $logger;
+
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
@@ -44,8 +46,9 @@ final class TaskRunner
         private readonly ?string $environment = null,
         private readonly bool $transactional = true,
         private readonly bool $allOrNothing = false,
-        private readonly LoggerInterface $logger = new NullLogger(),
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
     }
 
     /**

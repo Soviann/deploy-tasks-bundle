@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle;
 
 use Doctrine\DBAL\Connection;
-use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
@@ -35,8 +34,10 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
+use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
@@ -125,7 +126,7 @@ final class DeployTasksBundle extends AbstractBundle
         $this->registerSorter($config, $services);
 
         // Logger
-        $this->registerLogger($config, $services, $builder);
+        $this->registerLogger($config, $services);
 
         // Config flags for compiler pass
         /** @var array{enabled: bool} $eventsConfig */
@@ -144,8 +145,8 @@ final class DeployTasksBundle extends AbstractBundle
         $builder->setParameter('deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
 
         $loggerArg = null !== $config['logger']
-            ? service('deploy_tasks.logger')   // user override — alias created in registerLogger()
-            : service('deploy_tasks.null_logger'); // compiler pass swaps to @logger when available
+            ? service('deploy_tasks.logger')                               // user override — alias created in registerLogger()
+            : new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE); // app logger when present (resolved as null otherwise — TaskRunner falls back to NullLogger)
 
         $services->set('deploy_tasks.runner', TaskRunner::class)
             ->args([
@@ -250,9 +251,7 @@ final class DeployTasksBundle extends AbstractBundle
             ->addTag('deploy_tasks.task')
         ;
 
-        // Priority 100 ensures this pass runs before Monolog's LoggerChannelPass (priority 0),
-        // so the runner's logger argument is in place for channel rewriting.
-        $container->addCompilerPass(new RegisterTasksCompilerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 100);
+        $container->addCompilerPass(new RegisterTasksCompilerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
     }
 
     /**
@@ -376,24 +375,17 @@ final class DeployTasksBundle extends AbstractBundle
     /**
      * @param array<string, mixed> $config
      */
-    private function registerLogger(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
+    private function registerLogger(array $config, ServicesConfigurator $services): void
     {
         /** @var string|null $userLoggerId */
         $userLoggerId = $config['logger'];
 
-        // NullLogger is the baseline fallback — always registered so the runner can reference it.
-        $services->set('deploy_tasks.null_logger', NullLogger::class);
-
-        // Recorded for the compiler pass: when false, the pass may swap in @logger (channel-rewritten by monolog).
-        $builder->setParameter('deploy_tasks.logger.user_overridden', null !== $userLoggerId);
-
         if (null !== $userLoggerId) {
             $services->alias('deploy_tasks.logger', $userLoggerId);
         }
-        // When null, we do NOT create a deploy_tasks.logger alias here — the runner is wired
-        // directly with @deploy_tasks.null_logger and the compiler pass replaces it with @logger
-        // if the app has one. Direct @logger injection is required for monolog's LoggerChannelPass
-        // to rewrite the reference to the channel-scoped logger (it matches literal 'logger' refs,
-        // not aliases).
+        // When null, the runner argument is a NULL_ON_INVALID_REFERENCE to the `logger` service:
+        // resolves to the app logger when present (monolog's LoggerChannelPass then rewrites the
+        // literal 'logger' reference to the channel-scoped logger via the runner's monolog.logger tag),
+        // and TaskRunner falls back to a NullLogger when the app has no logger service.
     }
 }

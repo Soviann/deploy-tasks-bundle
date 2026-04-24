@@ -196,18 +196,8 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             $container->log($this, 'Lock enabled but symfony/lock not available — concurrent execution protection disabled.');
         }
 
-        // Logger (argument index 11): NullLogger placeholder → @logger when user didn't override and app has one.
-        // Must run before Monolog's LoggerChannelPass so the 'logger' reference is in place for channel rewriting.
-        /** @var bool $userOverrode */
-        $userOverrode = $container->getParameter('deploy_tasks.logger.user_overridden');
-
-        if (!$userOverrode && $container->has('logger')) {
-            $runnerDefinition->setArgument(11, new Reference('logger'));
-        }
-
         // Clean up internal parameters
         $container->getParameterBag()->remove('deploy_tasks.events.enabled');
         $container->getParameterBag()->remove('deploy_tasks.lock.enabled');
-        $container->getParameterBag()->remove('deploy_tasks.logger.user_overridden');
     }
 }
