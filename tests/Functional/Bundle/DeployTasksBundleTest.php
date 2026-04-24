@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
@@ -30,6 +31,9 @@ use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\IncompatibleAllOrNothingTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Lock\LockFactory;
 
 #[CoversClass(DeployTasksBundle::class)]
@@ -100,15 +104,21 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::bootKernel();
         $container = self::getContainer();
 
-        // The event_dispatcher service must be available and the runner must have it
         self::assertTrue($container->has('event_dispatcher'));
 
-        // Use reflection to verify the runner received the dispatcher
+        $dispatcher = $container->get('event_dispatcher');
+        \assert($dispatcher instanceof EventDispatcherInterface);
+
+        $captured = [];
+        $dispatcher->addListener(AfterTaskEvent::class, static function (AfterTaskEvent $event) use (&$captured): void {
+            $captured[] = $event->taskId;
+        });
+
         $runner = $container->get(TaskRunner::class);
         \assert($runner instanceof TaskRunner);
+        $runner->runOne('test.simple', new BufferedOutput(), force: true);
 
-        $reflection = new \ReflectionProperty(TaskRunner::class, 'dispatcher');
-        self::assertNotNull($reflection->getValue($runner), 'dispatcher must be wired when events.enabled=true');
+        self::assertSame(['test.simple'], $captured, 'AfterTaskEvent must fire when dispatcher wired on TaskRunner.');
     }
 
     public function testKernelBootsWithLockEnabled(): void
@@ -133,8 +143,14 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         $runner = $container->get(TaskRunner::class);
         \assert($runner instanceof TaskRunner);
 
-        $reflection = new \ReflectionProperty(TaskRunner::class, 'lockFactory');
-        self::assertNotNull($reflection->getValue($runner), 'lockFactory must be wired when lock.enabled=true');
+        $output = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
+        $runner->runAll($output, dryRun: true);
+
+        self::assertStringNotContainsString(
+            'No lock factory configured',
+            $output->fetch(),
+            'Verbose runAll output must not emit the missing-lock-factory warning when lock.enabled=true.',
+        );
     }
 
     public function testCustomSorterIsUsed(): void
@@ -197,7 +213,8 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testDefaultTimeoutConfigValueIsThreeHundred(): void
     {
-        // Pins the `default_timeout` default literal (300) at line 58 — kills Increment/DecrementInteger mutants.
+        // Pins the `default_timeout` config default (300) — kills Increment/DecrementInteger mutants.
+        // Reflection is intentional here: the literal is a constructor-arg integer with no public observable.
         self::bootKernel();
         $runner = self::getContainer()->get(TaskRunner::class);
         \assert($runner instanceof TaskRunner);
