@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
 /**
  * Covers the three DEPLOY_TASKS_HOST_* env var overrides that
  * bin/deploy-tasks-host.sh.dist honors but HostRunnerTest does not exercise.
  */
-final class HostRunnerEnvOverridesTest extends TestCase
+final class HostRunnerEnvOverridesTest extends FunctionalTestCase
 {
     private const RUNNER_SOURCE = __DIR__.'/../../bin/deploy-tasks-host.sh.dist';
 
@@ -28,6 +27,8 @@ final class HostRunnerEnvOverridesTest extends TestCase
 
     protected function tearDown(): void
     {
+        parent::tearDown();
+
         if (\is_dir($this->workspace)) {
             $this->removeDirectory($this->workspace);
         }

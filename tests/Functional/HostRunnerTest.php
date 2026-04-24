@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
-use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
 /**
@@ -14,7 +13,7 @@ use Symfony\Component\Process\Process;
  * project layout (project root with a bin/ copy of the runner) and invokes
  * it via Symfony Process.
  */
-final class HostRunnerTest extends TestCase
+final class HostRunnerTest extends FunctionalTestCase
 {
     private const RUNNER_SOURCE = __DIR__.'/../../bin/deploy-tasks-host.sh.dist';
 
@@ -30,6 +29,8 @@ final class HostRunnerTest extends TestCase
 
     protected function tearDown(): void
     {
+        parent::tearDown();
+
         if (\is_dir($this->workspace)) {
             $this->removeDirectory($this->workspace);
         }
