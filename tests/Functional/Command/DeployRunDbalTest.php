@@ -25,6 +25,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->cleanStorage();
 
         $application = new Application(self::kernel());
         $this->runTester = new CommandTester($application->find('deploytasks:run'));
