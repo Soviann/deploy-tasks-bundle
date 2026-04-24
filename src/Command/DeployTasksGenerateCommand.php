@@ -18,7 +18,6 @@ use Symfony\Component\Filesystem\Filesystem;
 #[AsCommand(
     name: 'deploytasks:generate:container',
     description: 'Generate a blank container-scope deploy task class.',
-    aliases: ['deploytasks:generate'],
 )]
 final class DeployTasksGenerateCommand extends Command
 {
