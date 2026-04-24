@@ -84,6 +84,10 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $content = (string) \file_get_contents($files[0]);
         self::assertStringContainsString('#!/usr/bin/env bash', $content);
         self::assertStringContainsString('set -euo pipefail', $content);
+        self::assertStringContainsString("IFS=\$'\\n\\t'", $content);
+        self::assertStringContainsString('Exit 0 = success', $content);
+        self::assertStringContainsString('APP_ENV, DATABASE_URL', $content);
+        self::assertStringContainsString('docs/creating-tasks.md', $content);
 
         self::assertTrue(\is_executable($files[0]), 'Generated host task must have executable bit set.');
     }
