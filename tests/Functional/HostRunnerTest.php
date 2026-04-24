@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
+use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\Process\Process;
 
 /**
@@ -31,9 +32,7 @@ final class HostRunnerTest extends FunctionalTestCase
     {
         parent::tearDown();
 
-        if (\is_dir($this->workspace)) {
-            $this->removeDirectory($this->workspace);
-        }
+        FilesystemTestHelper::cleanup($this->workspace);
     }
 
     public function testExecutesPendingTasksInFilenameOrder(): void
@@ -196,18 +195,5 @@ final class HostRunnerTest extends FunctionalTestCase
         $process->start();
 
         return $process;
-    }
-
-    private function removeDirectory(string $dir): void
-    {
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iterator as $path) {
-            \assert($path instanceof \SplFileInfo);
-            $path->isDir() ? \rmdir($path->getPathname()) : \unlink($path->getPathname());
-        }
-        \rmdir($dir);
     }
 }
