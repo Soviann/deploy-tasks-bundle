@@ -79,7 +79,7 @@ final class DeployTasksGenerateCommand extends Command
 
         /** @var class-string $className */
         $taskId = $this->idGenerator->generate($className);
-        $description = '';
+        $description = 'TODO: describe this task';
 
         /** @var string $dir */
         $dir = $input->getOption('dir');
@@ -140,9 +140,21 @@ final class DeployTasksGenerateCommand extends Command
                 use Soviann\DeployTasksBundle\TaskResult;
                 use Symfony\Component\Console\Output\OutputInterface;
 
+                // Available attribute knobs (uncomment + tweak as needed):
+                // #[AsDeployTask(
+                //     id: '{$taskId}',       // optional; auto-derived from FQCN if omitted. Renaming this class rotates the auto-ID.
+                //     priority: 0,           // higher runs first
+                //     env: 'prod',           // or ['prod', 'staging']; null = all envs
+                //     timeout: 60,           // seconds; null = default_timeout from config
+                //     transactional: true,   // wrap run() in a DB transaction (requires TransactionalStorageInterface)
+                //     groups: 'default',     // or ['a', 'b']; null = default slot
+                // )]
                 #[AsDeployTask(description: '{$description}')]
                 final class {$className} implements DeployTaskInterface
                 {
+                    // Inject services here if needed:
+                    // public function __construct(private readonly SomeService \$service) {}
+
                     public function getDescription(): string
                     {
                         return '{$description}';
@@ -150,7 +162,7 @@ final class DeployTasksGenerateCommand extends Command
 
                     public function run(OutputInterface \$output): TaskResult
                     {
-                        // TODO: implement
+                        // TODO: implement. See docs/creating-tasks.md for the full task-author guide.
 
                         return TaskResult::SUCCESS;
                     }
