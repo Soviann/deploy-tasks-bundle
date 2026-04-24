@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
-use Soviann\DeployTasksBundle\Tests\Functional\LockEnabledTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -20,7 +20,8 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
 
     protected function setUp(): void
     {
-        static::$class = LockEnabledTestKernel::class;
+        static::$class = TestKernel::class;
+        self::$testKernelOptions = ['lockEnabled' => true];
         self::bootKernel();
         $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:run'));
@@ -77,6 +78,6 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
 
     protected static function getKernelClass(): string
     {
-        return LockEnabledTestKernel::class;
+        return TestKernel::class;
     }
 }
