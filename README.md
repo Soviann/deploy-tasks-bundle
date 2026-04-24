@@ -229,8 +229,8 @@ Paths are resolved relative to the runner's current working directory (the repo 
 | `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable) |
 | `deploytasks:skip <id>` | Mark a task as skipped | `--group=<name>` |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>` |
-| `deploytasks:generate:container` | Generate a blank container-scope task class | `--dir` |
-| `deploytasks:generate:host` | Generate a blank host-scope deploy script | `--dir` |
+| `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir` |
+| `deploytasks:generate:host` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable) |
 | `deploytasks:create-schema` | Create the DBAL storage table | `--dump-sql` |
 
