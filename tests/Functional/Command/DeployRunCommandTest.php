@@ -314,6 +314,38 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringContainsString('deploytasks:reset', $help);
     }
 
+    public function testRequireSomeWithUnknownIdExitsUsage(): void
+    {
+        $this->tester->execute(['--require-some' => true, '--id' => 'nonexistent.task']);
+
+        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertStringContainsString('No task matched', $this->tester->getDisplay());
+    }
+
+    public function testWithoutRequireSomeUnknownIdKeepsExistingBehavior(): void
+    {
+        $this->tester->execute(['--id' => 'nonexistent.task']);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+    }
+
+    public function testRequireSomeWithNoMatchingGroupExitsUsage(): void
+    {
+        // --require-some with a group that has no registered tasks → exit 64
+        $this->tester->execute(['--require-some' => true, '--group' => ['nonexistent_group']]);
+
+        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertStringContainsString('No task matched', $this->tester->getDisplay());
+    }
+
+    public function testRequireSomeWithPendingTasksSucceeds(): void
+    {
+        // No prior run: tasks are pending
+        $this->tester->execute(['--require-some' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
