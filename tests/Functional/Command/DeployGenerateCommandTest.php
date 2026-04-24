@@ -25,7 +25,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         self::bootKernel();
         $application = new Application(self::kernel());
-        $this->tester = new CommandTester($application->find('deploytasks:generate'));
+        $this->tester = new CommandTester($application->find('deploytasks:generate:container'));
         $this->outputDir = \dirname(__DIR__, 3).'/var/generate-test-'.\uniqid().'/';
     }
 

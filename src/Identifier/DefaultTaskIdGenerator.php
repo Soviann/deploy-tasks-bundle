@@ -9,7 +9,7 @@ namespace Soviann\DeployTasksBundle\Identifier;
  *
  * Strips a leading `DeployTask` or `Task` prefix and/or a trailing `DeployTask`
  * or `Task` suffix, then converts the remainder to snake_case. When the stripped
- * remainder is purely numeric (timestamp class produced by `deploytasks:generate`),
+ * remainder is purely numeric (timestamp class produced by `deploytasks:generate:container`),
  * prefixes `task_` so the output matches the recommended `task_<timestamp>` naming.
  *
  * Examples:
@@ -45,7 +45,7 @@ final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
             $shortName = $original;
         }
 
-        // Purely numeric remainder (timestamp from `deploytasks:generate`) → `task_<digits>`
+        // Purely numeric remainder (timestamp from `deploytasks:generate:container`) → `task_<digits>`
         if (1 === \preg_match('/^\d+$/', $shortName)) {
             return 'task_'.$shortName;
         }

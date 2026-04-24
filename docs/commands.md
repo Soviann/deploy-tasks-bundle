@@ -1,6 +1,6 @@
 # Console Commands
 
-`deploytasks:generate` is an alias of [`deploytasks:generate:container`](#deploytasksgeneratecontainer); both names work interchangeably. A separate [`deploytasks:generate:host`](#deploytasksgeneratehost) command scaffolds host-scope scripts.
+Two generator commands scaffold deploy tasks: [`deploytasks:generate:container`](#deploytasksgeneratecontainer) for PHP classes running inside the Symfony container, and [`deploytasks:generate:host`](#deploytasksgeneratehost) for bash scripts running on the host outside the container.
 
 ## deploytasks:run
 
@@ -151,12 +151,11 @@ If the task has no execution record, the command reports it is already pending a
 
 ## deploytasks:generate:container
 
-Generate a new container-scope deploy task class with a timestamp-based ID. `deploytasks:generate` is kept as an alias for convenience.
+Generate a new container-scope deploy task class with a timestamp-based ID.
 
 ```bash
 bin/console deploytasks:generate:container
 bin/console deploytasks:generate:container --dir=src/Task/
-bin/console deploytasks:generate                          # alias
 ```
 
 **Options:**

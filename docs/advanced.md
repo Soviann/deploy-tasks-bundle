@@ -106,7 +106,7 @@ deploy_tasks:
     id_generator: App\Deploy\MyIdGenerator
 ```
 
-When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is the third step of task-ID resolution (see [`creating-tasks.md`](creating-tasks.md#task-id-resolution)): it runs only when neither `TaskIdProviderInterface::getTaskId()` nor the attribute `id` produces a non-empty value, and it is also used by `deploytasks:generate` for the initial ID stub.
+When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is the third step of task-ID resolution (see [`creating-tasks.md`](creating-tasks.md#task-id-resolution)): it runs only when neither `TaskIdProviderInterface::getTaskId()` nor the attribute `id` produces a non-empty value, and it is also used by `deploytasks:generate:container` for the initial ID stub.
 
 > **Note:** `generateStatic()` is called at compile time by the compiler pass for duplicate ID detection (see the uniqueness paragraph in [`creating-tasks.md`](creating-tasks.md#task-id-resolution)). If your implementation requires runtime context (e.g. injected services), return `null` to opt out of compile-time detection — duplicates will then be caught at runtime by the `TaskRegistry`.
 
