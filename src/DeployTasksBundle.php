@@ -296,7 +296,11 @@ final class DeployTasksBundle extends AbstractBundle
                 $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->public();
 
                 $services->set('deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
-                    ->args([service('deploy_tasks.storage')])
+                    ->args([
+                        service('deploy_tasks.storage'),
+                        service('deploy_tasks.storage.configuration'),
+                        $storageConfig['database']['connection'],
+                    ])
                     ->tag('console.command')
                 ;
 

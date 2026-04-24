@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\SchemaManageable;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,6 +19,8 @@ final class DeployTasksCreateSchemaCommand extends Command
 {
     public function __construct(
         private readonly SchemaManageable $storage,
+        private readonly DbalStorageConfiguration $configuration,
+        private readonly string $connectionName,
     ) {
         parent::__construct();
     }
@@ -53,7 +56,21 @@ final class DeployTasksCreateSchemaCommand extends Command
 
         $this->storage->createSchema();
 
-        $io->success('Deploy tasks storage table created (or already exists).');
+        $columnNames = [
+            $this->configuration->errorColumn,
+            $this->configuration->executedAtColumn,
+            $this->configuration->groupColumn,
+            $this->configuration->idColumn,
+            $this->configuration->statusColumn,
+        ];
+        \sort($columnNames);
+
+        $io->info(\sprintf(
+            'Storage table "%s" (columns: %s) was created on %s.',
+            $this->configuration->tableName,
+            \implode(', ', $columnNames),
+            $this->connectionName,
+        ));
 
         return Command::SUCCESS;
     }
