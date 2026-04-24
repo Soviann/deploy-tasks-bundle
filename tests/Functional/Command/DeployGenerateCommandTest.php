@@ -178,14 +178,9 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         // The command normalizes the path, so clean up at the resolved location
         $resolvedDir = $projectDir.'/var/nested/generate-test-'.$uniqueId.'/';
-        $files = \glob($resolvedDir.'DeployTask*.php');
-        self::assertNotFalse($files);
+        self::assertDirectoryExists($resolvedDir);
 
-        foreach ($files as $file) {
-            \unlink($file);
-        }
-
-        \rmdir($resolvedDir);
+        FilesystemTestHelper::cleanup($resolvedDir);
         @\rmdir(\dirname($resolvedDir));
     }
 
