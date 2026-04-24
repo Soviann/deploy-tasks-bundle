@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `deploytasks:create-schema` now emits a context-rich `[INFO]` message after creating the table, showing the table name, the sorted column names, and the Doctrine connection name (e.g. `Storage table "deploy_task_executions" (columns: error, executed_at, id, status, task_group) was created on default.`). The previous generic `[OK] Deploy tasks storage table created (or already exists).` block is replaced.
 - **Breaking:** `deploytasks:skip` now prompts for confirmation before marking a task as skipped. The prompt defaults to "no", so a bare Enter aborts. CI callers must pass `--no-interaction` to bypass the prompt (same escape hatch as `deploytasks:reset` / `deploytasks:rollup`).
 - **Breaking:** `deploytasks:reset` confirmation prompt now defaults to "no" instead of "yes". Pressing Enter at the prompt aborts the reset; operators must type `yes` to proceed. The `--no-interaction` escape hatch still bypasses the prompt unchanged.
 - **Breaking:** `deploytasks:run` now exits with 75 (`EX_TEMPFAIL`) on lock contention instead of 1 (`FAILURE`). CI pipelines can distinguish "retry recommended" from a genuine failure.
