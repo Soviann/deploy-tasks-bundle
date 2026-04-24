@@ -133,6 +133,13 @@ final class DeployTasksGenerateHostCommand extends Command
             '',
         ]);
 
+        if (null !== $this->projectDir && !\is_file($this->projectDir.'/bin/deploy-tasks-host.sh')) {
+            $io->warning(\sprintf(
+                'Host runner not found at %s/bin/deploy-tasks-host.sh. Copy vendor/soviann/deploy-tasks-bundle/bin/deploy-tasks-host.sh.dist into bin/ and make it executable (chmod +x) to run host tasks.',
+                $this->projectDir,
+            ));
+        }
+
         return Command::SUCCESS;
     }
 }
