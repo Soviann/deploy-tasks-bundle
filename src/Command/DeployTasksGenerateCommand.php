@@ -163,8 +163,11 @@ final class DeployTasksGenerateCommand extends Command
         $this->fs->dumpFile($filePath, $fileContent);
         $this->fs->chmod($filePath, 0640);
 
+        $resolvedPath = \realpath($filePath);
+        $displayPath = false !== $resolvedPath ? $resolvedPath : $filePath;
+
         $io->text([
-            \sprintf('Generated new deploy task class to "<info>%s</info>"', $filePath),
+            \sprintf('Generated new deploy task class to "<info>%s</info>"', $displayPath),
             '',
             \sprintf('To run just this task for testing purposes, you can use <info>deploytasks:run --force --id=%s</info>', $taskId),
             '',
