@@ -13,6 +13,7 @@ use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
+use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
@@ -60,6 +61,9 @@ final class TaskRunner
      * When `$force` is true, all matching slots are re-executed regardless of state.
      *
      * @param list<string> $groups
+     *
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a registered task
+     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws — the exception escapes after the transaction is rolled back
      */
     public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): RunResult
     {
@@ -119,6 +123,9 @@ final class TaskRunner
      *
      * @throws TaskGroupRequiredException
      * @throws TaskGroupMismatchException
+     * @throws TaskNotFoundException      When no task is registered with the given id
+     * @throws \ReflectionException       When the #[AsDeployTask] attribute lookup fails
+     * @throws \Throwable                 When `all_or_nothing` is enabled and the task throws
      */
     public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
     {
@@ -186,6 +193,8 @@ final class TaskRunner
      *
      * @param list<DeployTaskInterface> $tasks
      * @param list<?string>             $effectiveGroups
+     *
+     * @throws \ReflectionException
      */
     private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups): RunResult
     {
@@ -219,6 +228,9 @@ final class TaskRunner
      *
      * @param list<DeployTaskInterface> $tasks
      * @param list<?string>             $effectiveGroups
+     *
+     * @throws \ReflectionException
+     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
      */
     private function executeAll(array $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
     {
@@ -278,6 +290,9 @@ final class TaskRunner
      * `→ status (ms)` completion line after.
      *
      * Storage writes are performed by the caller (one row per matching slot).
+     *
+     * @throws \ReflectionException
+     * @throws \Throwable           When `all_or_nothing` is enabled and the task throws
      */
     private function executeTask(DeployTaskInterface $task, OutputInterface $output, int $current, int $total): TaskOutcome
     {
@@ -442,6 +457,10 @@ final class TaskRunner
      * @param list<string> $groups
      *
      * @return list<?string>
+     *
+     * @throws TaskGroupRequiredException
+     * @throws TaskGroupMismatchException
+     * @throws \ReflectionException
      */
     private function resolveSlotsForRunOne(string $taskId, DeployTaskInterface $task, array $groups): array
     {

@@ -23,6 +23,9 @@ final class TaskRegistry
     /**
      * @param iterable<DeployTaskInterface> $tasks      Tagged deploy task services
      * @param TaskIdResolver                $idResolver Resolves the canonical ID for each task
+     *
+     * @throws DuplicateTaskIdException When two tasks resolve to the same id
+     * @throws \ReflectionException     When the #[AsDeployTask] attribute lookup fails for a tagged task
      */
     public function __construct(iterable $tasks, TaskIdResolver $idResolver)
     {
@@ -48,6 +51,8 @@ final class TaskRegistry
      * @param list<string> $groups
      *
      * @return array<string, DeployTaskInterface>
+     *
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a registered task
      */
     public function all(?string $environment = null, array $groups = []): array
     {
@@ -103,6 +108,9 @@ final class TaskRegistry
         return isset($this->tasks[$id]);
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     private static function matchesEnvironment(DeployTaskInterface $task, ?string $environment): bool
     {
         if (null === $environment) {
@@ -122,6 +130,8 @@ final class TaskRegistry
 
     /**
      * @param list<string> $requestedGroups
+     *
+     * @throws \ReflectionException
      */
     private static function matchesGroups(DeployTaskInterface $task, array $requestedGroups): bool
     {

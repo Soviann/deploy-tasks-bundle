@@ -21,6 +21,11 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 final class RegisterTasksCompilerPass implements CompilerPassInterface
 {
+    /**
+     * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
+     * @throws \LogicException              When two tagged tasks resolve to the same ID
+     * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails on a tagged class
+     */
     public function process(ContainerBuilder $container): void
     {
         $this->validateTaggedTasks($container);
@@ -35,6 +40,8 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      *
      * Deferred to the compiler pass because custom storage services are not visible
      * during extension loading.
+     *
+     * @throws IncompatibleStorageException
      */
     private function validateAllOrNothingStorage(ContainerBuilder $container): void
     {
@@ -91,6 +98,9 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * When a custom generator is configured, its generateStatic() is called for
      * each task without an explicit attribute ID. Returning null opts that task
      * out of compile-time duplicate detection.
+     *
+     * @throws \LogicException      When two tagged tasks resolve to the same ID
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
     {
@@ -160,6 +170,8 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * Reads the #[AsDeployTask] attribute id from a class, or '' if absent/empty.
      *
      * @param class-string $className
+     *
+     * @throws \ReflectionException
      */
     private function readAttributeId(string $className): string
     {

@@ -19,6 +19,9 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
  */
 final class TaskDescriptionResolver
 {
+    /**
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
+     */
     public function resolve(DeployTaskInterface $task): string
     {
         $fromMethod = $task->getDescription();
