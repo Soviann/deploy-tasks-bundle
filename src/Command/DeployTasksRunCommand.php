@@ -25,13 +25,13 @@ final class DeployTasksRunCommand extends Command
      * Exit code returned when the run lock is already held by another process.
      * Signals "temporary failure — retry recommended" (POSIX EX_TEMPFAIL, sysexits.h 75).
      */
-    public const int EX_TEMPFAIL = 75;
+    public const EX_TEMPFAIL = 75;
 
     /**
      * Exit code returned when --require-some is set but no task matched the provided filters.
      * Signals "command line usage error" (POSIX EX_USAGE, sysexits.h 64).
      */
-    public const int EX_USAGE = 64;
+    public const EX_USAGE = 64;
 
     public function __construct(
         private readonly TaskRegistry $registry,
