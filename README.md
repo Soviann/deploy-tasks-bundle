@@ -137,6 +137,8 @@ deploy_tasks:
             status_column: status
             executed_at_column: executed_at
             error_column: error
+            group_column: task_group
+            group_column_length: 128
             transactional: true      # wrap each task in a DB transaction (default for database)
             all_or_nothing: true     # wrap the entire run in a single transaction
         custom:
@@ -225,14 +227,15 @@ Paths are resolved relative to the runner's current working directory (the repo 
 
 | Command | Description | Options |
 |---|---|---|
-| `deploytasks:run` | Execute pending tasks | `--dry-run`, `--force`, `--id=<id>`, `--group=<name>` (repeatable) |
-| `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable) |
-| `deploytasks:skip <id>` | Mark a task as skipped | `--group=<name>` |
+| `deploytasks:run` | Execute pending tasks | `--dry-run`, `--rerun-all`, `--id=<id>`, `--group=<name>` (repeatable), `--require-some` |
+| `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable), `--filter-status=<comma-list>` |
+| `deploytasks:show <id>` | Show full metadata and every stored execution record for a single task | — |
+| `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>` |
 | `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir` |
 | `deploytasks:generate:host` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable) |
-| `deploytasks:create-schema` | Create the DBAL storage table | `--dump-sql` |
+| `deploytasks:create-schema` | Create the storage table | `--dump-sql` |
 
 ## Task Groups
 

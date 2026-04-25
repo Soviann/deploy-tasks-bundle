@@ -40,7 +40,7 @@ deploy_tasks:
         enabled: true  # default
 ```
 
-If the lock cannot be acquired, the command exits with a warning instead of failing.
+If the lock cannot be acquired, the command exits with code `75` (`EX_TEMPFAIL`, sysexits.h). CI pipelines should treat this as "retry recommended" and re-run the deploy step rather than treating it as a genuine failure (`1`).
 
 Disable locking by setting `lock.enabled: false` or by not installing `symfony/lock`.
 

@@ -24,7 +24,9 @@ The directory is created automatically on the first write. Add it to `.gitignore
 /var/deploy-tasks/
 ```
 
-Each file is named `<task-id>.json` for the default slot, or `<task-id>@<group>.json` for a group slot (e.g. `task_foo@predeploy.json`). Group names with characters outside `[a-zA-Z0-9._-]` are slugified to `_`. The file contains the task ID, status, execution timestamp, group, and any error message.
+Each file is named `<task-id>.json` for the default slot, or `<task-id>@<group>.json` for a group slot (e.g. `task_foo@predeploy.json`). Group names are constrained to `AsDeployTask::GROUP_NAME_PATTERN` (`^[a-zA-Z0-9._-]+$`); names containing slashes, whitespace, or other characters are rejected with `\InvalidArgumentException` at `#[AsDeployTask]` construct time and again at the storage boundary. The file contains the task ID, status, execution timestamp, group, and any error message.
+
+Files are written atomically (`Filesystem::dumpFile()` + `LOCK_EX`) at mode `0600`; the storage directory is created at mode `0700` on first use. Per-file permissions are re-applied on every `save()`, so existing slot files tighten themselves on the next write.
 
 ## Database
 
@@ -42,6 +44,8 @@ deploy_tasks:
             connection: default              # Doctrine DBAL connection name
             table: deploy_task_executions    # Table name
             auto_create_table: true          # Create table on first use
+            group_column: task_group         # Column for the group slot key
+            group_column_length: 128
             transactional: true              # default — wrap each task in a DB transaction
             all_or_nothing: true             # default — wrap the entire run in a single transaction
 ```
