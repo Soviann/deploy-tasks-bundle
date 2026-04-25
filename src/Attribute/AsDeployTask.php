@@ -31,6 +31,8 @@ final class AsDeployTask
      * @param bool|null            $transactional Wrap execution in a database transaction. Null = use global config default.
      * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group). Names must match AsDeployTask::GROUP_NAME_PATTERN.
+     *
+     * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
      */
     public function __construct(
         public readonly string $id = '',
@@ -58,6 +60,8 @@ final class AsDeployTask
      * Reads the attribute from the given task or class, or null if not present.
      *
      * @param class-string|DeployTaskInterface $classOrTask
+     *
+     * @throws \ReflectionException
      */
     public static function of(string|DeployTaskInterface $classOrTask): ?self
     {
@@ -81,6 +85,8 @@ final class AsDeployTask
      * @param class-string|DeployTaskInterface $classOrTask
      *
      * @return list<string>|null
+     *
+     * @throws \ReflectionException
      */
     public static function groupsOf(string|DeployTaskInterface $classOrTask): ?array
     {

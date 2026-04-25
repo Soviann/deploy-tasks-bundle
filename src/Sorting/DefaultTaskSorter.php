@@ -31,6 +31,8 @@ final class DefaultTaskSorter implements TaskSorterInterface
      * @param array<DeployTaskInterface> $tasks
      *
      * @return list<DeployTaskInterface>
+     *
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a task
      */
     public function sort(array $tasks): array
     {
