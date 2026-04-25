@@ -45,7 +45,6 @@ final class DeployTasksRunCommand extends Command
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them.')
             ->addOption('rerun-all', null, InputOption::VALUE_NONE, 'Re-execute all tasks regardless of their current state.')
-            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Deprecated alias for --rerun-all. Use --rerun-all instead.')
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.')
             ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID.')
             ->addOption('require-some', null, InputOption::VALUE_NONE, 'Exit 64 if no task matched the provided filters.')
@@ -95,15 +94,8 @@ final class DeployTasksRunCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $forceLegacy = (bool) $input->getOption('force');
-        $rerunAll = (bool) $input->getOption('rerun-all');
+        $force = (bool) $input->getOption('rerun-all');
         $requireSome = (bool) $input->getOption('require-some');
-
-        if ($forceLegacy && !$rerunAll) {
-            $io->warning('The --force option is deprecated; use --rerun-all.');
-        }
-
-        $force = $rerunAll || $forceLegacy;
 
         /** @var string|null $taskId */
         $taskId = $input->getOption('id');

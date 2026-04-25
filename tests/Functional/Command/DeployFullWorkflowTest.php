@@ -62,8 +62,8 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $resetter->getStatusCode());
         self::assertNull($storage->get('test.predeploy', 'predeploy'));
 
-        // 6. Force-run the predeploy group again
-        $runner->execute(['--group' => ['predeploy'], '--force' => true]);
+        // 6. Re-run the predeploy group again
+        $runner->execute(['--group' => ['predeploy'], '--rerun-all' => true]);
         self::assertSame(Command::SUCCESS, $runner->getStatusCode());
         self::assertStringContainsString('ran', $runner->getDisplay());
         // PHPStan narrowed this call to null from the assertNull at step 5; the runner
