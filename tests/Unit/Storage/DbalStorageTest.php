@@ -274,6 +274,8 @@ final class DbalStorageTest extends TestCase
     public function testTransactionalWrapsExceptionInStorageException(): void
     {
         $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
         $connection->method('transactional')
             ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('connection lost'));
 
@@ -430,6 +432,8 @@ final class DbalStorageTest extends TestCase
     {
         // Kills Increment/DecrementInteger on the `0` code passed to StorageException (line 232).
         $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
         $connection->method('transactional')
             ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('tx failed'));
 
