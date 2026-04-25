@@ -9,12 +9,13 @@ Execute all pending deploy tasks in priority order.
 ```bash
 bin/console deploytasks:run
 bin/console deploytasks:run --dry-run
-bin/console deploytasks:run --force
+bin/console deploytasks:run --rerun-all
 bin/console deploytasks:run --id=task_20260412143000_seed_categories
-bin/console deploytasks:run --force --id=task_20260412143000_seed_categories
+bin/console deploytasks:run --rerun-all --id=task_20260412143000_seed_categories
 bin/console deploytasks:run --group=predeploy
 bin/console deploytasks:run --group=predeploy --group=postdeploy
 bin/console deploytasks:run --id=task_20260412143000_seed_categories --group=predeploy
+bin/console deploytasks:run --require-some --group=predeploy
 ```
 
 **Options:**
@@ -22,20 +23,21 @@ bin/console deploytasks:run --id=task_20260412143000_seed_categories --group=pre
 | Option | Description |
 |---|---|
 | `--dry-run` | List pending tasks without executing them |
-| `--force`, `-f` | Force re-execution of all tasks regardless of their current state |
+| `--rerun-all` | Re-execute all tasks regardless of their current state |
 | `--id=<id>` | Target a single task by its ID |
 | `--group=<name>` | Restrict execution to the given group slot; repeatable for a union (e.g. `--group=a --group=b`). Without this flag, only default-slot tasks run. |
+| `--require-some` | Exit `64` (`EX_USAGE`) when no task matches the provided filters, distinguishing an empty selection from a successful noop. |
 
-**Exit codes:** `0` on success; `1` if at least one task failed or if the run was locked; `2` (`Command::INVALID`) when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values.
+**Exit codes:** `0` on success; `1` if at least one task failed; `2` (`Command::INVALID`) when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values; `64` (`EX_USAGE`) when `--require-some` is set and no task matched the filters; `75` (`EX_TEMPFAIL`) when the run lock is already held — CI pipelines should treat this as "retry recommended" rather than a genuine failure.
 
 **Group semantics:**
 
 - No `--group` → runs only tasks without declared groups (the default slot).
 - `--group=X` → runs only tasks declaring `X`; one storage row per `(task, X)` slot.
 - Multi-group tasks run once per requested slot in the same invocation (e.g. `--group=predeploy --group=postdeploy` executes the task twice, storing two rows).
-- `--force` with `--group` only re-runs the targeted slots; other slots remain untouched.
+- `--rerun-all` with `--group` only re-runs the targeted slots; other slots remain untouched.
 
-When `symfony/lock` is installed and lock is enabled, a lock is acquired before execution begins. If the lock cannot be acquired, the command exits with a warning and code `1`.
+When `symfony/lock` is installed and lock is enabled, a lock is acquired before execution begins. If the lock cannot be acquired, the command exits with code `75` (`EX_TEMPFAIL`).
 
 ---
 

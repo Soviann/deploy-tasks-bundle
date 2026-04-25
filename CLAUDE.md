@@ -22,7 +22,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Attribute/`**
 - `AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
 
-**`Command/`** — 8 console commands (`Deploy*Command.php`).
+**`Command/`** — 9 console commands (`Deploy*Command.php`) plus `CommandMessages.php` (shared user-facing strings).
 
 **`DependencyInjection/Compiler/`**
 - `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection (skipped when the generator's static method returns null), and wires optional `event_dispatcher` and `lock.factory` into the runner.
@@ -34,11 +34,16 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 
 ### Domain-based folders
 
-**`Identifier/`** — task ID handling
+**`Identifier/`** — task ID + description handling
 - `TaskIdGeneratorInterface` — service: `generate(class-string): string` plus static `generateStatic()` for compile time
 - `TaskIdProviderInterface` — opt-in on tasks to supply a dynamic ID via `getTaskId(): string`
 - `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` prefix/suffix); prefixes a purely-numeric remainder with `task_` to match the recommended naming convention.
 - `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
+- `TaskDescriptionResolver` — `@internal`. Resolution order: non-empty `getDescription()` > `AsDeployTask::$description` > empty string. Used by `deploytasks:status` and `deploytasks:show`.
+
+**`Helper/`** — stateless utility classes (instantiated, never injected)
+- `PathNormalizer` — path canonicalisation helper
+- `ProcessRunnerTrait` — public trait for tasks that shell out via `symfony/process` (soft dep). Wraps a caller-built `Process` with stdout/stderr streaming + timeout enforcement + `TaskResult` mapping.
 
 **`Sorting/`** — execution order
 - `TaskSorterInterface` — sorts tasks into execution order via `sort(array): list<DeployTaskInterface>`
@@ -53,11 +58,12 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Storage/`** — persistence
 - `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `findByTaskId()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`; `findByTaskId()` returns every slot for one id as `iterable<TaskExecution>`.
 - `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
+- `SchemaManageable` — capability interface (`getCreateTableSql()`, `createSchema()`) opt-in for backends needing DDL provisioning. `deploytasks:create-schema` depends on it.
 - `TaskExecution` — readonly value object: id, status, executedAt, error, group
 - `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
-- `Dbal\DbalStorage` — implements `TransactionalStorageInterface`. Instance `getCreateTableSql()`, `createSchema()`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
-- `Dbal\DbalStorageConfiguration` — table/column names DTO
-- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot with `LOCK_EX`. Default slot → `<id>.json`; grouped slot → `<id>@<slug>.json`. Warns if path traverses `/public/`.
+- `Dbal\DbalStorage` — implements `TransactionalStorageInterface` + `SchemaManageable`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
+- `Dbal\DbalStorageConfiguration` — table/column names DTO (id, status, executed_at, error, task_group columns + lengths)
+- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot. Atomic writes via `Filesystem::dumpFile()` + `LOCK_EX`. Directory mode `0700`, files `0600`. Default slot → `<id>.json`; grouped slot → `<id>@<group>.json` (verbatim, no transformation — group names constrained to `AsDeployTask::GROUP_NAME_PATTERN`). Throws `\InvalidArgumentException` if path contains a `public` directory segment.
 - `InMemory\InMemoryStorage` — array-backed storage for tests
 
 ## Configuration
@@ -68,6 +74,7 @@ Root key `deploy_tasks:`.
 deploy_tasks:
     id_generator: ~                         # service ID or null (default: DefaultTaskIdGenerator)
     sorter: ~                               # service ID or null (default: DefaultTaskSorter)
+    logger: ~                               # PSR-3 service ID; null = autodetect app logger, NullLogger fallback
     default_timeout: 300                    # seconds (>= 0); 0 disables the check
     storage:
         type: filesystem                    # filesystem | database | custom
@@ -84,6 +91,8 @@ deploy_tasks:
             status_column: status
             executed_at_column: executed_at
             error_column: error
+            group_column: task_group        # column for the group slot key
+            group_column_length: 128        # >= 1
             transactional: true             # per-task transaction wrapper
             all_or_nothing: true            # single transaction around the whole run
         custom:
@@ -98,6 +107,8 @@ deploy_tasks:
         directory: src/DeployTasks/Task/    # default output directory for `deploytasks:generate:container`
         template: ~                         # path to a custom PHP template
 ```
+
+**Scalar shorthand:** `storage: database` expands to `storage: { type: database }`; `events: false` and `lock: false` expand to `{ enabled: false }`. The long form keeps working unchanged.
 
 Validation: `type: database` requires `doctrine/dbal` at compile time. `type: custom` requires `storage.custom.service`. Per-task `#[AsDeployTask(transactional: false)]` overrides the storage-level `transactional` flag.
 
@@ -120,14 +131,15 @@ Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tas
 
 | Command | Purpose |
 |---|---|
-| `deploytasks:run [--dry-run] [--force] [--id=<taskId>]` | Execute pending tasks. `--force` re-runs all already-executed tasks; `--id` targets one. |
-| `deploytasks:status [--no-state]` | Table of registered tasks with their execution state. |
-| `deploytasks:skip <id>` | Record a task as `Skipped` without running it. |
-| `deploytasks:reset <id>` | Remove a task's execution record. Interactive unless `--no-interaction`. |
-| `deploytasks:rollup` | Clear execution history and mark all registered tasks as `Ran`. |
-| `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). |
-| `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). |
-| `deploytasks:create-schema` | Emit/execute the SQL to create the DBAL storage table. Registered only when `storage.type: database`. |
+| `deploytasks:run [--dry-run] [--rerun-all] [--id=<taskId>] [--group=<name>]* [--require-some]` | Execute pending tasks. `--rerun-all` re-runs all already-executed tasks; `--id` targets one; `--group` is repeatable; `--require-some` exits 64 (`EX_USAGE`) when no task matches the filters. Lock contention exits 75 (`EX_TEMPFAIL`). |
+| `deploytasks:status [--no-state] [--group=<name>]* [--filter-status=<list>]` | Table of registered tasks with their execution state. `--filter-status` accepts a case-insensitive comma list of `RAN`, `FAILED`, `SKIPPED`, `PENDING`; combining with `--no-state` exits `Command::INVALID`. |
+| `deploytasks:show <id>` | Show full metadata + every stored execution slot for one task (id, FQCN, description, declared groups, untruncated error text). Exits 1 when the ID is not registered. |
+| `deploytasks:skip <id> [--group=<name>]` | Record a task as `Skipped` without running it. Interactive confirm unless `--no-interaction`. |
+| `deploytasks:reset <id> [--group=<name>]` | Remove a task's execution record. Interactive unless `--no-interaction` (prompt defaults to "no"). |
+| `deploytasks:rollup [--group=<name>]*` | Clear execution history and mark all registered tasks as `Ran`. |
+| `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
+| `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
+| `deploytasks:create-schema [--dump-sql]` | Emit/execute the SQL to create the storage table. Registered only when the active storage backend implements `SchemaManageable`. |
 
 ## Development Commands
 
