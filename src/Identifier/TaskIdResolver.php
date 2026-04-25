@@ -27,6 +27,9 @@ final class TaskIdResolver
     ) {
     }
 
+    /**
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
+     */
     public function resolve(DeployTaskInterface $task): string
     {
         $attributeId = $this->readAttributeId($task);
@@ -64,6 +67,8 @@ final class TaskIdResolver
      * TaskIdProviderInterface since that requires an instantiated task.
      *
      * @param class-string $className
+     *
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
      */
     public function resolveFromClass(string $className): string
     {
@@ -80,6 +85,8 @@ final class TaskIdResolver
      * Reads the #[AsDeployTask] attribute id from a class or task instance, or '' if absent/empty.
      *
      * @param class-string|DeployTaskInterface $classOrTask
+     *
+     * @throws \ReflectionException
      */
     private function readAttributeId(string|DeployTaskInterface $classOrTask): string
     {

@@ -32,6 +32,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
     private bool $initialized = false;
 
+    /**
+     * @throws DbalException When the platform cannot be determined from the connection
+     */
     public function __construct(
         private readonly Connection $connection,
         private readonly DbalStorageConfiguration $configuration = new DbalStorageConfiguration(),
@@ -66,6 +69,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         );
     }
 
+    /**
+     * @throws StorageException
+     */
     public function has(string $taskId, ?string $group = null): bool
     {
         $this->ensureInitialized();
@@ -88,6 +94,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
     }
 
+    /**
+     * @throws StorageException
+     */
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
         $this->ensureInitialized();
@@ -113,6 +122,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         return $this->hydrate($row);
     }
 
+    /**
+     * @throws StorageException
+     */
     public function save(TaskExecution $execution): void
     {
         $this->ensureInitialized();
@@ -155,6 +167,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
     }
 
+    /**
+     * @throws StorageException
+     */
     public function remove(string $taskId, ?string $group = null): void
     {
         $this->ensureInitialized();
@@ -174,6 +189,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
     }
 
+    /**
+     * @throws StorageException
+     */
     public function removeAll(string $taskId): void
     {
         $this->ensureInitialized();
@@ -194,6 +212,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
     /**
      * @return list<TaskExecution>
+     *
+     * @throws StorageException
      */
     public function findByTaskId(string $taskId): iterable
     {
@@ -224,6 +244,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
     /**
      * @return list<TaskExecution>
+     *
+     * @throws StorageException
      */
     public function all(): array
     {
@@ -250,6 +272,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         return $executions;
     }
 
+    /**
+     * @throws StorageException
+     */
     public function reset(): void
     {
         $this->ensureInitialized();
@@ -263,6 +288,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
     }
 
+    /**
+     * @throws StorageException
+     */
     public function transactional(\Closure $callback): mixed
     {
         try {
@@ -274,12 +302,17 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
     /**
      * Creates the storage table if it does not exist.
+     *
+     * @throws DbalException
      */
     public function createSchema(): void
     {
         $this->connection->executeStatement($this->getCreateTableSql());
     }
 
+    /**
+     * @throws DbalException
+     */
     private function ensureInitialized(): void
     {
         if ($this->initialized) {
@@ -295,6 +328,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
     /**
      * @param array<string, mixed> $row
+     *
+     * @throws StorageException
      */
     private function hydrate(array $row): TaskExecution
     {

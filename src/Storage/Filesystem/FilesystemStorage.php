@@ -29,6 +29,8 @@ final class FilesystemStorage implements TaskStorageInterface
 
     /**
      * @param string $storagePath Directory where task JSON files are stored
+     *
+     * @throws \InvalidArgumentException When the storage path is under a "public" directory
      */
     public function __construct(
         private readonly string $storagePath,
@@ -40,11 +42,19 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException When the task id or group fails validation
+     */
     public function has(string $taskId, ?string $group = null): bool
     {
         return $this->fs->exists($this->filePath($taskId, $group));
     }
 
+    /**
+     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws \JsonException            When the stored JSON file cannot be decoded
+     * @throws StorageException          When the file cannot be read or contains an invalid record
+     */
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
         $path = $this->filePath($taskId, $group);
@@ -62,6 +72,11 @@ final class FilesystemStorage implements TaskStorageInterface
         return $this->decode($contents);
     }
 
+    /**
+     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws \JsonException            When the execution payload cannot be encoded
+     * @throws StorageException          When the storage directory or file cannot be written
+     */
     public function save(TaskExecution $execution): void
     {
         $this->ensureDirectoryExists();
@@ -82,6 +97,10 @@ final class FilesystemStorage implements TaskStorageInterface
         \chmod($path, 0600);
     }
 
+    /**
+     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws StorageException          When the storage file cannot be removed
+     */
     public function remove(string $taskId, ?string $group = null): void
     {
         $path = $this->filePath($taskId, $group);
@@ -97,6 +116,10 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException When the task id fails validation
+     * @throws StorageException          When the storage path cannot be globbed or files cannot be removed
+     */
     public function removeAll(string $taskId): void
     {
         $this->validateTaskId($taskId);
@@ -125,6 +148,10 @@ final class FilesystemStorage implements TaskStorageInterface
 
     /**
      * @return list<TaskExecution>
+     *
+     * @throws \InvalidArgumentException When the task id fails validation
+     * @throws \JsonException            When a stored JSON file cannot be decoded
+     * @throws StorageException          When the storage path cannot be globbed or a file cannot be read
      */
     public function findByTaskId(string $taskId): iterable
     {
@@ -160,6 +187,9 @@ final class FilesystemStorage implements TaskStorageInterface
 
     /**
      * @return list<TaskExecution>
+     *
+     * @throws \JsonException   When a stored JSON file cannot be decoded
+     * @throws StorageException When the storage path cannot be globbed or a file cannot be read
      */
     public function all(): array
     {
@@ -185,6 +215,9 @@ final class FilesystemStorage implements TaskStorageInterface
         return $executions;
     }
 
+    /**
+     * @throws StorageException When a storage file cannot be removed
+     */
     public function reset(): void
     {
         $pattern = $this->storagePath.'/*.json';
@@ -203,6 +236,9 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function filePath(string $taskId, ?string $group): string
     {
         $this->validateTaskId($taskId);
@@ -216,6 +252,9 @@ final class FilesystemStorage implements TaskStorageInterface
         return $this->storagePath.'/'.$taskId.'@'.$group.'.json';
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function validateTaskId(string $taskId): void
     {
         if (1 !== \preg_match('/^[a-zA-Z0-9._-]+$/', $taskId)) {
@@ -223,6 +262,9 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function validateGroup(string $group): void
     {
         if (1 !== \preg_match(AsDeployTask::GROUP_NAME_PATTERN, $group)) {
@@ -230,6 +272,9 @@ final class FilesystemStorage implements TaskStorageInterface
         }
     }
 
+    /**
+     * @throws StorageException
+     */
     private function ensureDirectoryExists(): void
     {
         try {
@@ -253,6 +298,10 @@ final class FilesystemStorage implements TaskStorageInterface
         ];
     }
 
+    /**
+     * @throws \JsonException
+     * @throws StorageException
+     */
     private function decode(string $json): TaskExecution
     {
         /** @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data */
