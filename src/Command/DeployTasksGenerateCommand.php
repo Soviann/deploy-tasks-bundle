@@ -180,7 +180,7 @@ final class DeployTasksGenerateCommand extends Command
         $io->text([
             \sprintf('Generated new deploy task class to "<info>%s</info>"', $displayPath),
             '',
-            \sprintf('To run just this task for testing purposes, you can use <info>deploytasks:run --force --id=%s</info>', $taskId),
+            \sprintf('To run just this task for testing purposes, you can use <info>deploytasks:run --rerun-all --id=%s</info>', $taskId),
             '',
             'To see all registered tasks, use <info>deploytasks:status</info>.',
             '',
