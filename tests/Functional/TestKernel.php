@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeDescriptionOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiEnvTask;
@@ -77,6 +78,12 @@ final class TestKernel extends AbstractTestKernel
         ]);
 
         $services = $container->services();
+
+        // Silence Symfony's default Logger: failure-path tests (FailingTask in
+        // extraTasks) otherwise emit "[error] Deploy task failed" to stderr.
+        // Infection's InitialTestsRunner SIGTERMs PHPUnit on the first stderr
+        // byte, which kills the mutation job before coverage XML is written.
+        $services->set('logger', NullLogger::class)->public();
 
         $services->set('test.task.simple', SimpleTask::class)
             ->args(['test.simple', 'A simple test task'])
