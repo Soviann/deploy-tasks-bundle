@@ -44,7 +44,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
         self::assertStringContainsString('Generated new deploy task class', $display);
-        self::assertStringContainsString('deploytasks:run --force --id=', $display);
+        self::assertStringContainsString('deploytasks:run --rerun-all --id=', $display);
 
         $files = \glob($this->outputDir.'DeployTask*.php');
         self::assertNotFalse($files);
