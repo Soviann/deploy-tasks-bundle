@@ -41,7 +41,11 @@ final class AsDeployTask
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
     ) {
-        $groupList = null === $groups ? [] : (\is_array($groups) ? \array_values($groups) : [$groups]);
+        $groupList = match (true) {
+            null === $groups => [],
+            \is_array($groups) => \array_values($groups),
+            default => [$groups],
+        };
 
         foreach ($groupList as $group) {
             if (1 !== \preg_match(self::GROUP_NAME_PATTERN, $group)) {
