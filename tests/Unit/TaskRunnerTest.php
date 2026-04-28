@@ -26,6 +26,7 @@ use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ArrayLogger;
 use Soviann\DeployTasksBundle\Tests\Fixtures\DbalFailingTask;
@@ -1067,6 +1068,127 @@ final class TaskRunnerTest extends TestCase
         // If durationSeconds didn't exist, PHPStan level 9 would already catch it —
         // confirm the task ran successfully (outcome was built with the field).
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
+    }
+
+    public function testExecuteTaskRollsBackOnSaveFailure(): void
+    {
+        // Goal: when storage is transactional, task->run() and storage->save() must execute
+        // inside a single transactional() closure. If save() throws, the transaction
+        // catches the exception (triggering rollback) and re-raises it, so callers see
+        // the failure and the storage stays clean.
+        //
+        // The distinguishing observable: $rollbackTriggered is set to true only when the
+        // exception from save() is caught by transactional() — which only happens if save()
+        // was called INSIDE the closure.  With the pre-fix code, save() was called by the
+        // caller after transactional() returned, so transactional() never saw the exception
+        // and $rollbackTriggered stayed false.
+
+        $storage = new class implements TransactionalStorageInterface {
+            /** @var array<string, TaskExecution> */
+            private array $executions = [];
+            private int $saveCallCount = 0;
+
+            public bool $rollbackTriggered = false;
+
+            public function has(string $taskId, ?string $group = null): bool
+            {
+                return isset($this->executions[$taskId."\0".($group ?? '')]);
+            }
+
+            public function get(string $taskId, ?string $group = null): ?TaskExecution
+            {
+                return $this->executions[$taskId."\0".($group ?? '')] ?? null;
+            }
+
+            public function save(TaskExecution $execution): void
+            {
+                ++$this->saveCallCount;
+                // Throw on the first save call to simulate a storage failure.
+                if (1 === $this->saveCallCount) {
+                    throw new StorageException('Storage failure on save');
+                }
+                $this->executions[$execution->id."\0".($execution->group ?? '')] = $execution;
+            }
+
+            public function remove(string $taskId, ?string $group = null): void
+            {
+                unset($this->executions[$taskId."\0".($group ?? '')]);
+            }
+
+            public function removeAll(string $taskId): void
+            {
+            }
+
+            /** @return list<TaskExecution> */
+            public function findByTaskId(string $taskId): iterable
+            {
+                return [];
+            }
+
+            /** @return list<TaskExecution> */
+            public function all(): array
+            {
+                return \array_values($this->executions);
+            }
+
+            public function reset(): void
+            {
+                $this->executions = [];
+            }
+
+            public function transactional(\Closure $callback): mixed
+            {
+                try {
+                    return $callback();
+                } catch (\Throwable $e) {
+                    // Signal that the transaction had to roll back.
+                    $this->rollbackTriggered = true;
+                    throw $e;
+                }
+            }
+        };
+
+        $task = new class implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public bool $ran = false;
+
+            public function getTaskId(): string
+            {
+                return 'test.transactional.save-fails';
+            }
+
+            public function getDescription(): string
+            {
+                return 'Task with side-effect';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->ran = true;
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $idResolver = new TaskIdResolver();
+        $runner = new TaskRunner(
+            new TaskRegistry([$task], $idResolver),
+            $storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+        );
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected StorageException to propagate');
+        } catch (StorageException) {
+            // expected
+        }
+
+        self::assertTrue($task->ran, 'Task must have run before save() threw');
+        // The critical assertion: transactional() must have caught the save() exception
+        // (rollback triggered), proving save() was called INSIDE the closure.
+        self::assertTrue($storage->rollbackTriggered, 'transactional() must have caught the save() failure — save() must be called inside the closure, not after it returns');
     }
 
     /**
