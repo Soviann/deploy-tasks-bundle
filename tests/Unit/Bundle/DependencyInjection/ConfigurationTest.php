@@ -431,6 +431,24 @@ final class ConfigurationTest extends TestCase
     }
 
     /**
+     * Malformed identifiers raise InvalidConfigurationException at compile time.
+     */
+    public function testRejectsMalformedSqlIdentifier(): void
+    {
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => [
+                'type' => 'database',
+                'database' => [
+                    'id_column' => 'id"--',
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * @param array<string, mixed> $input
      *
      * @return array<string, mixed>
