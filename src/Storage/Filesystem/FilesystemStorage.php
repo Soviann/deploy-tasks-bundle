@@ -84,17 +84,33 @@ final class FilesystemStorage implements TaskStorageInterface
         $path = $this->filePath($execution->id, $execution->group);
         $json = \json_encode($this->toArray($execution), \JSON_THROW_ON_ERROR);
 
-        // Native file_put_contents with LOCK_EX retained deliberately: advisory lock preserves
-        // writer-vs-writer serialisation when callers don't install the optional symfony/lock
-        // suggestion. Filesystem::dumpFile() is atomic but drops that guarantee.
-        if (false === \file_put_contents($path, $json, \LOCK_EX)) {
-            throw new StorageException(\sprintf('Failed to write storage file "%s".', $path));
+        // Sidecar lockfile serialises concurrent writers; Filesystem::dumpFile() provides
+        // atomic visibility to readers via a temp-file + rename on POSIX.
+        // Do NOT additionally LOCK_EX the destination — that defeats the rename atomicity.
+        $lockPath = $path.'.lock';
+        $lockHandle = @\fopen($lockPath, 'c');
+
+        if (false === $lockHandle) {
+            throw StorageException::lockUnavailable($lockPath);
         }
 
-        // Deploy-task payloads can carry error messages, DSN fragments, or other sensitive
-        // context; restrict reads to the owning user so unrelated accounts on the host
-        // can't inspect them.
-        \chmod($path, 0600);
+        try {
+            if (!\flock($lockHandle, \LOCK_EX)) {
+                throw StorageException::lockUnavailable($lockPath);
+            }
+
+            (new Filesystem())->dumpFile($path, $json);
+
+            // Deploy-task payloads can carry error messages, DSN fragments, or other sensitive
+            // context; restrict reads to the owning user so unrelated accounts on the host
+            // can't inspect them.
+            if (!@\chmod($path, 0600)) {
+                throw StorageException::chmodFailed($path);
+            }
+        } finally {
+            \flock($lockHandle, \LOCK_UN);
+            \fclose($lockHandle);
+        }
     }
 
     /**
