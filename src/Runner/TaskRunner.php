@@ -24,6 +24,7 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -48,6 +49,7 @@ final class TaskRunner
         private readonly bool $transactional = true,
         private readonly bool $allOrNothing = false,
         ?LoggerInterface $logger = null,
+        private readonly int $lockTtl = 3600,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
@@ -67,7 +69,7 @@ final class TaskRunner
      */
     public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): RunResult
     {
-        $result = $this->withLock($output, function () use ($output, $dryRun, $force, $groups): RunResult {
+        $result = $this->withLock($output, function (?LockInterface $lock) use ($output, $dryRun, $force, $groups): RunResult {
             $this->logger->info('Deploy tasks run starting', [
                 'environment' => $this->environment,
                 'dry_run' => $dryRun,
@@ -86,7 +88,7 @@ final class TaskRunner
 
             if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
                 try {
-                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups));
+                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock));
                 } catch (\Throwable $e) {
                     $this->logger->error('Deploy tasks run failed — transaction rolled back.', $this->buildExceptionLogContext($e));
 
@@ -94,7 +96,7 @@ final class TaskRunner
                 }
             }
 
-            return $this->executeAll($sorted, $output, $force, $effectiveGroups);
+            return $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock);
         });
 
         $final = $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
@@ -129,7 +131,7 @@ final class TaskRunner
      */
     public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
     {
-        $result = $this->withLock($output, function () use ($taskId, $output, $force, $groups): TaskResult {
+        $result = $this->withLock($output, function (?LockInterface $lock) use ($taskId, $output, $force, $groups): TaskResult {
             $task = $this->registry->get($taskId);
             $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
             $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
@@ -157,7 +159,7 @@ final class TaskRunner
      *
      * @template T
      *
-     * @param \Closure(): T $operation
+     * @param \Closure(?LockInterface): T $operation
      *
      * @return T|null
      */
@@ -170,7 +172,7 @@ final class TaskRunner
             $this->logger->warning('Deploy tasks runner has no lock factory — concurrent execution is not protected');
         }
 
-        $lock = $this->lockFactory?->createLock('deploy_tasks_run', 3600);
+        $lock = $this->lockFactory?->createLock('deploy_tasks_run', $this->lockTtl);
 
         if (null !== $lock && !$lock->acquire()) {
             $output->writeln('<error>Another deploytasks:run process is already running.</error>');
@@ -180,7 +182,7 @@ final class TaskRunner
         }
 
         try {
-            return $operation();
+            return $operation($lock);
         } finally {
             $lock?->release();
         }
@@ -224,13 +226,17 @@ final class TaskRunner
     /**
      * Executes all ordered tasks, recording one storage row per matching slot.
      *
+     * Refreshes the lock after each task (including the last — harmless but avoids a
+     * special-case branch) so a deploy longer than the configured TTL does not let the
+     * lease expire and allow a second runner to acquire it mid-deploy.
+     *
      * @param list<DeployTaskInterface> $tasks
      * @param list<?string>             $effectiveGroups
      *
      * @throws \ReflectionException
      * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
      */
-    private function executeAll(array $tasks, OutputInterface $output, bool $force, array $effectiveGroups): RunResult
+    private function executeAll(array $tasks, OutputInterface $output, bool $force, array $effectiveGroups, ?LockInterface $lock = null): RunResult
     {
         $ran = 0;
         $skipped = 0;
@@ -265,6 +271,8 @@ final class TaskRunner
         foreach ($executable as $item) {
             ++$current;
             $outcome = $this->executeTask($item['task'], $output, $current, $total, $item['taskId'], $item['pendingSlots']);
+
+            $lock?->refresh();
 
             $count = \count($item['pendingSlots']);
 

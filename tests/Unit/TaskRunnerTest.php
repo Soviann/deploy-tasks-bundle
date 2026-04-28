@@ -1191,6 +1191,40 @@ final class TaskRunnerTest extends TestCase
         self::assertTrue($storage->rollbackTriggered, 'transactional() must have caught the save() failure — save() must be called inside the closure, not after it returns');
     }
 
+    public function testRefreshesLockBetweenTasks(): void
+    {
+        $refreshCount = 0;
+
+        $lock = $this->createMock(SharedLockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        $lock->method('refresh')->willReturnCallback(static function () use (&$refreshCount): void {
+            ++$refreshCount;
+        });
+
+        $lockFactory = $this->createMock(LockFactory::class);
+        $lockFactory->method('createLock')->willReturn($lock);
+
+        $idResolver = new TaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([
+                new SimpleTask('task.1', 'First'),
+                new SimpleTask('task.2', 'Second'),
+                new SimpleTask('task.3', 'Third'),
+            ], $idResolver),
+            $this->storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+            null,
+            $lockFactory,
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertGreaterThanOrEqual(2, $refreshCount, 'refresh() must be called between each task (at least 2 times for 3 tasks)');
+    }
+
     /**
      * @param array<\Soviann\DeployTasksBundle\DeployTaskInterface> $tasks
      */

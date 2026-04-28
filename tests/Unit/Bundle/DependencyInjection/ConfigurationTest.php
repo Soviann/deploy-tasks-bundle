@@ -80,7 +80,7 @@ final class ConfigurationTest extends TestCase
                     ],
                 ],
                 'events' => ['enabled' => true],
-                'lock' => ['enabled' => true],
+                'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
@@ -123,7 +123,7 @@ final class ConfigurationTest extends TestCase
                 'logger' => null,
                 'default_timeout' => 300,
                 'events' => ['enabled' => true],
-                'lock' => ['enabled' => true],
+                'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
@@ -171,7 +171,7 @@ final class ConfigurationTest extends TestCase
                 'logger' => null,
                 'default_timeout' => 300,
                 'events' => ['enabled' => true],
-                'lock' => ['enabled' => true],
+                'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
@@ -205,7 +205,7 @@ final class ConfigurationTest extends TestCase
                     'custom' => ['service' => 'c', 'transactional' => true, 'all_or_nothing' => true],
                 ],
                 'events' => ['enabled' => false],
-                'lock' => ['enabled' => false],
+                'lock' => ['enabled' => false, 'ttl' => 1800],
                 'generate' => ['directory' => 'src/T/', 'template' => '/tpl.php'],
             ],
             'expected' => [
@@ -241,7 +241,7 @@ final class ConfigurationTest extends TestCase
                     ],
                 ],
                 'events' => ['enabled' => false],
-                'lock' => ['enabled' => false],
+                'lock' => ['enabled' => false, 'ttl' => 1800],
                 'generate' => [
                     'directory' => 'src/T/',
                     'template' => '/tpl.php',
@@ -284,7 +284,7 @@ final class ConfigurationTest extends TestCase
                 'logger' => null,
                 'default_timeout' => 300,
                 'events' => ['enabled' => true],
-                'lock' => ['enabled' => true],
+                'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
@@ -327,7 +327,7 @@ final class ConfigurationTest extends TestCase
                         'all_or_nothing' => false,
                     ],
                 ],
-                'lock' => ['enabled' => true],
+                'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
@@ -338,7 +338,7 @@ final class ConfigurationTest extends TestCase
         yield 'lock scalar false shorthand disables locking' => [
             'input' => ['lock' => false],
             'expected' => [
-                'lock' => ['enabled' => false],
+                'lock' => ['enabled' => false, 'ttl' => 3600],
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
@@ -421,13 +421,38 @@ final class ConfigurationTest extends TestCase
                 'logger' => null,
                 'default_timeout' => 300,
                 'events' => ['enabled' => true],
-                'lock' => ['enabled' => true],
+                'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                 ],
             ],
         ];
+    }
+
+    public function testLockTtlDefaultIs3600(): void
+    {
+        $config = self::processConfig([]);
+        /** @var array{ttl: int} $lockConfig */
+        $lockConfig = $config['lock'];
+
+        self::assertSame(3600, $lockConfig['ttl']);
+    }
+
+    public function testLockTtlCustomValueRoundTrips(): void
+    {
+        $config = self::processConfig(['lock' => ['ttl' => 1800]]);
+        /** @var array{ttl: int} $lockConfig */
+        $lockConfig = $config['lock'];
+
+        self::assertSame(1800, $lockConfig['ttl']);
+    }
+
+    public function testLockTtlRejectsValueBelow60(): void
+    {
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['lock' => ['ttl' => 59]]);
     }
 
     /**
