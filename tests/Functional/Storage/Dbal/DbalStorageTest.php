@@ -214,4 +214,121 @@ final class DbalStorageTest extends TestCase
         \sort($groups);
         self::assertSame(['groupA', 'groupB'], $groups);
     }
+
+    // -------------------------------------------------------------------------
+    // 4.1 — Native datetime round-trip per platform
+    // -------------------------------------------------------------------------
+
+    /**
+     * Verifies that executed_at is persisted as a platform-native datetime type and
+     * read back as a \DateTimeImmutable (not a string). All platforms use second-level
+     * precision: DBAL's DATETIME_IMMUTABLE type serialises to Y-m-d H:i:s on SQLite and
+     * MySQL (no fractional seconds). PostgreSQL TIMESTAMP also uses DBAL's second-precision
+     * codec unless a fractional-seconds column is declared explicitly.
+     *
+     * The key assertion is that the value round-trips as a \DateTimeImmutable object with
+     * the correct seconds-level timestamp, not as a raw string.
+     *
+     * @param \Closure(): \Doctrine\DBAL\Connection $makeConnection
+     * @param class-string                          $expectedPlatform
+     */
+    #[DataProvider('executedAtPlatformProvider')]
+    public function testExecutedAtRoundTrip(
+        \Closure $makeConnection,
+        string $expectedPlatform,
+    ): void {
+        $connection = $makeConnection();
+
+        self::assertInstanceOf($expectedPlatform, $connection->getDatabasePlatform(), \sprintf(
+            'Expected platform %s — check your DSN env variable.',
+            $expectedPlatform,
+        ));
+
+        $storage = new DbalStorage($connection);
+        $connection->executeStatement($storage->getCreateTableSql());
+
+        // Use a whole-second UTC timestamp — DBAL DATETIME_IMMUTABLE is second-precision.
+        $original = new \DateTimeImmutable('2026-04-28T12:34:56+00:00');
+        $execution = new TaskExecution('task.dt.roundtrip', TaskStatus::Ran, $original);
+        $storage->save($execution);
+
+        $fetched = $storage->get('task.dt.roundtrip');
+
+        self::assertNotNull($fetched);
+        self::assertSame(
+            $original->format('Y-m-d H:i:s'),
+            $fetched->executedAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+            'Seconds-level timestamp must survive the round trip.',
+        );
+    }
+
+    /**
+     * @return iterable<string, array{0: \Closure(): \Doctrine\DBAL\Connection, 1: class-string}>
+     */
+    public static function executedAtPlatformProvider(): iterable
+    {
+        yield 'SQLite (second precision)' => [
+            static fn (): \Doctrine\DBAL\Connection => DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]),
+            SQLitePlatform::class,
+        ];
+
+        if ('' !== ($_ENV['MYSQL_DSN'] ?? '')) {
+            yield 'MySQL (second precision)' => [
+                static fn (): \Doctrine\DBAL\Connection => DriverManager::getConnection(['url' => $_ENV['MYSQL_DSN']]),
+                MySQLPlatform::class,
+            ];
+        }
+
+        if ('' !== ($_ENV['MARIADB_DSN'] ?? '')) {
+            yield 'MariaDB (second precision)' => [
+                static fn (): \Doctrine\DBAL\Connection => DriverManager::getConnection(['url' => $_ENV['MARIADB_DSN']]),
+                MariaDBPlatform::class,
+            ];
+        }
+
+        if ('' !== ($_ENV['PGSQL_DSN'] ?? '')) {
+            yield 'PostgreSQL (second precision)' => [
+                static fn (): \Doctrine\DBAL\Connection => DriverManager::getConnection(['url' => $_ENV['PGSQL_DSN']]),
+                PostgreSQLPlatform::class,
+            ];
+        }
+    }
+
+    /**
+     * Cross-timezone ORDER BY executed_at test.
+     *
+     * Inserts three executions saved from different timezone offsets; verifies that
+     * the chronological order returned by all() matches the logical insertion order
+     * regardless of the stored timezone representation.
+     *
+     * This test would fail under the old ATOM-string save because SQLite string
+     * comparison treats "+02:00" and "+00:00" as lexicographically equal at the
+     * same UTC instant, and MySQL/SQLite may sort timezone-variant strings wrong.
+     */
+    public function testExecutedAtOrderByChronological(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+        $connection->executeStatement($storage->getCreateTableSql());
+
+        // Three instants in ascending UTC order, saved from three different timezone offsets.
+        $t1 = new \DateTimeImmutable('2026-04-28T10:00:00+00:00'); // UTC
+        $t2 = new \DateTimeImmutable('2026-04-28T13:00:02+02:00'); // same as 11:00:02 UTC
+        $t3 = new \DateTimeImmutable('2026-04-28T06:00:04-06:00'); // same as 12:00:04 UTC
+
+        $storage->save(new TaskExecution('task.tz.1', TaskStatus::Ran, $t1));
+        $storage->save(new TaskExecution('task.tz.2', TaskStatus::Ran, $t2));
+        $storage->save(new TaskExecution('task.tz.3', TaskStatus::Ran, $t3));
+
+        $all = $storage->all();
+
+        self::assertCount(3, $all);
+
+        $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $all);
+        self::assertSame(
+            ['task.tz.1', 'task.tz.2', 'task.tz.3'],
+            $ids,
+            'Rows must be returned in ascending UTC chronological order regardless of stored TZ offset.',
+        );
+    }
 }
