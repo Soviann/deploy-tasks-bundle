@@ -10,6 +10,9 @@ use Doctrine\DBAL\Platforms\MariaDBPlatform;
 use Doctrine\DBAL\Platforms\MySQLPlatform;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
+use Doctrine\DBAL\Schema\Schema;
+use Doctrine\DBAL\Types\Types;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\SchemaManageable;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -54,23 +57,45 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
-     * Returns a CREATE TABLE SQL statement compatible with SQLite, MySQL, and PostgreSQL.
+     * Returns a CREATE TABLE SQL string for the current platform, using quoted identifiers.
+     *
+     * The statement uses the DBAL Schema builder internally for platform-native column
+     * types (e.g. DATETIME on SQLite/MySQL, TIMESTAMP on PostgreSQL), then rewrites the
+     * unquoted identifiers with their properly-quoted equivalents so the output is safe to
+     * fold into a Doctrine migration. Table and column names are quoted via the platform's
+     * own quoting rules.
      */
     public function getCreateTableSql(): string
     {
-        return \sprintf(
-            'CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(%d) NOT NULL, %s VARCHAR(%d) NOT NULL DEFAULT \'\', %s VARCHAR(16) NOT NULL, %s VARCHAR(32) NOT NULL, %s TEXT DEFAULT NULL, PRIMARY KEY (%s, %s))',
-            $this->quotedTable,
-            $this->quotedIdColumn,
-            $this->configuration->idColumnLength,
-            $this->quotedGroupColumn,
-            $this->configuration->groupColumnLength,
-            $this->quotedStatusColumn,
-            $this->quotedExecutedAtColumn,
-            $this->quotedErrorColumn,
-            $this->quotedIdColumn,
-            $this->quotedGroupColumn,
-        );
+        $sqls = $this->buildSchemaSql();
+        $platform = $this->connection->getDatabasePlatform();
+
+        // The Schema builder omits quotes for safe identifiers on some platforms (e.g. SQLite).
+        // Replace the unquoted names with their platform-quoted equivalents so the output of
+        // --dump-sql is migration-safe and matches the DDL actually executed by createSchema().
+        $unquotedToQuoted = [
+            $this->configuration->tableName => $this->quotedTable,
+            $this->configuration->idColumn => $this->quotedIdColumn,
+            $this->configuration->groupColumn => $this->quotedGroupColumn,
+            $this->configuration->statusColumn => $this->quotedStatusColumn,
+            $this->configuration->executedAtColumn => $this->quotedExecutedAtColumn,
+            $this->configuration->errorColumn => $this->quotedErrorColumn,
+        ];
+
+        // Only replace whole-word occurrences (word boundary on both sides) to avoid
+        // corrupting partial matches (e.g. "id" inside "task_id").
+        $result = [];
+
+        foreach ($sqls as $sql) {
+            foreach ($unquotedToQuoted as $unquoted => $quoted) {
+                if ($unquoted !== $quoted) {
+                    $sql = \preg_replace('/\b'.\preg_quote($unquoted, '/').'\b/', $quoted, $sql) ?? $sql;
+                }
+            }
+            $result[] = $sql;
+        }
+
+        return \implode(";\n", $result);
     }
 
     /**
@@ -108,7 +133,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         try {
             $row = $this->connection->fetchAssociative(
                 \sprintf(
-                    'SELECT * FROM %s WHERE %s = ? AND %s = ?',
+                    'SELECT %s FROM %s WHERE %s = ? AND %s = ?',
+                    $this->selectColumns(),
                     $this->quotedTable,
                     $this->quotedIdColumn,
                     $this->quotedGroupColumn,
@@ -153,12 +179,23 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             \sprintf('%s = VALUES(%s)', $error, $error),
         ]);
 
+        // Normalize to UTC so cross-timezone ORDER BY works on platforms that store
+        // wall-clock time without a TZ offset (SQLite, MySQL DATETIME).
+        $executedAtUtc = $execution->executedAt->setTimezone(new \DateTimeZone('UTC'));
+
         $parameters = [
             $execution->id,
             $execution->group ?? '',
             $execution->status->value,
-            $execution->executedAt->format(\DateTimeInterface::ATOM),
+            $executedAtUtc,
             $execution->error,
+        ];
+        $types = [
+            Types::STRING,
+            Types::STRING,
+            Types::STRING,
+            Types::DATETIME_IMMUTABLE,
+            Types::TEXT,
         ];
 
         try {
@@ -186,7 +223,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
                 throw new StorageException(\sprintf('Unsupported database platform "%s". Supported: SQLite, PostgreSQL, MySQL, MariaDB.', $platform::class));
             }
 
-            $this->connection->executeStatement($sql, $parameters);
+            $this->connection->executeStatement($sql, $parameters, $types);
         } catch (StorageException $e) {
             throw $e;
         } catch (DbalException $e) {
@@ -249,7 +286,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         try {
             $rows = $this->connection->fetchAllAssociative(
                 \sprintf(
-                    'SELECT * FROM %s WHERE %s = ? ORDER BY %s',
+                    'SELECT %s FROM %s WHERE %s = ? ORDER BY %s',
+                    $this->selectColumns(),
                     $this->quotedTable,
                     $this->quotedIdColumn,
                     $this->quotedExecutedAtColumn,
@@ -281,7 +319,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         try {
             $rows = $this->connection->fetchAllAssociative(
                 \sprintf(
-                    'SELECT * FROM %s ORDER BY %s',
+                    'SELECT %s FROM %s ORDER BY %s',
+                    $this->selectColumns(),
                     $this->quotedTable,
                     $this->quotedExecutedAtColumn,
                 ),
@@ -328,13 +367,21 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
-     * Creates the storage table if it does not exist.
+     * Creates the storage table if it does not exist (idempotent).
      *
      * @throws DbalException
      */
     public function createSchema(): void
     {
-        $this->connection->executeStatement($this->getCreateTableSql());
+        $schemaManager = $this->connection->createSchemaManager();
+
+        if ($schemaManager->tablesExist([$this->configuration->tableName])) {
+            return;
+        }
+
+        foreach ($this->buildSchemaSql() as $sql) {
+            $this->connection->executeStatement($sql);
+        }
     }
 
     /**
@@ -347,16 +394,66 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
 
         if ($this->configuration->autoCreateTable) {
-            $this->connection->executeStatement($this->getCreateTableSql());
+            $this->createSchema();
         }
 
         $this->initialized = true;
     }
 
     /**
+     * Builds the CREATE TABLE SQL statements for the current platform using the Schema builder.
+     *
+     * @return list<string>
+     *
+     * @throws DbalException
+     */
+    private function buildSchemaSql(): array
+    {
+        $schema = new Schema();
+        $table = $schema->createTable($this->configuration->tableName);
+
+        $table->addColumn($this->configuration->idColumn, Types::STRING, ['length' => $this->configuration->idColumnLength]);
+        $table->addColumn($this->configuration->groupColumn, Types::STRING, ['length' => $this->configuration->groupColumnLength, 'default' => '']);
+        $table->addColumn($this->configuration->statusColumn, Types::STRING, ['length' => 16]);
+        $table->addColumn($this->configuration->executedAtColumn, Types::DATETIME_IMMUTABLE);
+        $table->addColumn($this->configuration->errorColumn, Types::TEXT, ['notnull' => false]);
+
+        /** @var non-empty-string $pkIdColumn */
+        $pkIdColumn = $this->configuration->idColumn;
+        /** @var non-empty-string $pkGroupColumn */
+        $pkGroupColumn = $this->configuration->groupColumn;
+
+        $table->addPrimaryKeyConstraint(
+            PrimaryKeyConstraint::editor()
+                ->setUnquotedColumnNames($pkIdColumn, $pkGroupColumn)
+                ->create(),
+        );
+
+        return $schema->toSql($this->connection->getDatabasePlatform());
+    }
+
+    /**
+     * Returns a comma-separated, unquoted column list for SELECT projections.
+     *
+     * Using unquoted names here is safe because these values come from
+     * DbalStorageConfiguration which enforces plain identifiers.
+     */
+    private function selectColumns(): string
+    {
+        return \implode(', ', [
+            $this->quotedIdColumn,
+            $this->quotedGroupColumn,
+            $this->quotedStatusColumn,
+            $this->quotedExecutedAtColumn,
+            $this->quotedErrorColumn,
+        ]);
+    }
+
+    /**
      * @param array<string, mixed> $row
      *
      * @throws StorageException
+     * @throws DbalException
      */
     private function hydrate(array $row): TaskExecution
     {
@@ -364,18 +461,26 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $id = $row[$this->configuration->idColumn] ?? '';
         /** @var string $statusRaw */
         $statusRaw = $row[$this->configuration->statusColumn] ?? '';
-        /** @var string $executedAtRaw */
-        $executedAtRaw = $row[$this->configuration->executedAtColumn] ?? '';
+        $executedAtRaw = $row[$this->configuration->executedAtColumn] ?? null;
         /** @var string|null $error */
         $error = $row[$this->configuration->errorColumn] ?? null;
         /** @var string $groupRaw */
         $groupRaw = $row[$this->configuration->groupColumn] ?? '';
 
-        $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $executedAtRaw);
-
-        if (false === $executedAt) {
-            throw new StorageException(\sprintf('Invalid executed_at value "%s" in storage row.', $executedAtRaw));
+        try {
+            $executedAtConverted = $this->connection->convertToPHPValue($executedAtRaw, Types::DATETIME_IMMUTABLE);
+        } catch (\Doctrine\DBAL\Types\ConversionException $e) {
+            throw new StorageException(\sprintf('Invalid executed_at value "%s" in storage row.', \is_scalar($executedAtRaw) ? (string) $executedAtRaw : \gettype($executedAtRaw)), 0, $e);
         }
+
+        if (!$executedAtConverted instanceof \DateTimeImmutable) {
+            throw new StorageException(\sprintf('Invalid executed_at value "%s" in storage row.', \is_scalar($executedAtRaw) ? (string) $executedAtRaw : \gettype($executedAtRaw)));
+        }
+
+        // DBAL DATETIME_IMMUTABLE stores wall-clock time without a timezone tag. We
+        // always persist in UTC (normalised in save()), so we must reinterpret the
+        // reconstructed value as UTC rather than re-converting from the PHP system TZ.
+        $executedAt = new \DateTimeImmutable($executedAtConverted->format('Y-m-d H:i:s.u'), new \DateTimeZone('UTC'));
 
         $group = '' === $groupRaw ? null : $groupRaw;
 
