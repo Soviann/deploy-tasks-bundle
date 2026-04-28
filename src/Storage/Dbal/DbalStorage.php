@@ -6,6 +6,10 @@ namespace Soviann\DeployTasksBundle\Storage\Dbal;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Platforms\MariaDBPlatform;
+use Doctrine\DBAL\Platforms\MySQLPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\SchemaManageable;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -136,32 +140,55 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $executedAt = $this->quotedExecutedAtColumn;
         $error = $this->quotedErrorColumn;
 
-        try {
-            $this->connection->transactional(static function (Connection $connection) use ($execution, $t, $id, $group, $status, $executedAt, $error): void {
-                $connection->executeStatement(
-                    \sprintf('DELETE FROM %s WHERE %s = ? AND %s = ?', $t, $id, $group),
-                    [$execution->id, $execution->group ?? ''],
-                );
+        $columnList = \implode(', ', [$id, $group, $status, $executedAt, $error]);
+        $placeholderList = '?, ?, ?, ?, ?';
+        $updateAssignments = \implode(', ', [
+            \sprintf('%s = excluded.%s', $status, $status),
+            \sprintf('%s = excluded.%s', $executedAt, $executedAt),
+            \sprintf('%s = excluded.%s', $error, $error),
+        ]);
+        $updateAssignmentsMysql = \implode(', ', [
+            \sprintf('%s = VALUES(%s)', $status, $status),
+            \sprintf('%s = VALUES(%s)', $executedAt, $executedAt),
+            \sprintf('%s = VALUES(%s)', $error, $error),
+        ]);
 
-                $connection->executeStatement(
-                    \sprintf(
-                        'INSERT INTO %s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)',
-                        $t,
-                        $id,
-                        $group,
-                        $status,
-                        $executedAt,
-                        $error,
-                    ),
-                    [
-                        $execution->id,
-                        $execution->group ?? '',
-                        $execution->status->value,
-                        $execution->executedAt->format(\DateTimeInterface::ATOM),
-                        $execution->error,
-                    ],
+        $parameters = [
+            $execution->id,
+            $execution->group ?? '',
+            $execution->status->value,
+            $execution->executedAt->format(\DateTimeInterface::ATOM),
+            $execution->error,
+        ];
+
+        try {
+            $platform = $this->connection->getDatabasePlatform();
+
+            if ($platform instanceof SQLitePlatform || $platform instanceof PostgreSQLPlatform) {
+                $sql = \sprintf(
+                    'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s, %s) DO UPDATE SET %s',
+                    $t,
+                    $columnList,
+                    $placeholderList,
+                    $id,
+                    $group,
+                    $updateAssignments,
                 );
-            });
+            } elseif ($platform instanceof MySQLPlatform || $platform instanceof MariaDBPlatform) {
+                $sql = \sprintf(
+                    'INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s',
+                    $t,
+                    $columnList,
+                    $placeholderList,
+                    $updateAssignmentsMysql,
+                );
+            } else {
+                throw new StorageException(\sprintf('Unsupported database platform "%s". Supported: SQLite, PostgreSQL, MySQL, MariaDB.', $platform::class));
+            }
+
+            $this->connection->executeStatement($sql, $parameters);
+        } catch (StorageException $e) {
+            throw $e;
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to save task "%s": %s', $execution->id, $e->getMessage()), 0, $e);
         }
