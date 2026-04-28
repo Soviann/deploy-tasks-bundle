@@ -141,9 +141,7 @@ final class TaskRunner
                 return TaskResult::SKIPPED;
             }
 
-            $outcome = $this->executeTask($task, $output, 1, 1);
-
-            $this->persistOutcome($taskId, $outcome, $pendingSlots);
+            $outcome = $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots);
 
             return $outcome->result;
         });
@@ -266,8 +264,7 @@ final class TaskRunner
 
         foreach ($executable as $item) {
             ++$current;
-            $outcome = $this->executeTask($item['task'], $output, $current, $total);
-            $this->persistOutcome($item['taskId'], $outcome, $item['pendingSlots']);
+            $outcome = $this->executeTask($item['task'], $output, $current, $total, $item['taskId'], $item['pendingSlots']);
 
             $count = \count($item['pendingSlots']);
 
@@ -289,14 +286,18 @@ final class TaskRunner
      * Emits a `[current/total] FQCN` progress line before execution and a
      * `→ status (ms)` completion line after.
      *
-     * Storage writes are performed by the caller (one row per matching slot).
+     * When storage is transactional, both `$task->run()` and the per-slot `save()` calls
+     * execute inside a single `transactional()` closure so that a storage failure rolls back
+     * the task's side-effects together with the execution record.
+     *
+     * @param list<?string> $pendingSlots Slots to persist the execution outcome into
      *
      * @throws \ReflectionException
-     * @throws \Throwable           When `all_or_nothing` is enabled and the task throws
+     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws, or when
+     *                              storage throws inside the transactional closure
      */
-    private function executeTask(DeployTaskInterface $task, OutputInterface $output, int $current, int $total): TaskOutcome
+    private function executeTask(DeployTaskInterface $task, OutputInterface $output, int $current, int $total, string $taskId, array $pendingSlots): TaskOutcome
     {
-        $taskId = $this->idResolver->resolve($task);
         $attribute = AsDeployTask::of($task);
         $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
 
@@ -307,20 +308,33 @@ final class TaskRunner
         $this->dispatcher?->dispatch(new BeforeTaskEvent($taskId, $task));
 
         $start = \microtime(true);
+        $taskRanSuccessfully = false;
 
         try {
             $result = $this->wrapInTransaction($task, $attribute, $output);
+            $taskRanSuccessfully = true;
             $duration = \microtime(true) - $start;
 
             $outcome = $this->buildSuccessOutcome($task, $taskId, $result, $duration, $timeout, $output);
             $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
 
+            $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
+
             return $outcome;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
+            // When the task ran successfully but the storage save threw, propagate without
+            // attempting a second write — a failure record would be misleading and a second
+            // save() call would likely fail again on a broken storage.
+            if ($taskRanSuccessfully) {
+                throw $e;
+            }
+
             $outcome = $this->buildFailureOutcome($task, $taskId, $e, $duration, $output);
             $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+
+            $this->persistOutcome($taskId, $outcome, $pendingSlots);
 
             if ($this->allOrNothing) {
                 // Propagate so the outer transaction rolls everything back
@@ -451,6 +465,31 @@ final class TaskRunner
         }
 
         return $task->run($output);
+    }
+
+    /**
+     * Persists the task outcome for each pending slot, wrapping the saves in a single
+     * per-task transaction when the storage backend supports it.
+     *
+     * Placing `save()` inside the same transaction as `task->run()` would require
+     * restructuring the call stack.  Instead, a dedicated per-save transaction is used:
+     * if storage throws during any save the exception propagates to the caller
+     * (which re-raises it), keeping the runner's failure semantics intact while ensuring
+     * that a partial-write within a multi-slot task is rolled back on transactional backends.
+     *
+     * @param list<?string> $pendingSlots
+     */
+    private function persistOutcomeTransactional(string $taskId, TaskOutcome $outcome, array $pendingSlots): void
+    {
+        if ($this->storage instanceof TransactionalStorageInterface) {
+            $this->storage->transactional(function () use ($taskId, $outcome, $pendingSlots): void {
+                $this->persistOutcome($taskId, $outcome, $pendingSlots);
+            });
+
+            return;
+        }
+
+        $this->persistOutcome($taskId, $outcome, $pendingSlots);
     }
 
     /**
