@@ -131,7 +131,7 @@ final class DeployTasksBundle extends AbstractBundle
         // Config flags for compiler pass
         /** @var array{enabled: bool} $eventsConfig */
         $eventsConfig = $config['events'];
-        /** @var array{enabled: bool} $lockConfig */
+        /** @var array{enabled: bool, ttl: int} $lockConfig */
         $lockConfig = $config['lock'];
         $builder->setParameter('deploy_tasks.events.enabled', $eventsConfig['enabled']);
         $builder->setParameter('deploy_tasks.lock.enabled', $lockConfig['enabled']);
@@ -162,6 +162,7 @@ final class DeployTasksBundle extends AbstractBundle
                 $activeStorage['transactional'],
                 $activeStorage['all_or_nothing'],
                 $loggerArg,
+                $lockConfig['ttl'],
             ])
             ->tag('monolog.logger', ['channel' => 'deploy_tasks'])
         ;
