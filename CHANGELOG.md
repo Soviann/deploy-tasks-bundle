@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- DBAL storage uses a platform-native upsert instead of DELETE+INSERT, eliminating duplicate-key races and gap-lock deadlocks under concurrent writers.
 - The `deploytasks:generate:container` and `deploytasks:generate:host` command descriptions now spell out their execution scope in plain English — `(PHP class, runs inside the Symfony container)` vs `(bash script, runs on the host outside the container)` — instead of the former `container-scope` / `host-scope` jargon. The "scope" terminology required reading the docs to disambiguate.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** The `deploytasks:generate` console alias is removed. Call `deploytasks:generate:container` (PHP class generator) or `deploytasks:generate:host` (shell-script generator) explicitly — the canonical names spell out the scope of the generated task, making `bin/console list` output unambiguous. Users who typed `deploytasks:generate` must update their commands and docs.
 - `deploy_tasks.storage`, `deploy_tasks.events`, and `deploy_tasks.lock` now accept a scalar shorthand. `storage: database` expands to `storage: { type: database }`; `events: false` and `lock: false` expand to the matching `{ enabled: false }` subtree. The long form keeps working unchanged — no breaking change. The three subtrees previously required a nested key to toggle a single boolean, which inflated minimal bundle wiring.
