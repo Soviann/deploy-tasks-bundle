@@ -17,14 +17,14 @@ use Symfony\Component\DependencyInjection\Reference;
 /**
  * Pins the wiring contract for the runner's logger argument and the monolog channel tag.
  *
- * The runner is injected with a NULL_ON_INVALID_REFERENCE reference to the app `logger`
- * service when no user override is configured, or with the `deploy_tasks.logger` alias
- * when the user sets `deploy_tasks.logger: <service_id>`. No compiler pass is involved
- * in logger selection — the reference is wired at extension load so that
- * MonologBundle's LoggerChannelPass can rewrite the literal `logger` reference to the
- * channel-scoped logger via the runner's `monolog.logger` tag regardless of pass
- * ordering, and TaskRunner falls back to a NullLogger at runtime when the app has no
- * logger service.
+ * When no user override is configured, the runner gets a NULL_ON_INVALID_REFERENCE
+ * reference to `logger` and is tagged `monolog.logger { channel: deploy_tasks }` so
+ * MonologBundle's LoggerChannelPass rewrites the reference to the channel-scoped logger.
+ * TaskRunner falls back to a NullLogger at runtime when no logger service exists.
+ *
+ * When the user sets `deploy_tasks.logger: <service_id>`, the runner receives a direct
+ * reference to that service and carries NO `monolog.logger` tag — the channel rewrite
+ * must not silently override the user's explicit choice.
  */
 #[CoversClass(DeployTasksBundle::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
@@ -54,7 +54,7 @@ final class LoggerWiringTest extends TestCase
         self::assertMonologChannelTag($container->getDefinition('deploy_tasks.runner'));
     }
 
-    public function testRunnerReferencesDeployTasksLoggerAliasWhenUserOverrides(): void
+    public function testRunnerReferencesUserLoggerDirectlyWhenUserOverrides(): void
     {
         $container = $this->buildContainer(['logger' => 'my_logger']);
 
@@ -62,9 +62,8 @@ final class LoggerWiringTest extends TestCase
         $loggerArg = $runner->getArgument(11);
 
         self::assertInstanceOf(Reference::class, $loggerArg);
-        self::assertSame('deploy_tasks.logger', (string) $loggerArg);
-        self::assertSame('my_logger', (string) $container->getAlias('deploy_tasks.logger'));
-        self::assertMonologChannelTag($runner);
+        self::assertSame('my_logger', (string) $loggerArg);
+        self::assertEmpty($runner->getTag('monolog.logger'), 'runner must NOT carry a monolog.logger tag when user supplies a logger');
     }
 
     public function testCompilerPassDoesNotTouchLoggerArgument(): void
