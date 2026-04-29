@@ -104,6 +104,10 @@ final class DeployTasksBundle extends AbstractBundle
     {
         $services = $container->services();
 
+        $builder->registerForAutoconfiguration(DeployTaskInterface::class)
+            ->addTag('deploy_tasks.task')
+        ;
+
         // TaskRegistry
         $services->set('deploy_tasks.registry', TaskRegistry::class)
             ->args([
@@ -151,19 +155,19 @@ final class DeployTasksBundle extends AbstractBundle
 
         $services->set('deploy_tasks.runner', TaskRunner::class)
             ->args([
-                service('deploy_tasks.registry'),
-                service('deploy_tasks.storage'),
-                service('deploy_tasks.sorter'),
-                service('deploy_tasks.id_resolver'),
-                service('deploy_tasks.description_resolver'),
-                null, // dispatcher — set by compiler pass
-                null, // lock factory — set by compiler pass
-                $config['default_timeout'],
-                param('kernel.environment'),
-                $activeStorage['transactional'],
-                $activeStorage['all_or_nothing'],
-                null, // logger — set below
-                $lockConfig['ttl'],
+                '$registry' => service('deploy_tasks.registry'),
+                '$storage' => service('deploy_tasks.storage'),
+                '$sorter' => service('deploy_tasks.sorter'),
+                '$idResolver' => service('deploy_tasks.id_resolver'),
+                '$descriptionResolver' => service('deploy_tasks.description_resolver'),
+                '$dispatcher' => null, // set by compiler pass
+                '$lockFactory' => null, // set by compiler pass
+                '$defaultTimeout' => $config['default_timeout'],
+                '$environment' => param('kernel.environment'),
+                '$transactional' => $activeStorage['transactional'],
+                '$allOrNothing' => $activeStorage['all_or_nothing'],
+                '$logger' => null, // set below
+                '$lockTtl' => $lockConfig['ttl'],
             ])
         ;
 
@@ -172,12 +176,12 @@ final class DeployTasksBundle extends AbstractBundle
         if (null === $config['logger']) {
             // Bundle owns the logger — tag it for Monolog channel routing.
             $runnerDefinition->addTag('monolog.logger', ['channel' => 'deploy_tasks']);
-            $runnerDefinition->setArgument(11, new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE));
+            $runnerDefinition->setArgument('$logger', new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE));
         } else {
             /** @var string $userLoggerId */
             $userLoggerId = $config['logger'];
             // User supplied a logger service — route as-is, no channel tag.
-            $runnerDefinition->setArgument(11, new Reference($userLoggerId));
+            $runnerDefinition->setArgument('$logger', new Reference($userLoggerId));
         }
         $services->alias(TaskRunner::class, 'deploy_tasks.runner')->public();
 
@@ -258,10 +262,6 @@ final class DeployTasksBundle extends AbstractBundle
     public function build(ContainerBuilder $container): void
     {
         parent::build($container);
-
-        $container->registerForAutoconfiguration(DeployTaskInterface::class)
-            ->addTag('deploy_tasks.task')
-        ;
 
         $container->addCompilerPass(new RegisterTasksCompilerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
     }

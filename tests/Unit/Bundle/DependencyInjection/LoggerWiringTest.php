@@ -46,7 +46,7 @@ final class LoggerWiringTest extends TestCase
     {
         $container = $this->buildContainer();
 
-        $loggerArg = $container->getDefinition('deploy_tasks.runner')->getArgument(11);
+        $loggerArg = $container->getDefinition('deploy_tasks.runner')->getArgument('$logger');
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('logger', (string) $loggerArg);
@@ -59,7 +59,7 @@ final class LoggerWiringTest extends TestCase
         $container = $this->buildContainer(['logger' => 'my_logger']);
 
         $runner = $container->getDefinition('deploy_tasks.runner');
-        $loggerArg = $runner->getArgument(11);
+        $loggerArg = $runner->getArgument('$logger');
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('my_logger', (string) $loggerArg);
@@ -69,11 +69,11 @@ final class LoggerWiringTest extends TestCase
     public function testCompilerPassDoesNotTouchLoggerArgument(): void
     {
         $container = $this->buildContainer();
-        $loggerArgBefore = $container->getDefinition('deploy_tasks.runner')->getArgument(11);
+        $loggerArgBefore = $container->getDefinition('deploy_tasks.runner')->getArgument('$logger');
 
         (new RegisterTasksCompilerPass())->process($container);
 
-        $loggerArgAfter = $container->getDefinition('deploy_tasks.runner')->getArgument(11);
+        $loggerArgAfter = $container->getDefinition('deploy_tasks.runner')->getArgument('$logger');
 
         self::assertEquals($loggerArgBefore, $loggerArgAfter);
     }
