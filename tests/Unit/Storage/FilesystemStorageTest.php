@@ -529,4 +529,64 @@ final class FilesystemStorageTest extends TestCase
 
         FilesystemTestHelper::assertPermissions($this->storagePath, 0o700);
     }
+
+    public function testForeignFilesAreSkippedByAll(): void
+    {
+        // Write a valid record
+        $this->storage->save(new TaskExecution('task-a', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+
+        // Create foreign files that don't match the record pattern (wrong filename format)
+        // Files without the task-id@group.json or task-id.json format should be skipped
+        \file_put_contents($this->storagePath.'/notes.txt', '{"note": "handwritten"}');
+        \file_put_contents($this->storagePath.'/.gitkeep', '');
+        \file_put_contents($this->storagePath.'/README.md', '# Storage');
+
+        // all() should only return the valid task, ignoring foreign files
+        $all = $this->storage->all();
+
+        self::assertCount(1, $all);
+        self::assertSame('task-a', $all[0]->id);
+    }
+
+    public function testResetLeavesForeignFilesAlone(): void
+    {
+        // Write a valid record
+        $this->storage->save(new TaskExecution('task-a', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+
+        // Create foreign files that don't match the record pattern
+        \file_put_contents($this->storagePath.'/notes.txt', '{"note": "handwritten"}');
+        \file_put_contents($this->storagePath.'/.gitkeep', '');
+
+        // Reset should only delete records matching the pattern
+        $this->storage->reset();
+
+        // Valid record should be gone
+        self::assertSame([], $this->storage->all());
+
+        // Foreign files should still exist
+        self::assertFileExists($this->storagePath.'/notes.txt');
+        self::assertFileExists($this->storagePath.'/.gitkeep');
+    }
+
+    public function testStoragePathWithBracketsWorks(): void
+    {
+        // Create a storage path with glob metacharacters (brackets)
+        $bracketPath = $this->storagePath.'/[staging]';
+        $bracketStorage = new FilesystemStorage($bracketPath);
+
+        // Save two records
+        $bracketStorage->save(new TaskExecution('deploy-1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+        $bracketStorage->save(new TaskExecution('deploy-2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00')));
+
+        // all() should return both records (glob() would silently return empty due to bracket matching)
+        $all = $bracketStorage->all();
+
+        self::assertCount(2, $all);
+        $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $all);
+        \sort($ids);
+        self::assertSame(['deploy-1', 'deploy-2'], $ids);
+
+        // Cleanup the bracket path
+        FilesystemTestHelper::cleanup($bracketPath);
+    }
 }

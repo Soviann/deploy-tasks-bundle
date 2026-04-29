@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Filesystem storage skips unrelated JSON files in the storage directory and works on paths containing glob metacharacters.
 - Setting `deploy_tasks.logger` to a custom service no longer has the value silently rewritten by Monolog's channel pass.
 - `deploytasks:run --id=…` honors the task's `env` constraint, refusing to force-run a `prod`-only task in `dev`.
 - A throwing event listener no longer marks the task it observed as failed.
