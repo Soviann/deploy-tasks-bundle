@@ -43,6 +43,19 @@ final class AsDeployTask
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
     ) {
+        if ([] === $groups) {
+            throw new \InvalidArgumentException('groups cannot be an empty array — omit (or pass null) to mean the default group.');
+        }
+
+        if (null !== $groups && \is_array($groups)) {
+            foreach ($groups as $entry) {
+                /* @phpstan-ignore function.alreadyNarrowedType */
+                if (!\is_string($entry)) {
+                    throw new \InvalidArgumentException(\sprintf('groups entries must be strings, got %s.', \get_debug_type($entry)));
+                }
+            }
+        }
+
         $groupList = match (true) {
             null === $groups => [],
             \is_array($groups) => \array_values($groups),

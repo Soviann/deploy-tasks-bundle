@@ -190,7 +190,7 @@ final class ConfigurationTest extends TestCase
                 'default_timeout' => 600,
                 'storage' => [
                     'type' => 'database',
-                    'filesystem' => ['path' => '/custom/fs', 'transactional' => true, 'all_or_nothing' => true],
+                    'filesystem' => ['path' => '/custom/fs', 'transactional' => false, 'all_or_nothing' => false],
                     'database' => [
                         'connection' => 'audit',
                         'table' => 't',
@@ -220,8 +220,8 @@ final class ConfigurationTest extends TestCase
                     'type' => 'database',
                     'filesystem' => [
                         'path' => '/custom/fs',
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transactional' => false,
+                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'audit',
