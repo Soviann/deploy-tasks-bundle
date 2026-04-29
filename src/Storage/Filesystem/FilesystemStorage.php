@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Finder\Finder;
 
 /**
  * Filesystem-backed task storage — stores one JSON file per (task id, group) pair.
@@ -25,6 +26,12 @@ use Symfony\Component\Filesystem\Filesystem;
  */
 final class FilesystemStorage implements TaskStorageInterface
 {
+    /**
+     * Regex pattern for valid record filenames: `<task-id>.json` or `<task-id>@<group>.json`.
+     * Task IDs and group names must match `[a-zA-Z0-9._-]+`, so the `@` separator is unambiguous.
+     */
+    private const RECORD_NAME_PATTERN = '/^[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?\.json$/';
+
     private readonly Filesystem $fs;
 
     /**
@@ -134,30 +141,35 @@ final class FilesystemStorage implements TaskStorageInterface
 
     /**
      * @throws \InvalidArgumentException When the task id fails validation
-     * @throws StorageException          When the storage path cannot be globbed or files cannot be removed
+     * @throws StorageException          When files cannot be removed
      */
     public function removeAll(string $taskId): void
     {
         $this->validateTaskId($taskId);
 
-        $patterns = [
-            $this->storagePath.'/'.$taskId.'.json',
-            $this->storagePath.'/'.$taskId.'@*.json',
-        ];
+        if (!\is_dir($this->storagePath)) {
+            return;
+        }
 
-        foreach ($patterns as $pattern) {
-            $files = \glob($pattern);
+        $prefix = $taskId.'.json';
+        $prefixAt = $taskId.'@';
 
-            if (false === $files) {
-                throw new StorageException(\sprintf('Failed to glob storage path "%s".', $pattern));
-            }
+        $finder = (new Finder())
+            ->files()
+            ->in($this->storagePath)
+            ->depth(0)
+            ->name(self::RECORD_NAME_PATTERN)
+            ->filter(static function (\SplFileInfo $file) use ($prefix, $prefixAt): bool {
+                $basename = $file->getBasename();
 
-            foreach ($files as $file) {
-                try {
-                    $this->fs->remove($file);
-                } catch (IOException $e) {
-                    throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file), 0, $e);
-                }
+                return $basename === $prefix || \str_starts_with($basename, $prefixAt);
+            });
+
+        foreach ($finder as $file) {
+            try {
+                $this->fs->remove($file->getPathname());
+            } catch (IOException $e) {
+                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file->getPathname()), 0, $e);
             }
         }
     }
@@ -167,35 +179,40 @@ final class FilesystemStorage implements TaskStorageInterface
      *
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \JsonException            When a stored JSON file cannot be decoded
-     * @throws StorageException          When the storage path cannot be globbed or a file cannot be read
+     * @throws StorageException          When a file cannot be read
      */
     public function findByTaskId(string $taskId): iterable
     {
         $this->validateTaskId($taskId);
 
-        $patterns = [
-            $this->storagePath.'/'.$taskId.'.json',
-            $this->storagePath.'/'.$taskId.'@*.json',
-        ];
+        if (!\is_dir($this->storagePath)) {
+            return [];
+        }
+
+        $prefix = $taskId.'.json';
+        $prefixAt = $taskId.'@';
+
+        $finder = (new Finder())
+            ->files()
+            ->in($this->storagePath)
+            ->depth(0)
+            ->name(self::RECORD_NAME_PATTERN)
+            ->filter(static function (\SplFileInfo $file) use ($prefix, $prefixAt): bool {
+                $basename = $file->getBasename();
+
+                return $basename === $prefix || \str_starts_with($basename, $prefixAt);
+            });
 
         $executions = [];
 
-        foreach ($patterns as $pattern) {
-            $files = \glob($pattern);
+        foreach ($finder as $file) {
+            $contents = \file_get_contents($file->getPathname());
 
-            if (false === $files) {
-                throw new StorageException(\sprintf('Failed to glob storage path "%s".', $pattern));
+            if (false === $contents) {
+                throw new StorageException(\sprintf('Failed to read storage file "%s".', $file->getPathname()));
             }
 
-            foreach ($files as $file) {
-                $contents = \file_get_contents($file);
-
-                if (false === $contents) {
-                    throw new StorageException(\sprintf('Failed to read storage file "%s".', $file));
-                }
-
-                $executions[] = $this->decode($contents);
-            }
+            $executions[] = $this->decode($contents);
         }
 
         return $executions;
@@ -205,24 +222,27 @@ final class FilesystemStorage implements TaskStorageInterface
      * @return list<TaskExecution>
      *
      * @throws \JsonException   When a stored JSON file cannot be decoded
-     * @throws StorageException When the storage path cannot be globbed or a file cannot be read
+     * @throws StorageException When a file cannot be read
      */
     public function all(): array
     {
-        $pattern = $this->storagePath.'/*.json';
-        $files = \glob($pattern);
-
-        if (false === $files) {
-            throw new StorageException(\sprintf('Failed to glob storage path "%s".', $this->storagePath));
+        if (!\is_dir($this->storagePath)) {
+            return [];
         }
+
+        $finder = (new Finder())
+            ->files()
+            ->in($this->storagePath)
+            ->depth(0)
+            ->name(self::RECORD_NAME_PATTERN);
 
         $executions = [];
 
-        foreach ($files as $file) {
-            $contents = \file_get_contents($file);
+        foreach ($finder as $file) {
+            $contents = \file_get_contents($file->getPathname());
 
             if (false === $contents) {
-                throw new StorageException(\sprintf('Failed to read storage file "%s".', $file));
+                throw new StorageException(\sprintf('Failed to read storage file "%s".', $file->getPathname()));
             }
 
             $executions[] = $this->decode($contents);
@@ -236,18 +256,21 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     public function reset(): void
     {
-        $pattern = $this->storagePath.'/*.json';
-        $files = \glob($pattern);
-
-        if (false === $files || [] === $files) {
+        if (!\is_dir($this->storagePath)) {
             return;
         }
 
-        foreach ($files as $file) {
+        $finder = (new Finder())
+            ->files()
+            ->in($this->storagePath)
+            ->depth(0)
+            ->name(self::RECORD_NAME_PATTERN);
+
+        foreach ($finder as $file) {
             try {
-                $this->fs->remove($file);
+                $this->fs->remove($file->getPathname());
             } catch (IOException $e) {
-                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file), 0, $e);
+                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file->getPathname()), 0, $e);
             }
         }
     }
