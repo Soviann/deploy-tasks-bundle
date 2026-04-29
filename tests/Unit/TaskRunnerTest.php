@@ -15,6 +15,7 @@ use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
+use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
@@ -35,6 +36,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\DbalFailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
@@ -803,6 +805,63 @@ final class TaskRunnerTest extends TestCase
 
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertStringContainsString('No lock factory configured', $output->fetch());
+    }
+
+    public function testRunOneRefusesEnvMismatch(): void
+    {
+        // ProdOnlyTask is annotated #[AsDeployTask(env: 'prod')]; runner is in 'dev'.
+        $prodOnlyTask = new ProdOnlyTask();
+        $idResolver = new TaskIdResolver();
+
+        $runner = new TaskRunner(
+            new TaskRegistry([$prodOnlyTask], $idResolver),
+            $this->storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+            null,
+            null,
+            300,
+            'dev', // runner environment
+        );
+
+        try {
+            $runner->runOne('test.prod_only', $this->output);
+            self::fail('Expected TaskEnvironmentMismatchException to be thrown.');
+        } catch (TaskEnvironmentMismatchException $e) {
+            self::assertSame('test.prod_only', $e->taskId);
+            self::assertSame('prod', $e->taskEnv);
+            self::assertSame('dev', $e->runnerEnv);
+        }
+
+        // Task must NOT have been invoked — no storage record written.
+        self::assertFalse($this->storage->has('test.prod_only'), 'Task run() must not be invoked when env constraint is refused.');
+    }
+
+    public function testRunOneAllowsEnvMatchAndNullConstraint(): void
+    {
+        // Task with matching env runs fine; task with no env constraint (null) always runs.
+        $prodOnlyTask = new ProdOnlyTask();
+        $defaultTask = new SimpleTask('task.default', 'Default');
+        $idResolver = new TaskIdResolver();
+
+        $runnerProd = new TaskRunner(
+            new TaskRegistry([$prodOnlyTask, $defaultTask], $idResolver),
+            $this->storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+            null,
+            null,
+            300,
+            'prod', // runner environment matches ProdOnlyTask
+        );
+
+        $resultProd = $runnerProd->runOne('test.prod_only', $this->output);
+        self::assertSame(TaskResult::SUCCESS, $resultProd);
+
+        $resultDefault = $runnerProd->runOne('task.default', $this->output);
+        self::assertSame(TaskResult::SUCCESS, $resultDefault);
     }
 
     public function testTimeoutExceededLogsWarningWithoutFailing(): void
