@@ -83,6 +83,13 @@ final class DeployTasksGenerateCommand extends Command
 
         /** @var string $dir */
         $dir = $input->getOption('dir');
+
+        if (\str_starts_with($dir, '/')) {
+            $io->error('The --dir option must be a relative path.');
+
+            return Command::FAILURE;
+        }
+
         $dir = \rtrim($dir, '/').'/';
 
         $canonical = PathNormalizer::normalize($dir);
@@ -99,14 +106,14 @@ final class DeployTasksGenerateCommand extends Command
         $absoluteDir = $dir;
 
         if (null !== $this->projectDir) {
-            $absoluteDir = \str_starts_with($dir, '/') ? $dir : $this->projectDir.'/'.$dir;
-            $absoluteDir = PathNormalizer::normalize($absoluteDir).'/';
+            $resolvedDir = PathNormalizer::normalize($this->projectDir.'/'.$dir);
+            $boundary = \rtrim($this->projectDir, '/').'/';
 
-            if (!\str_starts_with($absoluteDir, $this->projectDir)) {
-                $io->error(\sprintf('Directory "%s" is outside the project root.', $dir));
-
-                return Command::FAILURE;
+            if (!\str_starts_with($resolvedDir.'/', $boundary)) {
+                throw new \InvalidArgumentException(\sprintf('The --dir option resolves to "%s", which is outside the project directory "%s".', $resolvedDir, $this->projectDir));
             }
+
+            $absoluteDir = $resolvedDir.'/';
         }
 
         $filePath = $absoluteDir.$className.'.php';

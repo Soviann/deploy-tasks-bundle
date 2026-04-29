@@ -21,13 +21,16 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 {
     private CommandTester $tester;
     private string $outputDir;
+    private string $relativeOutputDir;
 
     protected function setUp(): void
     {
         self::bootKernel();
         $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:generate:container'));
-        $this->outputDir = self::projectDir().'/var/generate-test-'.\uniqid().'/';
+        $unique = \uniqid();
+        $this->relativeOutputDir = 'var/generate-test-'.$unique.'/';
+        $this->outputDir = self::projectDir().'/'.$this->relativeOutputDir;
     }
 
     protected function tearDown(): void
@@ -39,7 +42,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testGenerate(): void
     {
-        $this->tester->execute(['--dir' => $this->outputDir]);
+        $this->tester->execute(['--dir' => $this->relativeOutputDir]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
@@ -64,7 +67,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         self::assertDirectoryDoesNotExist($this->outputDir);
 
-        $this->tester->execute(['--dir' => $this->outputDir]);
+        $this->tester->execute(['--dir' => $this->relativeOutputDir]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertDirectoryExists($this->outputDir);
@@ -75,43 +78,55 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
+        $projectDir = \sys_get_temp_dir().'/generate-exists-guard-'.\uniqid();
+        \mkdir($projectDir.'/tasks', 0755, true);
+
         $fixedNow = new \DateTimeImmutable('2026-04-17 12:00:00');
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
         $tester = new CommandTester($command);
 
-        $expectedFile = $this->outputDir.'DeployTask'.$fixedNow->format('YmdHis').'.php';
-        \mkdir($this->outputDir, 0755, true);
+        $expectedFile = $projectDir.'/tasks/DeployTask'.$fixedNow->format('YmdHis').'.php';
         \file_put_contents($expectedFile, '<?php // placeholder');
 
-        $tester->execute(['--dir' => $this->outputDir]);
-
-        self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString('already exists', $tester->getDisplay());
+        try {
+            $tester->execute(['--dir' => 'tasks/']);
+            self::assertSame(Command::FAILURE, $tester->getStatusCode());
+            self::assertStringContainsString('already exists', $tester->getDisplay());
+        } finally {
+            @\unlink($expectedFile);
+            @\rmdir($projectDir.'/tasks');
+            @\rmdir($projectDir);
+        }
     }
 
     public function testGenerateFailsWhenTargetDirectoryIsNotWritable(): void
     {
         // The DDEV-mounted `var/` path has a PHP chmod quirk — test inside tmpfs (/tmp) instead.
-        $dir = \sys_get_temp_dir().'/generate-test-readonly-'.\uniqid().'/';
-        \mkdir($dir, 0o500, true);
+        // Create a projectDir with a readonly root so the command cannot mkdir or dumpFile inside it.
+        $projectDir = \sys_get_temp_dir().'/generate-test-readonly-project-'.\uniqid();
+        \mkdir($projectDir, 0o500, true);
 
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
-        $command = new DeployTasksGenerateCommand(idGenerator: $idGenerator);
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            projectDir: $projectDir,
+        );
         $tester = new CommandTester($command);
 
         try {
-            $tester->execute(['--dir' => $dir]);
+            $tester->execute(['--dir' => 'tasks/']);
             self::fail('Expected generator to fail when target directory is not writable.');
         } catch (IOException $e) {
-            self::assertMatchesRegularExpression('/DeployTask\d+\.php/', $e->getMessage());
+            self::assertStringContainsString($projectDir, $e->getMessage());
         } finally {
-            \chmod($dir, 0o755);
-            \rmdir($dir);
+            \chmod($projectDir, 0o755);
+            \rmdir($projectDir);
         }
     }
 
@@ -163,20 +178,20 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
         self::assertNotNull($display);
-        self::assertStringContainsString('outside the project root', $display);
+        self::assertStringContainsString('must be a relative path', $display);
     }
 
     public function testGenerateAllowsTraversalWithinProjectRoot(): void
     {
         $uniqueId = \uniqid();
         $projectDir = self::projectDir();
-        $dir = $projectDir.'/var/nested/deep/../generate-test-'.$uniqueId.'/';
-        $this->tester->execute(['--dir' => $dir]);
+        // Relative path with internal traversal that stays within the project root.
+        $this->tester->execute(['--dir' => 'var/nested/deep/../generate-test-'.$uniqueId.'/']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
 
-        // The command normalizes the path, so clean up at the resolved location
+        // The command normalizes the path, so clean up at the resolved location.
         $resolvedDir = $projectDir.'/var/nested/generate-test-'.$uniqueId.'/';
         self::assertDirectoryExists($resolvedDir);
 
@@ -270,7 +285,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         // Pass the dir with an extra trailing slash — the file path must still have exactly one.
         // Kills UnwrapRtrim on line 70: if rtrim is removed, the path becomes `…//DeployTask…` and glob below misses it.
-        $this->tester->execute(['--dir' => $this->outputDir.'/']);
+        $this->tester->execute(['--dir' => $this->relativeOutputDir.'/']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $files = \glob(\rtrim($this->outputDir, '/').'/DeployTask*.php');
@@ -321,16 +336,20 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $template = \sys_get_temp_dir().'/generate-template-'.\uniqid().'.tpl';
         \file_put_contents($template, "<?php // custom-template-marker {{ className }} {{ taskId }}\n");
 
+        $projectDir = \sys_get_temp_dir().'/generate-template-project-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
         try {
             $command = new DeployTasksGenerateCommand(
                 new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
                 templatePath: $template,
+                projectDir: $projectDir,
             );
             $tester = new CommandTester($command);
-            $tester->execute(['--dir' => $this->outputDir]);
+            $tester->execute(['--dir' => 'tasks/']);
 
             self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-            $files = \glob($this->outputDir.'DeployTask*.php');
+            $files = \glob($projectDir.'/tasks/DeployTask*.php');
             self::assertNotFalse($files);
             self::assertCount(1, $files);
             $content = (string) \file_get_contents($files[0]);
@@ -338,6 +357,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             self::assertStringNotContainsString('implements DeployTaskInterface', $content);
         } finally {
             @\unlink($template);
+            FilesystemTestHelper::cleanup($projectDir);
         }
     }
 
@@ -376,6 +396,56 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             @\rmdir($projectDir.'/tasks');
             @\rmdir($projectDir);
         }
+    }
+
+    /**
+     * @param non-empty-string $dir
+     * @param non-empty-string $expectedMessageFragment
+     */
+    #[DataProvider('pathTraversalPayloadsProvider')]
+    public function testGenerateRejectsDirPathTraversal(string $dir, string $expectedMessageFragment, ?string $projectDir): void
+    {
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            projectDir: $projectDir,
+        );
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => $dir]);
+        } catch (\InvalidArgumentException) {
+            // Boundary violation surfaces as an exception — counts as rejection.
+            return;
+        }
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        $display = \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertNotNull($display);
+        self::assertStringContainsString($expectedMessageFragment, $display);
+    }
+
+    /**
+     * @return iterable<string, array{non-empty-string, non-empty-string, ?string}>
+     */
+    public static function pathTraversalPayloadsProvider(): iterable
+    {
+        // Absolute path: rejected by leading-slash guard before any canonicalisation.
+        yield 'absolute path' => ['/etc/passwd', 'must be a relative path', null];
+
+        // Parent traversal: normalises to a `..`-prefixed canonical → caught by allowlist.
+        yield 'parent traversal' => ['../../escape', 'Invalid --dir value', null];
+
+        // Mid-path traversal: `legit/../..` collapses to `..` → caught by allowlist.
+        yield 'mid-path traversal' => ['legit/../../escape', 'Invalid --dir value', null];
+
+        // Sibling-directory escape: `../myprojectX` starts with `..` → caught by allowlist.
+        $siblingProject = \sys_get_temp_dir().'/myproject-'.\uniqid();
+        yield 'sibling directory escape' => ['../myprojectX', 'Invalid --dir value', $siblingProject];
+
+        // Valid relative path inside the project → no failure expected (handled by testGenerate).
     }
 
     protected static function getKernelClass(): string
