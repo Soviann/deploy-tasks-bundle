@@ -48,7 +48,7 @@ final class CustomLoggerServiceTest extends TestCase
         $container->register('app.custom_logger', ArrayLogger::class)->setPublic(true);
 
         $runner = $container->getDefinition('deploy_tasks.runner');
-        $loggerArg = $runner->getArgument(11);
+        $loggerArg = $runner->getArgument('$logger');
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('app.custom_logger', (string) $loggerArg);
@@ -63,7 +63,7 @@ final class CustomLoggerServiceTest extends TestCase
         $container = $this->buildContainer();
 
         $runner = $container->getDefinition('deploy_tasks.runner');
-        $loggerArg = $runner->getArgument(11);
+        $loggerArg = $runner->getArgument('$logger');
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('logger', (string) $loggerArg);
