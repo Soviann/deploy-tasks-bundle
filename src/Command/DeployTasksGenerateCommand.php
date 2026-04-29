@@ -126,21 +126,26 @@ final class DeployTasksGenerateCommand extends Command
 
         $namespace = $this->dirToNamespace($dir);
 
+        $replacements = [
+            '__TASK_ID__' => \var_export($taskId, true),
+            '__DESCRIPTION__' => \var_export($description, true),
+        ];
+
         if (null !== $this->templatePath && \is_file($this->templatePath)) {
             $fileContent = (string) \file_get_contents($this->templatePath);
-            $fileContent = \strtr($fileContent, [
+            $fileContent = \strtr($fileContent, \array_merge([
                 '{{ namespace }}' => $namespace,
                 '{{ className }}' => $className,
-                '{{ taskId }}' => $taskId,
-                '{{ description }}' => $description,
-            ]);
+                '{{ taskId }}' => $replacements['__TASK_ID__'],
+                '{{ description }}' => $replacements['__DESCRIPTION__'],
+            ], $replacements));
         } else {
-            $fileContent = <<<PHP
+            $template = <<<'PHP'
                 <?php
 
                 declare(strict_types=1);
 
-                namespace {$namespace};
+                namespace __NAMESPACE__;
 
                 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
                 use Soviann\DeployTasksBundle\DeployTaskInterface;
@@ -149,25 +154,25 @@ final class DeployTasksGenerateCommand extends Command
 
                 // Available attribute knobs (uncomment + tweak as needed):
                 // #[AsDeployTask(
-                //     id: '{$taskId}',       // optional; auto-derived from FQCN if omitted. Renaming this class rotates the auto-ID.
+                //     id: __TASK_ID__,       // optional; auto-derived from FQCN if omitted. Renaming this class rotates the auto-ID.
                 //     priority: 0,           // higher runs first
                 //     env: 'prod',           // or ['prod', 'staging']; null = all envs
                 //     timeout: 60,           // seconds; null = default_timeout from config
                 //     transactional: true,   // wrap run() in a DB transaction (requires TransactionalStorageInterface)
                 //     groups: 'default',     // or ['a', 'b']; null = default slot
                 // )]
-                #[AsDeployTask(description: '{$description}')]
-                final class {$className} implements DeployTaskInterface
+                #[AsDeployTask(description: __DESCRIPTION__)]
+                final class __CLASS_NAME__ implements DeployTaskInterface
                 {
                     // Inject services here if needed:
-                    // public function __construct(private readonly SomeService \$service) {}
+                    // public function __construct(private readonly SomeService $service) {}
 
                     public function getDescription(): string
                     {
-                        return '{$description}';
+                        return __DESCRIPTION__;
                     }
 
-                    public function run(OutputInterface \$output): TaskResult
+                    public function run(OutputInterface $output): TaskResult
                     {
                         // TODO: implement. See docs/creating-tasks.md for the full task-author guide.
 
@@ -175,6 +180,11 @@ final class DeployTasksGenerateCommand extends Command
                     }
                 }
                 PHP;
+
+            $fileContent = \strtr($template, \array_merge($replacements, [
+                '__NAMESPACE__' => $namespace,
+                '__CLASS_NAME__' => $className,
+            ]));
         }
 
         $this->fs->mkdir($absoluteDir, 0755);

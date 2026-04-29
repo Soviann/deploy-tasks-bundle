@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Generated task stubs escape custom-generator output, removing a code-injection vector when an end user installs a third-party task-id generator.
 - Generate commands reject `--dir` values that resolve outside the project directory, including absolute paths and sibling-directory escapes.
 - Filesystem storage produces a clear error for malformed JSON records and detects public-web-root segments on both POSIX and Windows paths.
 - Filesystem storage skips unrelated JSON files in the storage directory and works on paths containing glob metacharacters.
