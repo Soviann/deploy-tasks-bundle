@@ -13,6 +13,7 @@ use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
+use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
@@ -125,16 +126,29 @@ final class TaskRunner
      *
      * @param list<string> $groups
      *
+     * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the runner's environment
      * @throws TaskGroupRequiredException
      * @throws TaskGroupMismatchException
-     * @throws TaskNotFoundException      When no task is registered with the given id
-     * @throws \ReflectionException       When the #[AsDeployTask] attribute lookup fails
-     * @throws \Throwable                 When `all_or_nothing` is enabled and the task throws
+     * @throws TaskNotFoundException            When no task is registered with the given id
+     * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
+     * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws
      */
     public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
     {
         $result = $this->withLock($output, function (?LockInterface $lock) use ($taskId, $output, $force, $groups): TaskResult {
             $task = $this->registry->get($taskId);
+
+            $attribute = AsDeployTask::of($task);
+            $taskEnv = $attribute?->env;
+
+            if (null !== $taskEnv && null !== $this->environment) {
+                $envs = \is_array($taskEnv) ? $taskEnv : [$taskEnv];
+
+                if (!\in_array($this->environment, $envs, true)) {
+                    throw new TaskEnvironmentMismatchException($taskId, \is_array($taskEnv) ? \implode('|', $taskEnv) : $taskEnv, $this->environment);
+                }
+            }
+
             $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
             $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
 
