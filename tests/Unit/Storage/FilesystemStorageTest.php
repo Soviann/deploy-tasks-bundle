@@ -306,13 +306,82 @@ final class FilesystemStorageTest extends TestCase
     public function testPublicPathRejection(string $path, bool $shouldThrow): void
     {
         if ($shouldThrow) {
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessageMatches('/Refusing to use filesystem storage under a "public" path/');
+            $this->expectException(StorageException::class);
+            $this->expectExceptionMessageMatches('/Refusing to store deploy-task records under a public web-root path/');
         } else {
             $this->expectNotToPerformAssertions();
         }
 
         new FilesystemStorage($path);
+    }
+
+    public function testDecodeRaisesOnMissingKey(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        $filePath = $this->storagePath.'/task.empty.json';
+        \file_put_contents($filePath, '{}');
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/missing required key "id"/');
+        $this->expectExceptionMessageMatches('/task\.empty\.json/');
+
+        $this->storage->get('task.empty');
+    }
+
+    public function testDecodeRaisesOnNonStringKey(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        $filePath = $this->storagePath.'/task.intid.json';
+        \file_put_contents(
+            $filePath,
+            \json_encode(['id' => 123, 'status' => 'ok', 'executed_at' => '2026-01-01T00:00:00+00:00']),
+        );
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/"id"/');
+        $this->expectExceptionMessageMatches('/int/');
+
+        $this->storage->get('task.intid');
+    }
+
+    public function testWindowsPublicPathRejectedAtConstruction(): void
+    {
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Refusing to store deploy-task records under a public web-root path/');
+
+        new FilesystemStorage('C:\\app\\public\\deploy-tasks');
+    }
+
+    public function testPublicHtmlAndWebSegmentsRejected(): void
+    {
+        $paths = [
+            '/srv/site/public_html/var',
+            '/srv/site/web/var',
+            '/srv/site/htdocs/var',
+        ];
+
+        foreach ($paths as $path) {
+            try {
+                new FilesystemStorage($path);
+                self::fail(\sprintf('Expected StorageException for path "%s", but none was thrown.', $path));
+            } catch (StorageException $e) {
+                self::assertMatchesRegularExpression(
+                    '/Refusing to store deploy-task records under a public web-root path/',
+                    $e->getMessage(),
+                    \sprintf('Wrong exception message for path "%s".', $path),
+                );
+            }
+        }
+    }
+
+    public function testNonWebRootPathAccepted(): void
+    {
+        // Neither path contains a bare web-root segment; "republican" contains "public" as a substring
+        // but must NOT be rejected because the anchored regex requires segment boundaries.
+        $this->expectNotToPerformAssertions();
+
+        new FilesystemStorage('/var/lib/deploy-tasks');
+        new FilesystemStorage('/srv/republican-data/storage');
     }
 
     public function testCorruptJsonThrowsJsonException(): void

@@ -37,15 +37,17 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @param string $storagePath Directory where task JSON files are stored
      *
-     * @throws \InvalidArgumentException When the storage path is under a "public" directory
+     * @throws StorageException When the storage path is under a public web-root directory
      */
     public function __construct(
         private readonly string $storagePath,
     ) {
         $this->fs = new Filesystem();
 
-        if (1 === \preg_match('#(^|/)public(/|$)#i', $storagePath)) {
-            throw new \InvalidArgumentException(\sprintf('Refusing to use filesystem storage under a "public" path: "%s".', $storagePath));
+        $normalized = \str_replace('\\', '/', $storagePath);
+
+        if (1 === \preg_match('#(^|/)(public|public_html|web|htdocs)(/|$)#i', $normalized)) {
+            throw new StorageException(\sprintf('Refusing to store deploy-task records under a public web-root path: "%s". Move storage.filesystem.path outside the web-served directory.', $storagePath));
         }
     }
 
@@ -76,7 +78,7 @@ final class FilesystemStorage implements TaskStorageInterface
             throw new StorageException(\sprintf('Failed to read storage file "%s".', $path));
         }
 
-        return $this->decode($contents);
+        return $this->decode($contents, $path);
     }
 
     /**
@@ -212,7 +214,7 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw new StorageException(\sprintf('Failed to read storage file "%s".', $file->getPathname()));
             }
 
-            $executions[] = $this->decode($contents);
+            $executions[] = $this->decode($contents, $file->getPathname());
         }
 
         return $executions;
@@ -245,7 +247,7 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw new StorageException(\sprintf('Failed to read storage file "%s".', $file->getPathname()));
             }
 
-            $executions[] = $this->decode($contents);
+            $executions[] = $this->decode($contents, $file->getPathname());
         }
 
         return $executions;
@@ -343,14 +345,35 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
+     * @param array<string, mixed> $decoded
+     *
+     * @throws StorageException
+     */
+    private function assertRecordShape(array $decoded, string $sourceFile): void
+    {
+        foreach (['id', 'status', 'executed_at'] as $key) {
+            if (!\array_key_exists($key, $decoded)) {
+                throw new StorageException(\sprintf('Storage record "%s" is missing required key "%s".', $sourceFile, $key));
+            }
+
+            if (!\is_string($decoded[$key])) {
+                throw new StorageException(\sprintf('Storage record "%s" key "%s" must be a string, got %s.', $sourceFile, $key, \get_debug_type($decoded[$key])));
+            }
+        }
+    }
+
+    /**
      * @throws \JsonException
      * @throws StorageException
      */
-    private function decode(string $json): TaskExecution
+    private function decode(string $json, string $sourceFile): TaskExecution
     {
-        /** @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data */
+        /** @var array<string, mixed> $data */
         $data = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
 
+        $this->assertRecordShape($data, $sourceFile);
+
+        /** @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data */
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['executed_at']);
 
         if (false === $executedAt) {
