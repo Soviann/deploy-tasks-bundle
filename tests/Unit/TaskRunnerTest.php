@@ -12,6 +12,7 @@ use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
+use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
@@ -492,8 +493,10 @@ final class TaskRunnerTest extends TestCase
         try {
             $runner->runAll($this->output);
             self::fail('Expected rollback to propagate the original throwable.');
-        } catch (\RuntimeException $e) {
-            self::assertSame('Task failed!', $e->getMessage());
+        } catch (AllOrNothingFailureException $e) {
+            // The typed exception carries the original task error as its previous.
+            self::assertSame('Task failed!', $e->getPrevious()?->getMessage());
+            self::assertSame('test.failing', $e->failedTaskId);
         }
 
         // All changes must be rolled back — no records saved
@@ -518,6 +521,53 @@ final class TaskRunnerTest extends TestCase
 
         self::assertSame(1, $result->ran);
         self::assertTrue($this->storage->has('task.1'));
+    }
+
+    public function testAllOrNothingThrowsTypedExceptionWithPartialResult(): void
+    {
+        // Three-task scenario: #1 succeeds, #2 throws, #3 never runs.
+        // all_or_nothing: true with transactional storage (SQLite in-memory).
+        // Phase 01's per-task transactional closure means the failing task's side-effects
+        // are rolled back together with everything else — storage ends up empty.
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+        $connection->executeStatement($storage->getCreateTableSql());
+        $idResolver = new TaskIdResolver();
+
+        $task1 = new SimpleTask('task.1', 'First');
+        $task2Error = new \RuntimeException('task 2 failed');
+        $task2 = $this->makeFailingTaskWithError('task.2', $task2Error);
+        $task3 = new SimpleTask('task.3', 'Third');
+
+        $runner = new TaskRunner(
+            new TaskRegistry([$task1, $task2, $task3], $idResolver),
+            $storage,
+            new DefaultTaskSorter($idResolver),
+            $idResolver,
+            new TaskDescriptionResolver(),
+            null,
+            null,
+            300,
+            null,
+            true,
+            true, // allOrNothing
+        );
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected AllOrNothingFailureException to be thrown.');
+        } catch (AllOrNothingFailureException $e) {
+            // Partial result: task #1 ran (ran=1), task #2 failed (failed=1), task #3 never ran (no additional counts).
+            self::assertSame(1, $e->partialResult->ran);
+            self::assertSame(1, $e->partialResult->failed);
+            self::assertSame(0, $e->partialResult->skipped);
+            // The wrapped previous must be the original task error.
+            self::assertSame($task2Error, $e->getPrevious());
+            self::assertSame('task.2', $e->failedTaskId);
+        }
+
+        // Transaction rolled back — storage is empty.
+        self::assertSame([], $storage->all());
     }
 
     public function testAllOrNothingCommitsOnSuccess(): void
@@ -1306,6 +1356,30 @@ final class TaskRunnerTest extends TestCase
             public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
             {
                 throw new \RuntimeException('boom');
+            }
+        };
+    }
+
+    private function makeFailingTaskWithError(string $taskId, \Throwable $error): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
+    {
+        return new class($taskId, $error) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public function __construct(private readonly string $id, private readonly \Throwable $error)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return $this->id;
+            }
+
+            public function getDescription(): string
+            {
+                return 'Inline failing fixture (with custom error)';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                throw $this->error;
             }
         };
     }
