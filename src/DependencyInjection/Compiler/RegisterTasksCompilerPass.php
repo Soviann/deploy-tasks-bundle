@@ -99,9 +99,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * must implement TransactionalStorageInterface — otherwise there is nothing to
      * wrap per-task executions in.
      *
-     * Reads the transactional flag from the runner's constructor argument (index 9),
-     * which is set to `$activeStorage['transactional']` by the extension — true only
-     * when `storage.type=custom` and `storage.custom.transactional=true`.
+     * Reads the transactional flag from the runner's constructor argument by name
+     * ($transactional), which is set to `$activeStorage['transactional']` by the
+     * extension — true only when `storage.type=custom` and
+     * `storage.custom.transactional=true`.
      *
      * @throws IncompatibleStorageException
      */
@@ -111,9 +112,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             return;
         }
 
-        $runnerArgs = $container->findDefinition('deploy_tasks.runner')->getArguments();
+        $runnerDefinition = $container->findDefinition('deploy_tasks.runner');
+        $transactional = $runnerDefinition->getArgument('$transactional');
 
-        if (true !== ($runnerArgs[9] ?? null)) {
+        if (true !== $transactional) {
             return;
         }
 
@@ -149,12 +151,8 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 continue;
             }
 
-            if (!\is_subclass_of($class, DeployTaskInterface::class)) {
-                $implements = \class_implements($class);
-
-                if (false === $implements || !\in_array(DeployTaskInterface::class, $implements, true)) {
-                    continue;
-                }
+            if (!\is_subclass_of($class, DeployTaskInterface::class, true)) {
+                continue;
             }
 
             $attributeId = $this->readAttributeId($class);
@@ -223,7 +221,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         $eventsEnabled = $container->getParameter('deploy_tasks.events.enabled');
 
         if ($eventsEnabled && $container->has('event_dispatcher')) {
-            $runnerDefinition->setArgument(5, new Reference('event_dispatcher'));
+            $runnerDefinition->setArgument('$dispatcher', new Reference('event_dispatcher'));
         } elseif ($eventsEnabled) {
             $container->log($this, 'Events enabled but symfony/event-dispatcher not available — event dispatching disabled.');
         }
@@ -233,7 +231,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         $lockEnabled = $container->getParameter('deploy_tasks.lock.enabled');
 
         if ($lockEnabled && $container->has('lock.factory')) {
-            $runnerDefinition->setArgument(6, new Reference('lock.factory'));
+            $runnerDefinition->setArgument('$lockFactory', new Reference('lock.factory'));
         } elseif ($lockEnabled) {
             $container->log($this, 'Lock enabled but symfony/lock not available — concurrent execution protection disabled.');
         }
