@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `deploytasks:run --id=…` honors the task's `env` constraint, refusing to force-run a `prod`-only task in `dev`.
 - A throwing event listener no longer marks the task it observed as failed.
 - Restores reader-vs-writer atomicity for filesystem storage; concurrent reads can no longer observe a half-written record.
 - Persists task execution inside the per-task transaction so a storage failure no longer leaves a task that ran but was not recorded.
