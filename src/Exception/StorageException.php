@@ -18,11 +18,25 @@ final class StorageException extends \RuntimeException
     }
 
     /**
-     * Creates an exception for when chmod() fails after writing a storage file.
+     * Creates an exception for when chmod() fails after creating a storage directory.
      */
-    public static function chmodFailed(string $path): self
+    public static function chmodFailedOnDirectory(string $path): self
     {
-        return new self(\sprintf('Failed to set permissions on storage file "%s".', $path));
+        return new self(\sprintf(
+            'Failed to enforce mode 0700 on storage path "%s". Storage path is on a filesystem that does not support POSIX modes — point storage.filesystem.path elsewhere or switch to database storage.',
+            $path,
+        ));
+    }
+
+    /**
+     * Creates an exception for when chmod() fails after writing a storage record.
+     */
+    public static function chmodFailedOnRecord(string $path): self
+    {
+        return new self(\sprintf(
+            'Failed to enforce mode 0600 on storage record "%s". Storage path is on a filesystem that does not support POSIX modes — point storage.filesystem.path elsewhere or switch to database storage.',
+            $path,
+        ));
     }
 
     /**
