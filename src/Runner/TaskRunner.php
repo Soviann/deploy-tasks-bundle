@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
+use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
@@ -271,7 +272,23 @@ final class TaskRunner
 
         foreach ($executable as $item) {
             ++$current;
-            $outcome = $this->executeTask($item['task'], $output, $current, $total, $item['taskId'], $item['pendingSlots']);
+
+            try {
+                $outcome = $this->executeTask($item['task'], $output, $current, $total, $item['taskId'], $item['pendingSlots']);
+            } catch (\Throwable $taskError) {
+                if ($this->allOrNothing) {
+                    $partial = new RunResult(
+                        ran: $ran,
+                        skipped: $skipped,
+                        failed: $failed + 1,
+                        locked: false,
+                    );
+
+                    throw new AllOrNothingFailureException($partial, $item['taskId'], $taskError);
+                }
+
+                throw $taskError;
+            }
 
             $lock?->refresh();
 
