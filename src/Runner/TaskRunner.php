@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
+use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
@@ -313,7 +314,17 @@ final class TaskRunner
 
         $this->logger->info('Deploy task starting', ['task_id' => $taskId]);
 
-        $this->dispatcher?->dispatch(new BeforeTaskEvent($taskId, $task));
+        try {
+            $this->dispatcher?->dispatch(new BeforeTaskEvent($taskId, $task));
+        } catch (\Throwable $listenerError) {
+            $this->logger->error('Deploy task listener failed', [
+                'event' => BeforeTaskEvent::class,
+                'task' => $taskId,
+                'exception' => $listenerError,
+            ]);
+
+            throw new EventListenerException(\sprintf('Listener for %s failed.', BeforeTaskEvent::class), 0, $listenerError);
+        }
 
         $start = \microtime(true);
         $taskRanSuccessfully = false;
@@ -329,6 +340,9 @@ final class TaskRunner
             $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
 
             return $outcome;
+        } catch (EventListenerException $listenerError) {
+            // Task outcome stands as it ran. Re-raise so the caller sees the listener bug.
+            throw $listenerError;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
@@ -383,7 +397,17 @@ final class TaskRunner
             'duration_ms' => (int) \round($duration * 1000),
         ]);
 
-        $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
+        try {
+            $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
+        } catch (\Throwable $listenerError) {
+            $this->logger->error('Deploy task listener failed', [
+                'event' => AfterTaskEvent::class,
+                'task' => $taskId,
+                'exception' => $listenerError,
+            ]);
+
+            throw new EventListenerException(\sprintf('Listener for %s failed.', AfterTaskEvent::class), 0, $listenerError);
+        }
 
         return new TaskOutcome(
             result: $result,
@@ -400,7 +424,17 @@ final class TaskRunner
         float $duration,
         OutputInterface $output,
     ): TaskOutcome {
-        $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
+        try {
+            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
+        } catch (\Throwable $listenerError) {
+            $this->logger->error('Deploy task listener failed', [
+                'event' => TaskFailedEvent::class,
+                'task' => $taskId,
+                'exception' => $listenerError,
+            ]);
+
+            throw new EventListenerException(\sprintf('Listener for %s failed.', TaskFailedEvent::class), 0, $listenerError);
+        }
 
         $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
         $this->logger->error('Deploy task failed', [

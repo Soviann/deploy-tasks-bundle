@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A throwing event listener no longer marks the task it observed as failed.
 - Restores reader-vs-writer atomicity for filesystem storage; concurrent reads can no longer observe a half-written record.
 - Persists task execution inside the per-task transaction so a storage failure no longer leaves a task that ran but was not recorded.
 - `DeployTasksRunCommand::EX_TEMPFAIL` and `EX_USAGE` no longer carry an `int` type declaration. Typed class constants are PHP 8.3+ syntax, so the bundle's declared `php: ">=8.2"` floor blew up with `ParseError: syntax error, unexpected identifier "EX_TEMPFAIL", expecting "="` on every PHP 8.2 CI matrix row (169 tests erroring at autoload time). Constants are now untyped — the integer values are unchanged and the matrix is green again.
