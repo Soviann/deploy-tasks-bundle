@@ -63,7 +63,7 @@ final class ProjectDirTest extends TestCase
         $generateHost = $container->getDefinition('deploy_tasks.command.generate.host');
         self::assertSame(DeployTasksGenerateHostCommand::class, $generateHost->getClass());
 
-        $resolved = $container->getParameterBag()->resolveValue($generateHost->getArgument(1));
+        $resolved = $container->getParameterBag()->resolveValue($generateHost->getArgument('$projectDir'));
 
         self::assertSame($this->projectDir, $resolved);
     }

@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: `DEPLOY_TASKS_HOST_DIR` env-var is replaced by the `deploy_tasks.generate.host_directory` config key. Migration: move the env var value into your `config/packages/deploy_tasks.yaml` under `generate.host_directory`.
 - `all_or_nothing` failures throw a typed `AllOrNothingFailureException` carrying a partial `RunResult` for the CLI/telemetry, instead of an opaque DBAL exception.
 - DBAL storage uses platform-native datetime columns; execution timestamps survive timezone differences and preserve sub-second ordering. **BREAKING**: existing tables created by 0.x dev installs must be re-created — run `bin/console deploytasks:create-schema --dump-sql` to inspect the new DDL or drop and recreate the table.
 - DBAL storage uses a platform-native upsert instead of DELETE+INSERT, eliminating duplicate-key races and gap-lock deadlocks under concurrent writers.
