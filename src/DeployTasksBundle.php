@@ -86,6 +86,11 @@ final class DeployTasksBundle extends AbstractBundle
                             ->defaultNull()
                             ->info('Path to a custom PHP template file for deploytasks:generate:container.')
                         ->end()
+                        ->scalarNode('host_directory')
+                            ->defaultValue('%kernel.project_dir%/deploy-tasks-host')
+                            ->cannotBeEmpty()
+                            ->info('Where deploytasks:generate:host writes new host-scope task stubs.')
+                        ->end()
                     ->end()
                 ->end()
             ->end()
@@ -220,7 +225,7 @@ final class DeployTasksBundle extends AbstractBundle
             ])
         ;
 
-        /** @var array{directory: string, template: string|null} $generateConfig */
+        /** @var array{directory: string, template: string|null, host_directory: string} $generateConfig */
         $generateConfig = $config['generate'];
 
         $services->set('deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
@@ -233,12 +238,10 @@ final class DeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        $builder->setParameter('env(DEPLOY_TASKS_HOST_DIR)', 'deploy/host-tasks');
-
         $services->set('deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
             ->args([
-                '%env(DEPLOY_TASKS_HOST_DIR)%',
-                '%kernel.project_dir%',
+                '$hostDirectory' => $generateConfig['host_directory'],
+                '$projectDir' => '%kernel.project_dir%',
             ])
             ->tag('console.command')
         ;
