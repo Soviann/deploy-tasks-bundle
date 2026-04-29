@@ -104,8 +104,8 @@ final class FilesystemStorage implements TaskStorageInterface
             // Deploy-task payloads can carry error messages, DSN fragments, or other sensitive
             // context; restrict reads to the owning user so unrelated accounts on the host
             // can't inspect them.
-            if (!@\chmod($path, 0600)) {
-                throw StorageException::chmodFailed($path);
+            if (false === @\chmod($path, 0600)) {
+                throw StorageException::chmodFailedOnRecord($path);
             }
         } finally {
             \flock($lockHandle, \LOCK_UN);
@@ -297,6 +297,11 @@ final class FilesystemStorage implements TaskStorageInterface
             $this->fs->mkdir($this->storagePath, 0700);
         } catch (IOException $e) {
             throw new StorageException(\sprintf('Failed to create storage directory "%s".', $this->storagePath), 0, $e);
+        }
+
+        // Normalize mode even for pre-existing dirs — mkdir is a no-op if the dir exists.
+        if (false === @\chmod($this->storagePath, 0700)) {
+            throw StorageException::chmodFailedOnDirectory($this->storagePath);
         }
     }
 
