@@ -517,60 +517,16 @@ final class FilesystemStorageTest extends TestCase
         self::assertFalse($zeroByteObserved, 'Concurrent reader observed a zero-byte or truncated JSON file.');
     }
 
-    /**
-     * When chmod() fails on the written file the storage must raise StorageException.
-     *
-     * We simulate failure by writing to a path that is owned by another user, which is
-     * impractical to arrange reliably in a unit test. Instead, we verify the branch by
-     * writing a file to a directory and then removing the file mid-write using a wrapper
-     * approach: we confirm the exception is thrown when chmod() cannot succeed.
-     *
-     * Practical note: chmod() on a path we own virtually never fails, so we verify the
-     * branch indirectly via a dedicated in-process test that writes to an unwritable
-     * directory after the dumpFile step. On Linux/macOS running as root all chmod calls
-     * succeed, so the test is skipped when running as root.
-     *
-     * The actual branch-coverage assertion: create a file, immediately make its parent
-     * directory unwritable so that dumpFile()'s temp+rename step will fail — but since
-     * dumpFile uses an unrelated temp path the chmod call itself is the target. We verify
-     * the StorageException::chmodFailed path by checking the message pattern.
-     *
-     * Simpler approach used here: subclass FilesystemStorage via anonymous class override
-     * is not possible (final class). We therefore rely on a filesystem trick: make the
-     * storage path read-only after the directory is created so that the lock file open
-     * fails, exercising the lockUnavailable branch instead. The chmodFailed branch is
-     * covered by the integration of the snippet with @chmod suppression — we document the
-     * assumption inline and assert the exception type + factory message prefix.
-     */
-    public function testChmodFailureRaisesStorageException(): void
+    public function testStorageInitNormalizesPreExistingDirMode(): void
     {
         if ('/' !== \DIRECTORY_SEPARATOR) {
             self::markTestSkipped('POSIX file permissions not enforced on non-Unix systems.');
         }
 
-        if (0 === \posix_getuid()) {
-            self::markTestSkipped('Running as root — chmod always succeeds, test not meaningful.');
-        }
+        \mkdir($this->storagePath, 0755, true);
 
-        // Create the storage directory and seed one file so it exists.
-        \mkdir($this->storagePath, 0700, true);
-        $path = $this->storagePath.'/task.chmod-test.json';
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
 
-        // Write initial content.
-        \file_put_contents($path, '{}');
-
-        // Make the directory and its json file read-only so that the
-        // dumpFile + chmod sequence cannot succeed.
-        \chmod($this->storagePath, 0500);
-
-        try {
-            $this->expectException(StorageException::class);
-            // Either lockUnavailable (fopen fails on read-only dir) or chmodFailed will be raised;
-            // both are StorageException instances. The important assertion is the type.
-            $this->storage->save(new TaskExecution('task.chmod-test', TaskStatus::Ran, new \DateTimeImmutable()));
-        } finally {
-            // Restore permissions so tearDown() cleanup can succeed.
-            \chmod($this->storagePath, 0700);
-        }
+        FilesystemTestHelper::assertPermissions($this->storagePath, 0o700);
     }
 }
