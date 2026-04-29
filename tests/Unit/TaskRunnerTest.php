@@ -12,6 +12,7 @@ use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
+use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
@@ -322,6 +323,44 @@ final class TaskRunnerTest extends TestCase
         self::assertSame('Task failed!', $dispatched[1]->exception->getMessage());
         self::assertGreaterThanOrEqual(0.0, $dispatched[1]->duration);
         self::assertLessThanOrEqual($elapsed + 0.1, $dispatched[1]->duration);
+    }
+
+    public function testListenerFailureDoesNotMarkTaskFailed(): void
+    {
+        // A listener that throws on BeforeTaskEvent must not flip a SUCCESS task to FAILED.
+        // The task outcome stands; the listener exception is surfaced via the logger.
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')
+            ->willReturnCallback(static function (object $event): object {
+                if ($event instanceof BeforeTaskEvent) {
+                    throw new \RuntimeException('listener exploded');
+                }
+
+                return $event;
+            });
+
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            dispatcher: $dispatcher,
+            logger: $logger,
+        );
+
+        // The runner must raise EventListenerException (not swallow or rethrow as FAILURE).
+        $this->expectException(EventListenerException::class);
+
+        try {
+            $runner->runAll($this->output);
+        } finally {
+            // Even though an EventListenerException propagated, the storage must NOT have
+            // recorded a FAILED execution — the task itself succeeded (or was never reached).
+            $execution = $this->storage->get('task.1');
+            self::assertNull($execution, 'A throwing BeforeTaskEvent listener must not create a FAILED storage record.');
+
+            // The listener failure must reach the logger.
+            self::assertTrue($logger->has('error', 'Deploy task listener failed'), 'Listener exception must be logged at error level.');
+        }
     }
 
     public function testNoLockFactoryWarningIsSilentByDefault(): void
