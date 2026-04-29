@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: Configuration validation rejects ignored / impossible combinations earlier: filesystem `transactional` flag now errors at compile time, custom non-transactional storage with `transactional: true` is rejected at the compiler pass, and `AsDeployTask::$groups: []` now raises instead of silently meaning 'default group'. The filesystem `all_or_nothing` flag already caused a boot-time error (unchanged).
 - **BREAKING**: `DEPLOY_TASKS_HOST_DIR` env-var is replaced by the `deploy_tasks.generate.host_directory` config key. Migration: move the env var value into your `config/packages/deploy_tasks.yaml` under `generate.host_directory`.
 - `all_or_nothing` failures throw a typed `AllOrNothingFailureException` carrying a partial `RunResult` for the CLI/telemetry, instead of an opaque DBAL exception.
 - DBAL storage uses platform-native datetime columns; execution timestamps survive timezone differences and preserve sub-second ordering. **BREAKING**: existing tables created by 0.x dev installs must be re-created — run `bin/console deploytasks:create-schema --dump-sql` to inspect the new DDL or drop and recreate the table.

@@ -90,6 +90,36 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         if (null !== $class && \is_a($class, TransactionalStorageInterface::class, true)) {
             $container->setAlias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->setPublic(true);
         }
+
+        $this->validateCustomTransactionalStorage($container, $customServiceId, $class);
+    }
+
+    /**
+     * When custom storage is configured with transactional: true, the service class
+     * must implement TransactionalStorageInterface — otherwise there is nothing to
+     * wrap per-task executions in.
+     *
+     * Reads the transactional flag from the runner's constructor argument (index 9),
+     * which is set to `$activeStorage['transactional']` by the extension — true only
+     * when `storage.type=custom` and `storage.custom.transactional=true`.
+     *
+     * @throws IncompatibleStorageException
+     */
+    private function validateCustomTransactionalStorage(ContainerBuilder $container, string $customServiceId, ?string $customStorageClass): void
+    {
+        if (!$container->hasDefinition('deploy_tasks.runner')) {
+            return;
+        }
+
+        $runnerArgs = $container->findDefinition('deploy_tasks.runner')->getArguments();
+
+        if (true !== ($runnerArgs[9] ?? null)) {
+            return;
+        }
+
+        if (null === $customStorageClass || !\is_a($customStorageClass, TransactionalStorageInterface::class, true)) {
+            throw new IncompatibleStorageException(\sprintf('Custom storage "%s" is configured with transactional: true but does not implement %s.', $customStorageClass ?? $customServiceId, TransactionalStorageInterface::class));
+        }
     }
 
     /**
