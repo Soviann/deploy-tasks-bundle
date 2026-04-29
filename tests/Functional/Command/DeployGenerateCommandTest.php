@@ -448,6 +448,83 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         // Valid relative path inside the project → no failure expected (handled by testGenerate).
     }
 
+    public function testHostileGeneratorOutputIsEscapedInGeneratedStub(): void
+    {
+        // Hostile generator returns a string that would break out of a surrounding single-quoted
+        // PHP literal if injected raw. var_export must neutralise it so the rendered file is
+        // syntactically valid and the string survives byte-for-byte.
+        $hostiletaskId = "';system('rm -rf /'); //";
+
+        $hostileGenerator = new class($hostiletaskId) implements TaskIdGeneratorInterface {
+            public function __construct(private readonly string $id)
+            {
+            }
+
+            public function generate(string $className): string
+            {
+                return $this->id;
+            }
+
+            public static function generateStatic(string $className): ?string
+            {
+                return null;
+            }
+        };
+
+        $projectDir = \sys_get_temp_dir().'/generate-hostile-'.\uniqid();
+        \mkdir($projectDir.'/tasks', 0o755, true);
+
+        $fixedNow = new \DateTimeImmutable('2099-01-01 00:00:00');
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $hostileGenerator,
+            projectDir: $projectDir,
+            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+        );
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($projectDir.'/tasks/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+            $renderedFile = $files[0];
+
+            // Assert the rendered file is syntactically valid PHP.
+            $process = new \Symfony\Component\Process\Process(['php', '-l', $renderedFile]);
+            $process->run();
+            self::assertSame(0, $process->getExitCode(), 'php -l must exit 0: '.$process->getOutput().$process->getErrorOutput());
+
+            // Assert the hostile string survives byte-for-byte: var_export escapes it, so
+            // the file must contain the escaped literal form rather than the raw string.
+            // \var_export("';system('rm -rf /'); //", true) produces '\';system(\'rm -rf /\'); //'
+            $content = (string) \file_get_contents($renderedFile);
+            $escapedForm = \var_export($hostiletaskId, true);
+
+            self::assertStringContainsString(
+                $escapedForm,
+                $content,
+                'The var_export-escaped form of the hostile string must appear verbatim in the rendered stub.',
+            );
+            self::assertStringNotContainsString(
+                $hostiletaskId,
+                $content,
+                'The raw (unescaped) hostile string must NOT appear in the rendered stub.',
+            );
+        } finally {
+            $glob = \glob($projectDir.'/tasks/*');
+            $matches = false === $glob ? [] : $glob;
+
+            foreach ($matches as $file) {
+                \unlink($file);
+            }
+
+            @\rmdir($projectDir.'/tasks');
+            @\rmdir($projectDir);
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
