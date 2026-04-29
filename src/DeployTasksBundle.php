@@ -149,10 +149,6 @@ final class DeployTasksBundle extends AbstractBundle
 
         $builder->setParameter('deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
 
-        $loggerArg = null !== $config['logger']
-            ? service('deploy_tasks.logger')                               // user override — alias created in registerLogger()
-            : new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE); // app logger when present (resolved as null otherwise — TaskRunner falls back to NullLogger)
-
         $services->set('deploy_tasks.runner', TaskRunner::class)
             ->args([
                 service('deploy_tasks.registry'),
@@ -166,11 +162,23 @@ final class DeployTasksBundle extends AbstractBundle
                 param('kernel.environment'),
                 $activeStorage['transactional'],
                 $activeStorage['all_or_nothing'],
-                $loggerArg,
+                null, // logger — set below
                 $lockConfig['ttl'],
             ])
-            ->tag('monolog.logger', ['channel' => 'deploy_tasks'])
         ;
+
+        $runnerDefinition = $builder->getDefinition('deploy_tasks.runner');
+
+        if (null === $config['logger']) {
+            // Bundle owns the logger — tag it for Monolog channel routing.
+            $runnerDefinition->addTag('monolog.logger', ['channel' => 'deploy_tasks']);
+            $runnerDefinition->setArgument(11, new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE));
+        } else {
+            /** @var string $userLoggerId */
+            $userLoggerId = $config['logger'];
+            // User supplied a logger service — route as-is, no channel tag.
+            $runnerDefinition->setArgument(11, new Reference($userLoggerId));
+        }
         $services->alias(TaskRunner::class, 'deploy_tasks.runner')->public();
 
         // Commands
