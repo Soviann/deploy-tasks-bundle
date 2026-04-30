@@ -23,9 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `deploy_tasks.lock.ttl` config option; the runner refreshes the lock between tasks so deploys longer than the TTL no longer risk concurrent execution.
 - Configuration rejects malformed SQL identifiers in `storage.database` column/table names at compile time.
 - `deploytasks:generate:host` now surfaces a `[WARNING]` after a successful generation if `bin/deploy-tasks-host.sh` is missing from the project root. The message names the expected location and the `deploy-tasks-host.sh.dist` template shipped with the bundle, so first-time users discover the one-step install (copy the `.dist`, `chmod +x`) instead of generating a stub that cannot run. The check is silent when the runner is already in place.
-
-### Fixed
-
 - Tasks shelling out via `ProcessRunnerTrait` no longer corrupt Symfony Console output when the child emits angle-bracketed text. New `runProcessWithTimeout()` helper and `PathNormalizer::normalizeWithin()` boundary check exposed.
 - Generated task stubs escape custom-generator output, removing a code-injection vector when an end user installs a third-party task-id generator.
 - Generate commands reject `--dir` values that resolve outside the project directory, including absolute paths and sibling-directory escapes.
@@ -80,8 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Unused `StorageException::readError()` and `StorageException::writeError()` factory methods. Both storage implementations build their own messages inline with richer context (DBAL exception text in `DbalStorage`, file path in `FilesystemStorage`); the factories were never called.
-
-### Added
 
 - `deploytasks:run --require-some` — exits with code 64 (EX_USAGE) when no task matches the provided filters (`--id`, `--group`), distinguishing an empty selection from a successful noop.
 - `deploytasks:run` now emits a `[i/N] FQCN` progress line before each executed task and a `→ <status> (<ms>ms)` completion line after, giving real-time feedback on which task is running and how long it took.

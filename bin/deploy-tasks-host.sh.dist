@@ -57,19 +57,19 @@ shopt -s nullglob
 for task_file in "$TASKS_DIR"/*.sh; do
     id=$(basename "$task_file" .sh)
     if grep -Fxq "$id" "$STORAGE"; then
-        echo "✓ $id (skipped)"
+        echo "[OK] $id (skipped)"
         continue
     fi
     if [ "$DRY_RUN" = "1" ]; then
-        echo "→ $id (dry-run)"
+        echo "--> $id (dry-run)"
         continue
     fi
-    echo "▶ $id"
+    echo ">> $id"
     if bash "$task_file"; then
         echo "$id" >> "$STORAGE"
     else
         exit_code=$?
-        echo "✗ $id failed (exit $exit_code)"
+        echo "[FAIL] $id failed (exit $exit_code)"
         break
     fi
 done

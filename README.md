@@ -1,9 +1,12 @@
 # DeployTasksBundle
 
+[![CI](https://github.com/soviann/deploy-tasks-bundle/actions/workflows/ci.yml/badge.svg)](https://github.com/soviann/deploy-tasks-bundle/actions/workflows/ci.yml)
 [![Latest Stable Version](https://poser.pugx.org/soviann/deploy-tasks-bundle/v/stable)](https://packagist.org/packages/soviann/deploy-tasks-bundle)
 [![License](https://poser.pugx.org/soviann/deploy-tasks-bundle/license)](https://packagist.org/packages/soviann/deploy-tasks-bundle)
 
 A Symfony bundle for running one-time deploy tasks — data migrations, cache warmups, seed scripts — via CLI. Each task is tracked so it executes exactly once across deployments.
+
+> **Status: pre-1.0.** Public API and configuration may change without a major-version bump until `v1.0.0`. Each release ships an `UPGRADE.md` section.
 
 ## Requirements
 
@@ -66,6 +69,13 @@ Check the status of all tasks:
 ```bash
 bin/console deploytasks:status
 ```
+
+## Project Documents
+
+- [`CHANGELOG.md`](CHANGELOG.md) — release notes, Keep-a-Changelog format.
+- [`UPGRADE.md`](UPGRADE.md) — breaking-change migration notes (per release).
+- [`SECURITY.md`](SECURITY.md) — vulnerability disclosure.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — local dev setup and PR conventions.
 
 ## Running shell commands
 
