@@ -61,16 +61,24 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         $this->tester->setInputs(['no']);
         $this->tester->execute([]);
 
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('Aborted', $this->tester->getDisplay());
 
         // Storage should be unchanged
         self::assertTrue($this->storage->has('test.simple'));
     }
 
-    public function testRollupNoInteraction(): void
+    public function testRollupNoInteractionWithoutForceRefuses(): void
     {
-        $this->tester->execute(['--no-interaction' => true]);
+        $this->tester->execute(['--no-interaction' => true], ['interactive' => false]);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('Refusing to run destructive command', $this->tester->getDisplay());
+    }
+
+    public function testRollupNoInteractionWithForce(): void
+    {
+        $this->tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
@@ -80,14 +88,46 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Ran, $this->storage->get('test.simple')?->status);
     }
 
+    public function testRollupNoInteractionWithYesAlias(): void
+    {
+        $this->tester->execute(['--yes' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
+
+        self::assertTrue($this->storage->has('test.simple'));
+        self::assertSame(TaskStatus::Ran, $this->storage->get('test.simple')?->status);
+    }
+
+    public function testRollupInteractiveYes(): void
+    {
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute([], ['interactive' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
+        self::assertTrue($this->storage->has('test.simple'));
+    }
+
+    public function testRollupInteractiveNo(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute([], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertTrue($this->storage->has('test.simple'));
+    }
+
     public function testRollupIdempotent(): void
     {
-        $this->tester->execute(['--no-interaction' => true]);
+        $this->tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
         // Run again
-        $this->tester->execute(['--no-interaction' => true]);
+        $this->tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
@@ -96,7 +136,7 @@ final class DeployRollupCommandTest extends FunctionalTestCase
 
     public function testRollupMarksEverySlotAcrossAllTasks(): void
     {
-        $this->tester->execute(['--no-interaction' => true]);
+        $this->tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
@@ -110,7 +150,7 @@ final class DeployRollupCommandTest extends FunctionalTestCase
     {
         $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
 
-        $this->tester->execute(['--group' => ['predeploy'], '--no-interaction' => true]);
+        $this->tester->execute(['--group' => ['predeploy'], '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 

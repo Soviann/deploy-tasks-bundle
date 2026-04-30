@@ -67,7 +67,7 @@ final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Failed, $this->storage->get('test.simple')?->status);
 
         // Reset it
-        $this->resetTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->resetTester->execute(['id' => 'test.simple', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->resetTester->getStatusCode());
         self::assertFalse($this->storage->has('test.simple'), 'After reset, task must be back to pending (no record)');
@@ -81,7 +81,7 @@ final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
             executedAt: new \DateTimeImmutable(),
         ));
 
-        $this->resetTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->resetTester->execute(['id' => 'test.simple', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->resetTester->getStatusCode());
         self::assertFalse($this->storage->has('test.simple'));
