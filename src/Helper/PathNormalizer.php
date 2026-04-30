@@ -11,8 +11,29 @@ use Symfony\Component\Filesystem\Path;
  */
 final class PathNormalizer
 {
+    /**
+     * Canonicalizes a path WITHOUT a containment check. Use normalizeWithin()
+     * when the result must stay inside a known base directory.
+     */
     public static function normalize(string $path): string
     {
         return Path::canonicalize(\rtrim($path, '/'));
+    }
+
+    /**
+     * Canonicalizes $path and asserts it stays within $base.
+     *
+     * @throws \InvalidArgumentException when $path resolves outside $base
+     */
+    public static function normalizeWithin(string $path, string $base): string
+    {
+        $normalized = self::normalize(\rtrim($base, '/').'/'.$path);
+        $boundary = \rtrim($base, '/').'/';
+
+        if (!\str_starts_with($normalized.'/', $boundary)) {
+            throw new \InvalidArgumentException(\sprintf('Path "%s" resolves to "%s", which is outside the allowed base "%s".', $path, $normalized, $base));
+        }
+
+        return $normalized;
     }
 }

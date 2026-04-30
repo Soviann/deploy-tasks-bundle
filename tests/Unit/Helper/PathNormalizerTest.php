@@ -29,4 +29,28 @@ final class PathNormalizerTest extends TestCase
         yield 'preserves absolute prefix' => ['/abs/path/', '/abs/path'];
         yield 'keeps single relative segment' => ['foo', 'foo'];
     }
+
+    public function testNormalizeWithinTraversalRejection(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('outside the allowed base');
+
+        PathNormalizer::normalizeWithin('../escape', '/srv/app');
+    }
+
+    public function testNormalizeWithinSiblingRejection(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('outside the allowed base');
+
+        PathNormalizer::normalizeWithin('../myappX', '/srv/myapp');
+    }
+
+    public function testNormalizeWithinHappyPath(): void
+    {
+        self::assertSame(
+            '/srv/app/foo/bar',
+            PathNormalizer::normalizeWithin('foo/bar', '/srv/app'),
+        );
+    }
 }

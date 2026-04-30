@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Helper;
 
 use Soviann\DeployTasksBundle\TaskResult;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ExceptionInterface as ProcessExceptionInterface;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -24,7 +25,11 @@ trait ProcessRunnerTrait
     {
         try {
             $exitCode = $process->run(static function (string $type, string $buffer) use ($output): void {
-                $output->write(Process::ERR === $type ? "<error>{$buffer}</error>" : $buffer);
+                if (Process::ERR === $type) {
+                    $output->write(\sprintf('<error>%s</error>', OutputFormatter::escape($buffer)));
+                } else {
+                    $output->write($buffer);
+                }
             });
         } catch (ProcessTimedOutException) {
             $output->writeln(\sprintf(
@@ -46,5 +51,15 @@ trait ProcessRunnerTrait
         }
 
         return TaskResult::SUCCESS;
+    }
+
+    protected function runProcessWithTimeout(
+        Process $process,
+        int $seconds,
+        OutputInterface $output,
+    ): TaskResult {
+        $process->setTimeout($seconds);
+
+        return $this->runProcess($process, $output);
     }
 }
