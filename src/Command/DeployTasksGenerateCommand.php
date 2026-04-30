@@ -41,6 +41,7 @@ final class DeployTasksGenerateCommand extends Command
     {
         $this
             ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated file.', $this->defaultDirectory)
+            ->addOption('namespace', null, InputOption::VALUE_REQUIRED, 'Override the namespace derived from --dir.')
             ->setHelp(
                 \sprintf(
                     <<<'EOT'
@@ -124,7 +125,19 @@ final class DeployTasksGenerateCommand extends Command
             return Command::FAILURE;
         }
 
-        $namespace = $this->dirToNamespace($dir);
+        /** @var string|null $namespaceOverride */
+        $namespaceOverride = $input->getOption('namespace');
+        if (null !== $namespaceOverride && '' !== $namespaceOverride) {
+            $namespace = $namespaceOverride;
+        } else {
+            try {
+                $namespace = $this->dirToNamespace($canonical);
+            } catch (\InvalidArgumentException $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
 
         $replacements = [
             '__TASK_ID__' => \var_export($taskId, true),
@@ -210,6 +223,12 @@ final class DeployTasksGenerateCommand extends Command
     {
         $dir = \rtrim($dir, '/');
         $parts = \explode('/', $dir);
+
+        foreach ($parts as $segment) {
+            if (1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $segment)) {
+                throw new \InvalidArgumentException(\sprintf('Directory "%s" cannot be turned into a valid PHP namespace; use letters/underscores only.', $dir));
+            }
+        }
 
         $namespaceParts = \array_map(\ucfirst(...), $parts);
 

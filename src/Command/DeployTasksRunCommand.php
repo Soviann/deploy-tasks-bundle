@@ -46,7 +46,7 @@ final class DeployTasksRunCommand extends Command
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them.')
             ->addOption('rerun-all', null, InputOption::VALUE_NONE, 'Re-execute all tasks regardless of their current state.')
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.')
-            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID.')
+            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID. Combine with `--rerun-all` to re-execute even if already ran.')
             ->addOption('require-some', null, InputOption::VALUE_NONE, 'Exit 64 if no task matched the provided filters.')
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command executes pending deploy tasks:
@@ -72,9 +72,10 @@ final class DeployTasksRunCommand extends Command
 
                     <info>%command.full_name% --rerun-all</info>
 
-                To run a single task by its ID (only if pending):
+                To run a single task by its ID:
 
                     <info>%command.full_name% --id=task_20260412143000_seed_categories</info>
+                    <info>%command.full_name% --id=task_20260412143000_seed_categories --rerun-all</info>
 
                 When a task declares groups, <comment>--id</comment> must be combined with
                 <comment>--group</comment> to select which slot(s) to record:
@@ -170,7 +171,7 @@ final class DeployTasksRunCommand extends Command
         $summary = \sprintf(
             'Tasks: %d %s, %d skipped, %d failed.',
             $result->ran,
-            $dryRun ? 'pending' : 'ran',
+            $dryRun ? 'would run' : 'ran',
             $result->skipped,
             $result->failed,
         );

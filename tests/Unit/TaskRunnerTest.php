@@ -163,8 +163,8 @@ final class TaskRunnerTest extends TestCase
         self::assertFalse($this->storage->has('task.2'));
         $output = $this->output->fetch();
         // Default slot → no `@group` suffix, exact label + description format.
-        self::assertStringContainsString('  [pending] task.1 - First', $output);
-        self::assertStringContainsString('  [pending] task.2 - Second', $output);
+        self::assertStringContainsString('  [would run] task.1 - First', $output);
+        self::assertStringContainsString('  [would run] task.2 - Second', $output);
         self::assertStringNotContainsString('@', $output);
     }
 
@@ -176,7 +176,7 @@ final class TaskRunnerTest extends TestCase
 
         self::assertSame(1, $result->ran);
         // Group slot → label is `{taskId}@{slot}`; kills Concat/Ternary/Identical/Operand-removal mutants on line 178.
-        self::assertStringContainsString('  [pending] test.predeploy@predeploy - Predeploy-only task', $this->output->fetch());
+        self::assertStringContainsString('  [would run] test.predeploy@predeploy - Predeploy-only task', $this->output->fetch());
     }
 
     public function testRunAllDryRunSkipsAlreadyRan(): void
