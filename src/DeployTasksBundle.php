@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle;
 
-use Doctrine\DBAL\Connection;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
@@ -279,8 +278,8 @@ final class DeployTasksBundle extends AbstractBundle
 
         switch ($storageConfig['type']) {
             case 'database':
-                if (!\class_exists(Connection::class)) {
-                    throw new \LogicException('Storage type "database" requires doctrine/dbal. Run "composer require doctrine/dbal".');
+                if (!\class_exists(\Doctrine\DBAL\Connection::class)) {
+                    throw new \LogicException('The "deploy_tasks.storage.database" type requires "doctrine/dbal". Run "composer require doctrine/dbal:^3.6 || ^4.0".');
                 }
 
                 $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
@@ -346,7 +345,7 @@ final class DeployTasksBundle extends AbstractBundle
                 // @codeCoverageIgnoreEnd
         }
 
-        $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage')->public();
+        $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage');
     }
 
     /**

@@ -183,7 +183,7 @@ final class FilesystemStorage implements TaskStorageInterface
      * @throws \JsonException            When a stored JSON file cannot be decoded
      * @throws StorageException          When a file cannot be read
      */
-    public function findByTaskId(string $taskId): iterable
+    public function findByTaskId(string $taskId): array
     {
         $this->validateTaskId($taskId);
 

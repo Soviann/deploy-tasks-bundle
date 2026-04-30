@@ -48,9 +48,9 @@ interface TaskStorageInterface
      * the runner never has to page through the full execution set just to inspect
      * one task.
      *
-     * @return iterable<TaskExecution>
+     * @return list<TaskExecution>
      */
-    public function findByTaskId(string $taskId): iterable;
+    public function findByTaskId(string $taskId): array;
 
     /**
      * Returns all stored execution records as a flat list.

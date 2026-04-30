@@ -341,7 +341,9 @@ final class TaskRunner
         $attribute = AsDeployTask::of($task);
         $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
 
-        $output->writeln(\sprintf(' [%d/%d] %s', $current, $total, $task::class));
+        if (!$output->isQuiet()) {
+            $output->writeln(\sprintf(' [%d/%d] %s', $current, $total, $task::class));
+        }
 
         $this->logger->info('Deploy task starting', ['task_id' => $taskId]);
 
@@ -366,7 +368,10 @@ final class TaskRunner
             $duration = \microtime(true) - $start;
 
             $outcome = $this->buildSuccessOutcome($task, $taskId, $result, $duration, $timeout, $output);
-            $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+
+            if (!$output->isQuiet()) {
+                $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+            }
 
             $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
 
@@ -385,7 +390,10 @@ final class TaskRunner
             }
 
             $outcome = $this->buildFailureOutcome($task, $taskId, $e, $duration, $output);
-            $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+
+            if (!$output->isQuiet()) {
+                $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+            }
 
             $this->persistOutcome($taskId, $outcome, $pendingSlots);
 

@@ -11,7 +11,7 @@ A Symfony bundle for running one-time deploy tasks — data migrations, cache wa
 ## Requirements
 
 - PHP >= 8.2
-- Symfony 6.4 or 7.0+
+- Symfony 6.4 LTS or 7.x
 
 ## Installation
 
