@@ -107,9 +107,9 @@ final class DeploySkipCommandTest extends FunctionalTestCase
     public function testSkipAbortedOnConfirmationDecline(): void
     {
         $this->tester->setInputs(['no']);
-        $this->tester->execute(['id' => 'test.simple']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
 
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('Aborted', $this->tester->getDisplay());
 
         $storage = self::getContainer()->get(TaskStorageInterface::class);
@@ -120,9 +120,9 @@ final class DeploySkipCommandTest extends FunctionalTestCase
     public function testSkipAbortedOnEmptyConfirmation(): void
     {
         $this->tester->setInputs(['']);
-        $this->tester->execute(['id' => 'test.simple']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
 
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('Aborted', $this->tester->getDisplay());
 
         $storage = self::getContainer()->get(TaskStorageInterface::class);

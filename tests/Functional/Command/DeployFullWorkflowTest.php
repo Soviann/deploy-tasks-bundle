@@ -58,7 +58,7 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Skipped, $skipped->status);
 
         // 5. Reset the predeploy slot back to pending
-        $resetter->execute(['id' => 'test.predeploy', '--group' => 'predeploy', '--no-interaction' => true]);
+        $resetter->execute(['id' => 'test.predeploy', '--group' => 'predeploy', '--force' => true], ['interactive' => false]);
         self::assertSame(Command::SUCCESS, $resetter->getStatusCode());
         self::assertNull($storage->get('test.predeploy', 'predeploy'));
 

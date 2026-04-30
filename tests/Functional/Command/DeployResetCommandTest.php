@@ -55,7 +55,7 @@ final class DeployResetCommandTest extends FunctionalTestCase
         $this->tester->setInputs(['no']);
         $this->tester->execute(['id' => 'test.simple']);
 
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('Aborted', $this->tester->getDisplay());
         self::assertTrue($this->storage->has('test.simple'));
     }
@@ -67,20 +67,64 @@ final class DeployResetCommandTest extends FunctionalTestCase
         $this->tester->setInputs(['']);
         $this->tester->execute(['id' => 'test.simple']);
 
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('Aborted', $this->tester->getDisplay());
         self::assertTrue($this->storage->has('test.simple'));
     }
 
-    public function testResetWithNoInteraction(): void
+    public function testResetWithNoInteractionWithoutForceRefuses(): void
     {
         $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
 
-        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true], ['interactive' => false]);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('Refusing to run destructive command', $this->tester->getDisplay());
+        self::assertTrue($this->storage->has('test.simple'));
+    }
+
+    public function testResetWithNoInteractionAndForce(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute(['id' => 'test.simple', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('has been reset', $this->tester->getDisplay());
         self::assertFalse($this->storage->has('test.simple'));
+    }
+
+    public function testResetWithNoInteractionAndYesAlias(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute(['id' => 'test.simple', '--yes' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('has been reset', $this->tester->getDisplay());
+        self::assertFalse($this->storage->has('test.simple'));
+    }
+
+    public function testResetInteractiveYes(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertFalse($this->storage->has('test.simple'));
+    }
+
+    public function testResetInteractiveNo(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertTrue($this->storage->has('test.simple'));
     }
 
     public function testResetAlreadyPending(): void
@@ -107,7 +151,7 @@ final class DeployResetCommandTest extends FunctionalTestCase
         $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
         $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
 
-        $this->tester->execute(['id' => 'test.multi_group', '--no-interaction' => true]);
+        $this->tester->execute(['id' => 'test.multi_group', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
@@ -119,7 +163,7 @@ final class DeployResetCommandTest extends FunctionalTestCase
         $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
         $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
 
-        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy', '--no-interaction' => true]);
+        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
