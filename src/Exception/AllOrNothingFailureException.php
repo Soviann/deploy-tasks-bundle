@@ -6,7 +6,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 
 use Soviann\DeployTasksBundle\Runner\RunResult;
 
-final class AllOrNothingFailureException extends \RuntimeException
+final class AllOrNothingFailureException extends \RuntimeException implements DeployTasksExceptionInterface
 {
     public function __construct(
         public readonly RunResult $partialResult,

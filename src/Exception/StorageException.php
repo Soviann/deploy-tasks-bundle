@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 /**
  * Thrown when a storage read or write operation fails for a deploy task.
  */
-final class StorageException extends \RuntimeException
+final class StorageException extends \RuntimeException implements DeployTasksExceptionInterface
 {
     /**
      * Creates an exception for when a sidecar lock file cannot be opened or acquired.

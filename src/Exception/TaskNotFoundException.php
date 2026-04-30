@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 /**
  * Thrown when a deploy task cannot be found by its ID.
  */
-final class TaskNotFoundException extends \InvalidArgumentException
+final class TaskNotFoundException extends \InvalidArgumentException implements DeployTasksExceptionInterface
 {
     /**
      * Creates an exception for the given task ID.
