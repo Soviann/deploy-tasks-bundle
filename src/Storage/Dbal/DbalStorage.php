@@ -279,7 +279,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      *
      * @throws StorageException
      */
-    public function findByTaskId(string $taskId): iterable
+    public function findByTaskId(string $taskId): array
     {
         $this->ensureInitialized();
 

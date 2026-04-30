@@ -46,7 +46,7 @@ final class TransactionalInMemoryStorageFixture implements TransactionalStorageI
     /**
      * @return list<TaskExecution>
      */
-    public function findByTaskId(string $taskId): iterable
+    public function findByTaskId(string $taskId): array
     {
         return \array_values(\array_filter(
             $this->executions,
