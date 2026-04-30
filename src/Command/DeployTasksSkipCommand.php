@@ -107,7 +107,7 @@ final class DeployTasksSkipCommand extends Command
             if (!$io->confirm($prompt, false)) {
                 $io->warning('Aborted.');
 
-                return Command::SUCCESS;
+                return Command::FAILURE;
             }
         }
 

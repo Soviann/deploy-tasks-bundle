@@ -31,6 +31,18 @@ final class DeployTasksResetCommand extends Command
         $this
             ->addArgument('id', InputArgument::REQUIRED, 'The deploy task ID to reset (e.g. task_20260412143000_seed_categories).')
             ->addOption('group', null, InputOption::VALUE_REQUIRED, 'Reset only a specific group slot (default: every slot for this task).')
+            ->addOption(
+                'force',
+                null,
+                InputOption::VALUE_NONE,
+                'Confirm destructive run when combined with --no-interaction. Alias: --yes.',
+            )
+            ->addOption(
+                'yes',
+                null,
+                InputOption::VALUE_NONE,
+                'Alias of --force.',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command removes the execution record for a deploy task, so it will be treated as pending and executed again on the next <info>deploytasks:run</info>:
 
@@ -61,6 +73,13 @@ final class DeployTasksResetCommand extends Command
         /** @var string|null $group */
         $group = $input->getOption('group');
 
+        $force = (bool) $input->getOption('force') || (bool) $input->getOption('yes');
+        if (!$input->isInteractive() && !$force) {
+            $output->writeln('<error>Refusing to run destructive command non-interactively without --force.</error>');
+
+            return Command::INVALID;
+        }
+
         if (!$this->registry->has($id)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));
 
@@ -80,12 +99,12 @@ final class DeployTasksResetCommand extends Command
                 return Command::SUCCESS;
             }
 
-            if (!(bool) $input->getOption('no-interaction')
+            if (!$force
                 && !$io->confirm(\sprintf('Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.', $id, $group), false)
             ) {
                 $io->note('Aborted.');
 
-                return Command::SUCCESS;
+                return Command::FAILURE;
             }
 
             $this->storage->remove($id, $group);
@@ -101,12 +120,12 @@ final class DeployTasksResetCommand extends Command
             return Command::SUCCESS;
         }
 
-        if (!(bool) $input->getOption('no-interaction')
+        if (!$force
             && !$io->confirm(\sprintf('Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.', $id), false)
         ) {
             $io->note('Aborted.');
 
-            return Command::SUCCESS;
+            return Command::FAILURE;
         }
 
         $this->storage->removeAll($id);

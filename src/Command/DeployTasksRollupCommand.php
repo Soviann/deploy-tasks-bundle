@@ -33,6 +33,18 @@ final class DeployTasksRollupCommand extends Command
     {
         $this
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only roll up these group slot(s) (repeatable); without this flag every slot is rolled up and the whole table is reset.')
+            ->addOption(
+                'force',
+                null,
+                InputOption::VALUE_NONE,
+                'Confirm destructive run when combined with --no-interaction. Alias: --yes.',
+            )
+            ->addOption(
+                'yes',
+                null,
+                InputOption::VALUE_NONE,
+                'Alias of --force.',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command clears all execution records and marks every (task, group) slot as run, establishing the current codebase as the baseline:
 
@@ -58,6 +70,13 @@ final class DeployTasksRollupCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        $force = (bool) $input->getOption('force') || (bool) $input->getOption('yes');
+        if (!$input->isInteractive() && !$force) {
+            $output->writeln('<error>Refusing to run destructive command non-interactively without --force.</error>');
+
+            return Command::INVALID;
+        }
 
         /** @var list<string> $groupFilter */
         $groupFilter = \array_values((array) $input->getOption('group'));
@@ -92,10 +111,10 @@ final class DeployTasksRollupCommand extends Command
             ? \sprintf('This will clear all execution records and mark %d slot(s) as run. Continue?', \count($targets))
             : \sprintf('This will mark %d slot(s) as run for group(s) [%s], preserving other slots. Continue?', \count($targets), \implode(', ', $groupFilter));
 
-        if (!$io->confirm($prompt)) {
+        if (!$force && !$io->confirm($prompt)) {
             $io->note('Aborted.');
 
-            return Command::SUCCESS;
+            return Command::FAILURE;
         }
 
         $resetAll = [] === $groupFilter;

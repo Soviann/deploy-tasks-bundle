@@ -75,7 +75,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
     {
         $this->runTester->execute([]);
 
-        $this->resetTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->resetTester->execute(['id' => 'test.simple', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->resetTester->getStatusCode());
 
