@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 /**
  * Thrown when a task ID is targeted (via --id) without --group, but the task declares groups.
  */
-final class TaskGroupRequiredException extends \RuntimeException
+final class TaskGroupRequiredException extends \RuntimeException implements DeployTasksExceptionInterface
 {
     /**
      * @param list<string> $declaredGroups

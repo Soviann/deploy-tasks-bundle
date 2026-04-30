@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 /**
  * Thrown at boot when the configured storage cannot honour the requested transactional semantics.
  */
-final class IncompatibleStorageException extends \LogicException
+final class IncompatibleStorageException extends \LogicException implements DeployTasksExceptionInterface
 {
     public static function allOrNothingRequiresTransactional(string $storageClass): self
     {

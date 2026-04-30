@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 /**
  * Thrown when a --group value targets a task that does not declare that group.
  */
-final class TaskGroupMismatchException extends \RuntimeException
+final class TaskGroupMismatchException extends \RuntimeException implements DeployTasksExceptionInterface
 {
     /**
      * @param list<string> $requested

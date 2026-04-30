@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Exception;
 
-final class TaskEnvironmentMismatchException extends \LogicException
+final class TaskEnvironmentMismatchException extends \LogicException implements DeployTasksExceptionInterface
 {
     public function __construct(
         public readonly string $taskId,
