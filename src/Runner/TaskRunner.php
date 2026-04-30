@@ -232,7 +232,7 @@ final class TaskRunner
 
                 ++$pending;
                 $label = null === $slot ? $taskId : $taskId.'@'.$slot;
-                $output->writeln(\sprintf('  [pending] %s - %s', $label, $this->descriptionResolver->resolve($task)));
+                $output->writeln(\sprintf('  [would run] %s - %s', $label, $this->descriptionResolver->resolve($task)));
             }
         }
 

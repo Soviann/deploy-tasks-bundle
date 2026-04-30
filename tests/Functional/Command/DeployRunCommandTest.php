@@ -44,7 +44,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
         $this->tester->execute(['--dry-run' => true]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
-        self::assertStringContainsString('pending', $this->tester->getDisplay());
+        self::assertStringContainsString('would run', $this->tester->getDisplay());
 
         // Verify no tasks were actually executed
         $storage = self::getContainer()->get(TaskStorageInterface::class);
@@ -270,6 +270,26 @@ final class DeployRunCommandTest extends FunctionalTestCase
 
         self::assertStringContainsString('deploytasks:skip', $help);
         self::assertStringContainsString('deploytasks:reset', $help);
+    }
+
+    public function testIdOptionHelpContainsRerunAllReference(): void
+    {
+        $definition = $this->application->find('deploytasks:run')->getDefinition();
+        $helpText = $definition->getOption('id')->getDescription();
+
+        self::assertStringContainsString('--rerun-all', $helpText);
+        self::assertStringContainsString('re-execute even if already ran', $helpText);
+    }
+
+    public function testDryRunSummaryUsesWouldRunLabel(): void
+    {
+        // Dry-run before any execution: the summary line says "N would run", not "N pending".
+        $this->tester->execute(['--dry-run' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        // The writeSummary label must now say "would run" instead of "pending".
+        self::assertStringContainsString('would run', $display);
     }
 
     public function testRequireSomeWithUnknownIdExitsUsage(): void
