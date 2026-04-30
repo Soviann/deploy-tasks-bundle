@@ -41,14 +41,12 @@ vendor/bin/php-cs-fixer fix --dry-run
 
 ## Coding Standards
 
-- `@Symfony` CS Fixer ruleset (includes `@Symfony:risky`)
+- Code style: `@Symfony` and `@Symfony:risky` rulesets, both enabled in `.php-cs-fixer.dist.php`. Run `make cs-fix` (or `vendor/bin/php-cs-fixer fix` inside the bundle) before committing.
 - PHPStan level 9 — no suppressions
 - All classes must be `final` unless designed for extension; properties `readonly` where possible
 - Backslash-prefix native PHP functions: `\array_map()`, `\sprintf()`, `\count()`
 - Yoda conditions: `null === $var`, not `$var === null`
 - Method order: `__construct` → public → protected → private (`setUp` / `tearDown` first in tests)
-
-`vendor/bin/php-cs-fixer fix` auto-fixes most of the above; run it before opening a PR.
 
 ## Architecture
 
