@@ -61,7 +61,7 @@ final class HostRunnerTest extends FunctionalTestCase
 
         self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         self::assertSame("beta\n", \file_get_contents($output));
-        self::assertStringContainsString('✓ 20260101_000000_alpha (skipped)', $process->getOutput());
+        self::assertStringContainsString('[OK] 20260101_000000_alpha (skipped)', $process->getOutput());
     }
 
     public function testFailsFastAndDoesNotMarkFailedTask(): void
@@ -78,7 +78,7 @@ final class HostRunnerTest extends FunctionalTestCase
 
         $log = \file_get_contents($this->workspace.'/.deploy-tasks-host.log');
         self::assertSame("20260101_000000_ok\n", $log);
-        self::assertStringContainsString('✗ 20260102_000000_boom failed', $process->getOutput());
+        self::assertStringContainsString('[FAIL] 20260102_000000_boom failed', $process->getOutput());
     }
 
     public function testLoadsEnvCascadeInSymfonyOrder(): void
@@ -122,8 +122,8 @@ final class HostRunnerTest extends FunctionalTestCase
         self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         self::assertFalse(\file_exists($output));
         self::assertSame('', \file_get_contents($this->workspace.'/.deploy-tasks-host.log'));
-        self::assertStringContainsString('→ 20260101_000000_alpha (dry-run)', $process->getOutput());
-        self::assertStringContainsString('→ 20260102_000000_beta (dry-run)', $process->getOutput());
+        self::assertStringContainsString('--> 20260101_000000_alpha (dry-run)', $process->getOutput());
+        self::assertStringContainsString('--> 20260102_000000_beta (dry-run)', $process->getOutput());
     }
 
     public function testConcurrentInvocationIsRejected(): void
