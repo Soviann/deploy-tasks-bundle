@@ -20,6 +20,9 @@ final class TaskRegistry
     /** @var array<string, DeployTaskInterface> */
     private array $tasks = [];
 
+    /** @var array<string, class-string> tracks which FQCN registered each id */
+    private array $taskFqcns = [];
+
     /**
      * @param iterable<DeployTaskInterface> $tasks      Tagged deploy task services
      * @param TaskIdResolver                $idResolver Resolves the canonical ID for each task
@@ -33,10 +36,11 @@ final class TaskRegistry
             $id = $idResolver->resolve($task);
 
             if (isset($this->tasks[$id])) {
-                throw DuplicateTaskIdException::create($id);
+                throw DuplicateTaskIdException::create($id, $this->taskFqcns[$id], $task::class);
             }
 
             $this->tasks[$id] = $task;
+            $this->taskFqcns[$id] = $task::class;
         }
     }
 

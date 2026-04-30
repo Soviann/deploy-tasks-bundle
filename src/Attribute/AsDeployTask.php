@@ -23,6 +23,9 @@ final class AsDeployTask
      */
     public const GROUP_NAME_PATTERN = '/^[a-zA-Z0-9._-]+$/';
 
+    /** @var array<class-string, ?self> */
+    private static array $cache = [];
+
     /**
      * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or FQCN auto-deduction)
      * @param int                  $priority      Execution priority (higher runs first, default 0)
@@ -72,23 +75,25 @@ final class AsDeployTask
     /**
      * Reads the attribute from the given task or class, or null if not present.
      *
+     * Results are memoised per class-string for the duration of the process;
+     * subsequent calls with the same class return the identical instance (or null).
+     *
      * @param class-string|DeployTaskInterface $classOrTask
      *
      * @throws \ReflectionException
      */
     public static function of(string|DeployTaskInterface $classOrTask): ?self
     {
-        $reflection = new \ReflectionClass($classOrTask);
-        $attributes = $reflection->getAttributes(self::class);
+        $className = \is_string($classOrTask) ? $classOrTask : $classOrTask::class;
 
-        if ([] === $attributes) {
-            return null;
+        if (\array_key_exists($className, self::$cache)) {
+            return self::$cache[$className];
         }
 
-        /** @var self $attribute */
-        $attribute = $attributes[0]->newInstance();
+        $attributes = (new \ReflectionClass($className))->getAttributes(self::class);
+        $instance = [] === $attributes ? null : $attributes[0]->newInstance();
 
-        return $attribute;
+        return self::$cache[$className] = $instance;
     }
 
     /**

@@ -79,6 +79,33 @@ final class AsDeployTaskTest extends TestCase
         self::assertNull($attribute);
     }
 
+    public function testOfCachesResultAcrossCalls(): void
+    {
+        $first = AsDeployTask::of(AttributedTestTask::class);
+        $second = AsDeployTask::of(AttributedTestTask::class);
+
+        self::assertNotNull($first);
+        self::assertSame($first, $second);
+    }
+
+    public function testOfCachesNullResultAcrossCalls(): void
+    {
+        $first = AsDeployTask::of(UnattributedTestTask::class);
+        $second = AsDeployTask::of(UnattributedTestTask::class);
+
+        self::assertNull($first);
+        self::assertNull($second);
+    }
+
+    public function testOfCacheDistinguishesDifferentClasses(): void
+    {
+        $attributed = AsDeployTask::of(AttributedTestTask::class);
+        $unattributed = AsDeployTask::of(UnattributedTestTask::class);
+
+        self::assertNotNull($attributed);
+        self::assertNull($unattributed);
+    }
+
     public function testGroupsDefaultsToNull(): void
     {
         $attribute = new AsDeployTask(id: 'task.default');
