@@ -6,16 +6,20 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Exception\DuplicateTaskIdException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
+use Soviann\DeployTasksBundle\TaskResult;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiEnvTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
+use Symfony\Component\Console\Output\OutputInterface;
 
 #[CoversClass(TaskRegistry::class)]
 final class TaskRegistryTest extends TestCase
@@ -46,6 +50,65 @@ final class TaskRegistryTest extends TestCase
         self::expectException(DuplicateTaskIdException::class);
 
         new TaskRegistry([$task1, $task2], $this->idResolver);
+    }
+
+    public function testDuplicateIdExceptionMessageNamesBothFqcns(): void
+    {
+        $fqcn1 = 'App\Migrations\FooTask';
+        $fqcn2 = 'App\Tasks\FooTask';
+
+        // Both tasks return the same ID so the registry collision fires.
+        $task1 = new class($fqcn1) implements DeployTaskInterface, TaskIdProviderInterface {
+            public function __construct(private readonly string $id)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return 'foo';
+            }
+
+            public function getDescription(): string
+            {
+                return $this->id;
+            }
+
+            public function run(OutputInterface $output): TaskResult
+            {
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $task2 = new class($fqcn2) implements DeployTaskInterface, TaskIdProviderInterface {
+            public function __construct(private readonly string $id)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return 'foo';
+            }
+
+            public function getDescription(): string
+            {
+                return $this->id;
+            }
+
+            public function run(OutputInterface $output): TaskResult
+            {
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        try {
+            new TaskRegistry([$task1, $task2], $this->idResolver);
+            self::fail('Expected DuplicateTaskIdException was not thrown.');
+        } catch (DuplicateTaskIdException $e) {
+            self::assertStringContainsString('"foo"', $e->getMessage());
+            self::assertStringContainsString($task1::class, $e->getMessage());
+            self::assertStringContainsString($task2::class, $e->getMessage());
+            self::assertStringContainsString('#[AsDeployTask(id: ...)]', $e->getMessage());
+        }
     }
 
     public function testGetReturnsTask(): void

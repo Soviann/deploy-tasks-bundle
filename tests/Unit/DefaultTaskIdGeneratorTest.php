@@ -31,8 +31,6 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         yield 'strips DeployTask prefix (with name)' => ['DeployTaskSeedCategories', 'seed_categories'];
         yield 'strips Task prefix' => ['TaskSeedCategories', 'seed_categories'];
         yield 'no suffix — converts CamelCase as-is' => ['SeedCategories', 'seed_categories'];
-        yield 'falls back when only Task remains' => ['Task', 'task'];
-        yield 'falls back when only DeployTask remains' => ['DeployTask', 'deploy_task'];
         yield 'uses short class name (FQCN)' => ['App\Tasks\SeedCategories', 'seed_categories'];
         yield 'uses short class name with Task suffix (FQCN)' => ['App\Tasks\SeedCategoriesTask', 'seed_categories'];
         yield 'uses short class name with DeployTask prefix (FQCN)' => ['App\Tasks\DeployTask20260416205300', 'task_20260416205300'];
@@ -52,5 +50,31 @@ final class DefaultTaskIdGeneratorTest extends TestCase
     {
         /* @phpstan-ignore argument.type */
         self::assertSame($expectedId, DefaultTaskIdGenerator::generateStatic($className));
+    }
+
+    public function testEmptyIdRaisesForRootNamespaceSingleWordClass(): void
+    {
+        if (!\class_exists('Task', false)) {
+            eval('class Task {}'); // phpcs:ignore
+        }
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cannot derive task id from class name "Task"; supply #[AsDeployTask(id: ...)] explicitly.');
+
+        /* @phpstan-ignore argument.type */
+        $this->generator->generate('Task');
+    }
+
+    public function testEmptyIdRaisesForRootNamespaceDeployTask(): void
+    {
+        if (!\class_exists('DeployTask', false)) {
+            eval('class DeployTask {}'); // phpcs:ignore
+        }
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cannot derive task id from class name "DeployTask"; supply #[AsDeployTask(id: ...)] explicitly.');
+
+        /* @phpstan-ignore argument.type */
+        $this->generator->generate('DeployTask');
     }
 }

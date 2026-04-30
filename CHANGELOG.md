@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `DuplicateTaskIdException` now names both colliding FQCNs and suggests `#[AsDeployTask(id: ...)]`. The default ID generator refuses to silently produce empty IDs.
 - Console help and progress messages clarified: `--rerun-all` documented on `--id`, dry-run says "would run", rollup hints when a `--group` matches no registered task, and `:generate:container` rejects directories that don't translate to a valid PHP namespace (with `--namespace=` override).
 - **BREAKING**: `deploytasks:reset` and `deploytasks:rollup` require `--force` (or `--yes`) when combined with `--no-interaction`. User-aborted prompts (`reset`, `rollup`, `skip`) now exit non-zero so CI can detect them.
 - **BREAKING**: Configuration validation rejects ignored / impossible combinations earlier: filesystem `transactional` flag now errors at compile time, custom non-transactional storage with `transactional: true` is rejected at the compiler pass, and `AsDeployTask::$groups: []` now raises instead of silently meaning 'default group'. The filesystem `all_or_nothing` flag already caused a boot-time error (unchanged).

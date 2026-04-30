@@ -20,16 +20,28 @@ final class DuplicateTaskIdExceptionTest extends TestCase
 
     public function testCreateReturnsInstanceWithExpectedMessage(): void
     {
-        $exception = DuplicateTaskIdException::create('task.seed_categories');
+        $exception = DuplicateTaskIdException::create(
+            'task.seed_categories',
+            'App\Migrations\SeedCategoriesTask',
+            'App\Tasks\SeedCategoriesTask',
+        );
 
-        self::assertSame('Deploy task ID "task.seed_categories" is already registered.', $exception->getMessage());
+        self::assertStringContainsString('task.seed_categories', $exception->getMessage());
+        self::assertStringContainsString('App\Migrations\SeedCategoriesTask', $exception->getMessage());
+        self::assertStringContainsString('App\Tasks\SeedCategoriesTask', $exception->getMessage());
+        self::assertStringContainsString('#[AsDeployTask(id: ...)]', $exception->getMessage());
     }
 
-    public function testCreateIncludesTaskIdInMessage(): void
+    public function testCreateNamesAllThreeComponents(): void
     {
-        $taskId = 'task_20260413_my_task';
-        $exception = DuplicateTaskIdException::create($taskId);
+        $exception = DuplicateTaskIdException::create(
+            'seed',
+            'App\Migrations\Seed',
+            'App\Tasks\Seed',
+        );
 
-        self::assertStringContainsString($taskId, $exception->getMessage());
+        self::assertStringContainsString('"seed"', $exception->getMessage());
+        self::assertStringContainsString('"App\Migrations\Seed"', $exception->getMessage());
+        self::assertStringContainsString('"App\Tasks\Seed"', $exception->getMessage());
     }
 }
