@@ -46,6 +46,10 @@ final class AsDeployTask
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
     ) {
+        if ('' !== $id && \strlen($id) > 255) {
+            throw new \InvalidArgumentException(\sprintf('Task id "%s" exceeds maximum length of 255 characters (got %d).', $id, \strlen($id)));
+        }
+
         if ([] === $groups) {
             throw new \InvalidArgumentException('groups cannot be an empty array — omit (or pass null) to mean the default group.');
         }
@@ -66,6 +70,10 @@ final class AsDeployTask
         };
 
         foreach ($groupList as $group) {
+            if (\strlen($group) > 128) {
+                throw new \InvalidArgumentException(\sprintf('Task group "%s" exceeds maximum length of 128 characters (got %d).', $group, \strlen($group)));
+            }
+
             if (1 !== \preg_match(self::GROUP_NAME_PATTERN, $group)) {
                 throw new \InvalidArgumentException(\sprintf('Invalid group name "%s" in #[AsDeployTask]: must match %s.', $group, self::GROUP_NAME_PATTERN));
             }

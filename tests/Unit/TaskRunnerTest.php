@@ -1268,7 +1268,7 @@ final class TaskRunnerTest extends TestCase
             }
 
             /** @return list<TaskExecution> */
-            public function findByTaskId(string $taskId): iterable
+            public function findByTaskId(string $taskId): array
             {
                 return [];
             }

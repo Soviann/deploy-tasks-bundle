@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Polished: tightened `findByTaskId` return type, validated `AsDeployTask` id/group lengths, quiet-mode runner output, CI job timeouts, and assorted docstring/typo fixes.
 - Tightened minimum dependency versions: `symfony/process` <6.4 explicitly conflicts; `psr/log` requires v3 (Monolog 3 / Symfony 7 stack); pre-1.0 `branch-alias` dropped.
 - `DuplicateTaskIdException` now names both colliding FQCNs and suggests `#[AsDeployTask(id: ...)]`. The default ID generator refuses to silently produce empty IDs.
 - Console help and progress messages clarified: `--rerun-all` documented on `--id`, dry-run says "would run", rollup hints when a `--group` matches no registered task, and `:generate:container` rejects directories that don't translate to a valid PHP namespace (with `--namespace=` override).

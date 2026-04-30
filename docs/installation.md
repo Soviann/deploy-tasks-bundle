@@ -3,7 +3,7 @@
 ## Requirements
 
 - PHP 8.2+
-- Symfony 6.4 or 7.x
+- Symfony 6.4 LTS or 7.x
 
 ## Composer
 

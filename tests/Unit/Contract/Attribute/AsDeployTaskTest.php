@@ -147,6 +147,22 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(['predeploy', 'postdeploy'], AsDeployTask::groupsOf(new MultiGroupTestTask()));
     }
 
+    public function testRejectsIdLongerThan255Characters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('exceeds maximum length of 255');
+
+        new AsDeployTask(id: \str_repeat('a', 256));
+    }
+
+    public function testRejectsGroupLongerThan128Characters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('exceeds maximum length of 128');
+
+        new AsDeployTask(groups: [\str_repeat('g', 129)]);
+    }
+
     #[DataProvider('invalidGroupNameProvider')]
     public function testConstructorRejectsGroupsContainingDisallowedCharacters(string $group): void
     {
