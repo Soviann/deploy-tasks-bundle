@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Exception;
 /**
  * Thrown when a deploy task ID is registered more than once.
  */
-final class DuplicateTaskIdException extends \LogicException
+final class DuplicateTaskIdException extends \LogicException implements DeployTasksExceptionInterface
 {
     /**
      * Creates an exception for the given duplicate task ID.
