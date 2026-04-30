@@ -138,6 +138,55 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('Process error', $output->fetch());
     }
 
+    public function testAngleBracketStderrDoesNotCorruptFormatter(): void
+    {
+        // Use a real (decorated=false) BufferedOutput so the formatter actually
+        // parses tags. Without OutputFormatter::escape(), the child's literal
+        // "<error>boom</error>" would be nested inside the trait's own
+        // <error>…</error> wrapper and would confuse the parser (or emit
+        // unescaped brackets into the stream).
+        $output = new BufferedOutput();
+
+        // Must not throw — that is the primary contract.
+        $result = self::createCaller()->invoke(
+            Process::fromShellCommandline('>&2 printf "<error>boom</error>"'),
+            $output,
+        );
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+
+        // After the formatter strips styling tags, the escaped child text
+        // (\<error\>boom\</error\>) round-trips back to the literal angle-
+        // bracket string.
+        $rendered = $output->fetch();
+        self::assertStringContainsString('<error>boom</error>', $rendered);
+    }
+
+    public function testRunProcessWithTimeoutForwardsSecondsAndDelegates(): void
+    {
+        $output = self::createRawOutput();
+
+        $capturedTimeout = null;
+
+        $process = new class(['php', '-r', 'echo "ok";']) extends Process {
+            public ?int $capturedTimeout = null;
+
+            public function setTimeout(?float $timeout): static
+            {
+                $this->capturedTimeout = (int) $timeout;
+
+                return parent::setTimeout($timeout);
+            }
+        };
+
+        $caller = new ProcessRunnerTraitWithTimeoutCaller();
+        $result = $caller->invokeWithTimeout($process, 42, $output);
+
+        self::assertSame(42, $process->capturedTimeout);
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('ok', $output->fetch());
+    }
+
     private static function createRawOutput(): BufferedOutput
     {
         $output = new BufferedOutput();
@@ -167,5 +216,18 @@ final class ProcessRunnerTraitCaller
     public function invoke(Process $process, OutputInterface $output): TaskResult
     {
         return $this->runProcess($process, $output);
+    }
+}
+
+/**
+ * @internal
+ */
+final class ProcessRunnerTraitWithTimeoutCaller
+{
+    use ProcessRunnerTrait;
+
+    public function invokeWithTimeout(Process $process, int $seconds, OutputInterface $output): TaskResult
+    {
+        return $this->runProcessWithTimeout($process, $seconds, $output);
     }
 }
