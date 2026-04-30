@@ -161,6 +161,16 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertTrue($this->storage->has('test.simple'));
     }
 
+    public function testRollupWithUnknownGroupEmitsTypoHint(): void
+    {
+        $this->tester->execute(['--group' => ['nope'], '--force' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Group "nope" is declared on 0 tasks', $display);
+        self::assertStringContainsString('typo?', $display);
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

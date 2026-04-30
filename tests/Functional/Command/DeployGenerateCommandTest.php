@@ -42,7 +42,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testGenerate(): void
     {
-        $this->tester->execute(['--dir' => $this->relativeOutputDir]);
+        $this->tester->execute(['--dir' => $this->relativeOutputDir, '--namespace' => 'App\\Test']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
@@ -67,7 +67,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         self::assertDirectoryDoesNotExist($this->outputDir);
 
-        $this->tester->execute(['--dir' => $this->relativeOutputDir]);
+        $this->tester->execute(['--dir' => $this->relativeOutputDir, '--namespace' => 'App\\Test']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertDirectoryExists($this->outputDir);
@@ -186,7 +186,9 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $uniqueId = \uniqid();
         $projectDir = self::projectDir();
         // Relative path with internal traversal that stays within the project root.
-        $this->tester->execute(['--dir' => 'var/nested/deep/../generate-test-'.$uniqueId.'/']);
+        // --namespace is required because the dir segment "generate-test-XXXX" contains a hyphen,
+        // which is not a valid PHP namespace character and would be rejected by dirToNamespace().
+        $this->tester->execute(['--dir' => 'var/nested/deep/../generate-test-'.$uniqueId.'/', '--namespace' => 'App\\Nested\\Test']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
@@ -285,7 +287,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         // Pass the dir with an extra trailing slash — the file path must still have exactly one.
         // Kills UnwrapRtrim on line 70: if rtrim is removed, the path becomes `…//DeployTask…` and glob below misses it.
-        $this->tester->execute(['--dir' => $this->relativeOutputDir.'/']);
+        // --namespace is required because the dir name contains hyphens (from uniqid()), which dirToNamespace() rejects.
+        $this->tester->execute(['--dir' => $this->relativeOutputDir.'/', '--namespace' => 'App\\Test']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $files = \glob(\rtrim($this->outputDir, '/').'/DeployTask*.php');
@@ -299,7 +302,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         // Kills Identical mutation on `'Src' === $namespaceParts[0]` (line 182): when mutated to `'Src' !== ...`,
         // the namespace would stay `Src\*` instead of being rewritten to `App\*`.
         // Also kills UnwrapArrayMap / UnwrapUcFirst / UnwrapRtrim in `dirToNamespace` via the namespace assertions below.
-        $subdir = 'src/DeployTasks/Task-'.\uniqid().'/';
+        $subdir = 'src/DeployTasks/Task_'.\uniqid().'/';
         $tmpProject = \sys_get_temp_dir().'/generate-ns-'.\uniqid();
         \mkdir($tmpProject, 0o755, true);
 
@@ -321,7 +324,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             self::assertCount(1, $files);
             $content = (string) \file_get_contents($files[0]);
 
-            self::assertMatchesRegularExpression('/namespace App\\\\DeployTasks\\\\Task[A-Za-z0-9\\\\-]*;/', $content);
+            self::assertMatchesRegularExpression('/namespace App\\\\DeployTasks\\\\Task[A-Za-z0-9_\\\\]*;/', $content);
             self::assertStringNotContainsString('namespace Src\\', $content);
         } finally {
             \chdir($cwd);
@@ -522,6 +525,63 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
             @\rmdir($projectDir.'/tasks');
             @\rmdir($projectDir);
+        }
+    }
+
+    public function testGenerateRejectsDirectoryWithInvalidNamespaceSegment(): void
+    {
+        // "my-tasks" contains a hyphen — dirToNamespace() rejects it because PHP namespaces
+        // allow only letters, digits (after first char), and underscores.
+        $projectDir = \sys_get_temp_dir().'/generate-ns-reject-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            projectDir: $projectDir,
+        );
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'src/my-tasks']);
+            self::assertSame(Command::FAILURE, $tester->getStatusCode());
+            $display = \preg_replace('/\s+/', ' ', $tester->getDisplay());
+            self::assertNotNull($display);
+            self::assertStringContainsString('cannot be turned into a valid PHP namespace', $display);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testGenerateNamespaceOverrideSkipsDirToNamespace(): void
+    {
+        // "--namespace=App\Tasks" bypasses dirToNamespace() entirely — a dir with hyphens works fine.
+        $projectDir = \sys_get_temp_dir().'/generate-ns-override-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            projectDir: $projectDir,
+        );
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'src/my-tasks', '--namespace' => 'App\\Tasks']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($projectDir.'/src/my-tasks/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+
+            $content = (string) \file_get_contents($files[0]);
+            self::assertStringContainsString('namespace App\\Tasks;', $content);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
         }
     }
 

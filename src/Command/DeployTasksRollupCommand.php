@@ -99,6 +99,20 @@ final class DeployTasksRollupCommand extends Command
         }
 
         if ([] === $targets) {
+            if ([] !== $groupFilter) {
+                $declaredCountByGroup = [];
+                foreach ($tasks as $task) {
+                    foreach ((array) AsDeployTask::groupsOf($task) as $g) {
+                        $declaredCountByGroup[$g] = ($declaredCountByGroup[$g] ?? 0) + 1;
+                    }
+                }
+                foreach ($groupFilter as $group) {
+                    if (0 === ($declaredCountByGroup[$group] ?? 0)) {
+                        $output->writeln(\sprintf('<error>Group "%s" is declared on 0 tasks — typo?</error>', $group));
+                    }
+                }
+            }
+
             $io->warning('No task slots matched the requested group(s).');
 
             return Command::SUCCESS;
