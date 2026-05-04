@@ -1,0 +1,96 @@
+# Troubleshooting / FAQ
+
+Symptom-first reference for the errors and surprises contributors most often hit. Each entry names the exception or behaviour, explains *why* it happens, and points at the fix.
+
+## My task is not picked up by `deploytasks:run`
+
+Most common causes, in order:
+
+1. **The class is not in a service-autoconfigured directory.** Tasks rely on Symfony's `autoconfigure: true` to receive the `deploy_tasks.task` tag automatically. Make sure the namespace is covered by `App\:` (or your own) `resource:` line in `config/services.yaml`.
+2. **The task declares an `env` that does not match.** `#[AsDeployTask(env: 'prod')]` is silently skipped on `dev`. Use `deploytasks:status` — the `env` column shows the declared restriction.
+3. **The task declares a `groups:` value but you ran `deploytasks:run` without `--group`.** Tasks declared with one or more groups *only* run when the matching `--group=<name>` flag is passed; the default (ungrouped) slot only runs when no `--group` is passed. See [creating-tasks.md → Group filtering](creating-tasks.md#group-filtering).
+4. **The task already ran in this slot.** Use `deploytasks:show <id>` to see every recorded slot. `deploytasks:reset <id>` clears one execution record.
+
+## `DuplicateTaskIdException: Two tasks resolve to the same id "..."`
+
+Two registered task services produced the same task ID. Detection happens at two layers:
+
+- **Compile time** — caught by the `RegisterTasksCompilerPass` whenever `TaskIdGeneratorInterface::generateStatic()` returns a string for both classes.
+- **Runtime** — caught by `TaskRegistry` on boot. This catches duplicates that escape compile-time detection (tasks implementing `TaskIdProviderInterface`, or generators that return `null` from `generateStatic()`).
+
+Fix it by setting an explicit `#[AsDeployTask(id: '...')]` on at least one of the two tasks. The recommended naming convention `task_YYYYMMDDHHMMSS_<snake_case>` makes accidental collisions almost impossible.
+
+## `TaskNotFoundException: No task is registered with the id "..."`
+
+Thrown by `deploytasks:run --id=<id>`, `deploytasks:show <id>`, `deploytasks:skip <id>`, `deploytasks:reset <id>` when the requested ID is not in the registry. Run `deploytasks:status` to see the resolved IDs as the bundle sees them — the printed value is the one you must pass on the CLI.
+
+## `IncompatibleStorageException` when enabling `transactional` / `all_or_nothing`
+
+The active storage backend does not implement `TransactionalStorageInterface`. The filesystem backend never does (no transactions on disk). The only built-in backend that supports transactions is `DbalStorage`. For a custom backend, implement `TransactionalStorageInterface` and the bundle will detect it automatically.
+
+## `TaskGroupRequiredException` from `deploytasks:skip`
+
+`deploytasks:skip <id>` requires `--group=<name>` when the task declares one or more groups — there is no single slot to mark as skipped. Pick the slot explicitly:
+
+```bash
+bin/console deploytasks:skip task_... --group=predeploy
+```
+
+`deploytasks:reset` does *not* require `--group` — without it, every declared slot for the task is reset.
+
+## `AllOrNothingFailureException`
+
+Raised when `all_or_nothing: true` is enabled and any task fails — the runner rolls back the wrapping transaction and reports the failing task. This is a feature: it guarantees a partial deploy never leaves a half-applied state in storage. Disable `all_or_nothing` if you want failed tasks to remain failed but successful ones to remain recorded.
+
+## Tasks re-run after every container deploy (Docker, Kubernetes)
+
+The default filesystem backend writes under `%kernel.project_dir%/var/deploy-tasks/`, which sits on an overlay filesystem on container platforms. The directory disappears on every pod restart or image rebuild, so the bundle thinks every task is pending again.
+
+Pick one:
+
+- Mount a volume at `%kernel.project_dir%/var/deploy-tasks/` (a `PersistentVolumeClaim` on Kubernetes, a named volume on Docker Compose).
+- Switch to the database backend — `storage.type: database` writes to a durable SQL table.
+
+Covered in [`storage.md` → Ephemeral filesystems](storage.md#ephemeral-filesystems-docker-kubernetes).
+
+## `deploytasks:run` exits 75 (`EX_TEMPFAIL`)
+
+Another `deploytasks:run` is currently holding the run lock. The bundle uses `symfony/lock` to prevent concurrent execution — only one process can run pending tasks at a time. The exit code 75 (`EX_TEMPFAIL`) is the standard sysexits.h code for *try again later* and is safe to interpret as "retry" in your CI / deploy scripts.
+
+If the lock is stuck after a crashed run, inspect your lock store (file, Redis, …) — `symfony/lock`'s default file store keeps lock files under `sys_get_temp_dir()`.
+
+## `deploytasks:run --require-some` exits 64 (`EX_USAGE`)
+
+You combined `--id`, `--group`, or both, but no task in the registry matched the filter. `EX_USAGE` (`64`) signals a usage error so CI scripts can fail loudly instead of treating "0 tasks ran" as success. Drop `--require-some` if "no match" is acceptable.
+
+## `deploytasks:status --filter-status=...` rejects my value
+
+`--filter-status` accepts a case-insensitive comma-separated list of `RAN`, `FAILED`, `SKIPPED`, `PENDING`. Combining `--filter-status` with `--no-state` exits `Command::INVALID` because the two options ask for contradictory views. Use one or the other.
+
+## Filesystem storage refuses to write — `StorageException: Refusing to store deploy-task records under a public web-root path`
+
+The filesystem backend rejects any storage path whose normalised form contains a `public`, `public_html`, `web`, or `htdocs` segment (the regex lives in `FilesystemStorage::__construct()`). This is a defence-in-depth check: deploy task records embed timestamps and error messages, and writing them under a publicly served document root would expose them over HTTP. Move `storage.filesystem.path` outside the web-served directory — `%kernel.project_dir%/var/deploy-tasks` is the right place.
+
+## Group name validation — `\InvalidArgumentException` on `#[AsDeployTask(groups: ...)]`
+
+Group names must match `AsDeployTask::GROUP_NAME_PATTERN` (`^[a-zA-Z0-9._-]+$`). Slashes, whitespace, accented characters, etc. are rejected. The constraint exists because group names are used verbatim as filename suffixes (`<id>@<group>.json`) and as DBAL primary-key column values; allowing arbitrary input there would invite filesystem path injection and broken queries. Pick a name in the allowed alphabet (`predeploy`, `post-deploy`, `db.warm`, …).
+
+## `deploytasks:create-schema` is not registered
+
+The command is registered only when the active storage backend implements `SchemaManageable`. The filesystem backend does not (no schema). For a custom backend that needs DDL provisioning, implement `Soviann\DeployTasksBundle\Storage\SchemaManageable` and the command appears automatically.
+
+## My `getDescription()` is empty in `deploytasks:status`
+
+`TaskDescriptionResolver` resolves descriptions in this order:
+
+1. Non-empty return value of `DeployTaskInterface::getDescription()`.
+2. The `description:` parameter on `#[AsDeployTask]`.
+3. Empty string.
+
+If both your method and the attribute are unset (or empty), you get an empty cell. Set one of them.
+
+## My `TaskIdProviderInterface::getTaskId()` returns the wrong value at compile time
+
+`getTaskId()` is an instance method — it is *not* called during the compiler pass. Only `TaskIdGeneratorInterface::generateStatic()` runs at compile time. `TaskIdProviderInterface` resolution happens at runtime via `TaskIdResolver`. If you need a deterministic compile-time ID, use `#[AsDeployTask(id: '...')]` instead of (or in addition to) `TaskIdProviderInterface`.
+
+If both `getTaskId()` and `#[AsDeployTask(id: '...')]` return non-empty *different* values, the bundle triggers a `E_USER_WARNING` and `getTaskId()` wins.
