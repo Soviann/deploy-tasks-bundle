@@ -145,24 +145,153 @@ $storage = new InMemoryStorage();
 
 ## Custom
 
-Use `type: custom` to plug in any `TaskStorageInterface` implementation. Implement the interface and register your class as a service:
+Use `type: custom` to plug in any `TaskStorageInterface` implementation. The bundle ships only the filesystem and DBAL backends — anything else (Redis, DynamoDB, an existing application table accessed through a Repository, an in-cluster KV store…) goes through this extension point.
+
+### The `TaskStorageInterface` contract
 
 ```php
+namespace Soviann\DeployTasksBundle\Storage;
+
+interface TaskStorageInterface
+{
+    public function has(string $taskId, ?string $group = null): bool;
+    public function get(string $taskId, ?string $group = null): ?TaskExecution;
+    public function save(TaskExecution $execution): void;
+    public function remove(string $taskId, ?string $group = null): void;
+    public function removeAll(): void;
+
+    /** @return iterable<TaskExecution> */
+    public function findByTaskId(string $taskId): iterable;
+
+    /** @return iterable<TaskExecution> */
+    public function all(): iterable;
+
+    public function reset(): void;
+}
+```
+
+All read/write methods are scoped by `(taskId, ?group)` — `null` is the default (ungrouped) slot. `findByTaskId()` returns every slot recorded for one task, used by `deploytasks:show`.
+
+### End-to-end Redis example
+
+The example below stores execution records as Redis hashes keyed `deploy_tasks:<id>:<group>`. It uses [`predis/predis`](https://github.com/predis/predis), but `phpredis` works the same way — only the client method names differ.
+
+```php
+namespace App\Storage;
+
+use Predis\ClientInterface;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
+use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 
 final class RedisStorage implements TaskStorageInterface
 {
-    // ...
+    private const KEY_PREFIX = 'deploy_tasks:';
+    private const INDEX_KEY = 'deploy_tasks:index';
+
+    public function __construct(private readonly ClientInterface $redis)
+    {
+    }
+
+    public function has(string $taskId, ?string $group = null): bool
+    {
+        return 1 === $this->redis->exists($this->key($taskId, $group));
+    }
+
+    public function get(string $taskId, ?string $group = null): ?TaskExecution
+    {
+        $payload = $this->redis->hgetall($this->key($taskId, $group));
+
+        return [] === $payload ? null : $this->hydrate($payload);
+    }
+
+    public function save(TaskExecution $execution): void
+    {
+        $key = $this->key($execution->id, $execution->group);
+
+        $this->redis->hmset($key, [
+            'id' => $execution->id,
+            'task_group' => $execution->group ?? '',
+            'status' => $execution->status->value,
+            'executed_at' => $execution->executedAt->format(\DATE_ATOM),
+            'error' => $execution->error ?? '',
+        ]);
+        $this->redis->sadd(self::INDEX_KEY, [$key]);
+    }
+
+    public function remove(string $taskId, ?string $group = null): void
+    {
+        $key = $this->key($taskId, $group);
+
+        $this->redis->del([$key]);
+        $this->redis->srem(self::INDEX_KEY, $key);
+    }
+
+    public function removeAll(): void
+    {
+        $this->reset();
+    }
+
+    public function findByTaskId(string $taskId): iterable
+    {
+        foreach ($this->redis->keys(self::KEY_PREFIX.$taskId.':*') as $key) {
+            $payload = $this->redis->hgetall($key);
+
+            if ([] !== $payload) {
+                yield $this->hydrate($payload);
+            }
+        }
+    }
+
+    public function all(): iterable
+    {
+        foreach ($this->redis->smembers(self::INDEX_KEY) as $key) {
+            $payload = $this->redis->hgetall($key);
+
+            if ([] !== $payload) {
+                yield $this->hydrate($payload);
+            }
+        }
+    }
+
+    public function reset(): void
+    {
+        $keys = $this->redis->smembers(self::INDEX_KEY);
+
+        if ([] !== $keys) {
+            $this->redis->del($keys);
+        }
+        $this->redis->del([self::INDEX_KEY]);
+    }
+
+    private function key(string $taskId, ?string $group): string
+    {
+        return self::KEY_PREFIX.$taskId.':'.($group ?? '');
+    }
+
+    /**
+     * @param array<string, string> $payload
+     */
+    private function hydrate(array $payload): TaskExecution
+    {
+        return new TaskExecution(
+            id: $payload['id'],
+            status: TaskStatus::from($payload['status']),
+            executedAt: new \DateTimeImmutable($payload['executed_at']),
+            error: '' === $payload['error'] ? null : $payload['error'],
+            group: '' === $payload['task_group'] ? null : $payload['task_group'],
+        );
+    }
 }
 ```
 
-If your backend supports transactions, implement `TransactionalStorageInterface` (which extends `TaskStorageInterface`) — the bundle detects this automatically and exposes your storage as both interfaces. Detection happens in a compiler pass that inspects the registered service's class after extension loading, so the alias is wired without any extra configuration on your side.
+Wire it as a regular Symfony service and point the bundle at it:
 
 ```yaml
 # config/services.yaml
 services:
     App\Storage\RedisStorage:
-        arguments: ['@redis']
+        arguments: ['@Predis\ClientInterface']
 ```
 
 ```yaml
@@ -176,4 +305,14 @@ deploy_tasks:
             all_or_nothing: false                # requires TransactionalStorageInterface
 ```
 
-`transactional` and `all_or_nothing` have no effect unless the custom service implements `TransactionalStorageInterface`.
+That is enough. The bundle:
+
+- Aliases your service to `TaskStorageInterface` so the runner picks it up.
+- Detects the interface at compile time; if you also implement `TransactionalStorageInterface`, the runner uses transaction wrapping when `transactional` / `all_or_nothing` are enabled.
+- Detects the optional `SchemaManageable` interface and registers `deploytasks:create-schema` against your backend if you need DDL provisioning.
+
+`transactional` and `all_or_nothing` have no effect unless the custom service implements `TransactionalStorageInterface`. If your backend has no transaction primitive (Redis, S3, plain HTTP API…), keep both `false`.
+
+### Testing your custom storage
+
+The simplest harness is the runner with `InMemoryStorage` swapped for your implementation against a disposable backend (Redis on a test container, an in-memory fake, …). The fixtures under `tests/Fixtures/` (e.g. `TransactionalInMemoryStorageFixture.php`) show how to compose a transactional decorator around a non-transactional store if you need that pattern.
