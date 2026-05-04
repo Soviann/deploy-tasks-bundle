@@ -26,6 +26,8 @@ vendor/bin/phpunit --testsuite Unit
 vendor/bin/phpunit --testsuite Functional
 ```
 
+The DBAL storage test suite runs against an in-memory SQLite database (`pdo_sqlite`, `:memory:`) — no external MySQL or PostgreSQL server is required to run the tests locally.
+
 ## Code Quality
 
 ```bash
@@ -41,7 +43,7 @@ vendor/bin/php-cs-fixer fix --dry-run
 
 ## Coding Standards
 
-- Code style: `@Symfony` and `@Symfony:risky` rulesets, both enabled in `.php-cs-fixer.dist.php`. Run `make cs-fix` (or `vendor/bin/php-cs-fixer fix` inside the bundle) before committing.
+- Code style: `@Symfony` and `@Symfony:risky` rulesets, both enabled in `.php-cs-fixer.dist.php`. Run `vendor/bin/php-cs-fixer fix` before committing.
 - PHPStan level 9 — no suppressions
 - All classes must be `final` unless designed for extension; properties `readonly` where possible
 - Backslash-prefix native PHP functions: `\array_map()`, `\sprintf()`, `\count()`
@@ -51,6 +53,19 @@ vendor/bin/php-cs-fixer fix --dry-run
 ## Architecture
 
 Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout with role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/`). Root-level public API: `DeployTaskInterface`, `DeployTasksBundle`, `TaskResult`.
+
+## Working with AI assistants
+
+If you use an AI coding assistant (Claude Code, Copilot, Cursor, Aider, …), point it at the two condensed context files at the root of the repo before asking for changes:
+
+- [`AGENTS.md`](AGENTS.md) — short context block for any AI subagent (architecture, namespaces, conventions, console commands).
+- [`CLAUDE.md`](CLAUDE.md) — full project context: extension points, design decisions, configuration tree, command reference.
+
+These are the source of truth for the assistant — keep them in sync when you change architecture, conventions, or public API.
+
+## Language
+
+All files consumed by AI tools or by Claude at runtime — `CLAUDE.md`, `AGENTS.md`, anything under `docs/`, in-code docblocks, and PHPStan/CS Fixer configuration comments — must be in **English**. Pull request titles, commit messages, and code comments are also English. This keeps the project consistent for international contributors and for AI assistants whose tokenisation favours English.
 
 ## Pull Requests
 

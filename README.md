@@ -260,7 +260,18 @@ See [`docs/creating-tasks.md`](docs/creating-tasks.md#group-filtering) and [`doc
 
 ## Documentation
 
-See the [`docs/`](docs/) directory for detailed documentation.
+| Topic | File |
+|---|---|
+| Installation, requirements, optional packages | [`docs/installation.md`](docs/installation.md) |
+| Creating tasks (attributes, env/group filtering, IDs) | [`docs/creating-tasks.md`](docs/creating-tasks.md) |
+| Console commands reference | [`docs/commands.md`](docs/commands.md) |
+| Storage backends (filesystem, database, custom) | [`docs/storage.md`](docs/storage.md) |
+| Lifecycle events | [`docs/events.md`](docs/events.md) |
+| Logging (PSR-3, Monolog channel) | [`docs/logging.md`](docs/logging.md) |
+| Testing (unit, functional, command tester) | [`docs/testing.md`](docs/testing.md) |
+| Security model, host runner hardening | [`docs/security.md`](docs/security.md) |
+| Advanced (custom ID generator, custom sorter, locking) | [`docs/advanced.md`](docs/advanced.md) |
+| Troubleshooting / FAQ | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
 
 ## Security
 
