@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Unit\Exception;
 
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
@@ -18,7 +18,10 @@ use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 
-#[CoversClass(DeployTasksExceptionInterface::class)]
+// The marker interface carries no executable code to cover; this test only
+// asserts the structural relationship that each exception implements it.
+// PHPUnit 11 rejects #[CoversClass] on an interface, so cover nothing.
+#[CoversNothing]
 final class DeployTasksExceptionInterfaceTest extends TestCase
 {
     /**

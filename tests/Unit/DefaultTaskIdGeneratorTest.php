@@ -52,6 +52,26 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         self::assertSame($expectedId, DefaultTaskIdGenerator::generateStatic($className));
     }
 
+    public function testMixedAlphanumericSuffixIsNotTreatedAsTimestamp(): void
+    {
+        // After stripping the 'Task' suffix, the remainder is 'Seed123'.
+        // '/^\d+$/' (anchored both ends) must NOT match — 'Seed123' is not purely numeric.
+        // The mutant PregMatchRemoveCaret ('/\d+$/') would wrongly match and return 'task_123'.
+        // The correct result is the snake_case conversion: 'seed123'.
+        /* @phpstan-ignore argument.type */
+        self::assertSame('seed123', DefaultTaskIdGenerator::generateStatic('Seed123Task'));
+    }
+
+    public function testMixedAlphanumericPrefixIsNotTreatedAsTimestamp(): void
+    {
+        // After stripping the 'Task' prefix, the remainder is '123Seed'.
+        // '/^\d+$/' (anchored both ends) must NOT match — '123Seed' is not purely numeric.
+        // The mutant PregMatchRemoveDollar ('/^\d+/') would wrongly match and return 'task_123Seed'.
+        // The correct result is the snake_case conversion: '123_seed'.
+        /* @phpstan-ignore argument.type */
+        self::assertSame('123_seed', DefaultTaskIdGenerator::generateStatic('Task123Seed'));
+    }
+
     public function testEmptyIdRaisesForRootNamespaceSingleWordClass(): void
     {
         if (!\class_exists('Task', false)) {

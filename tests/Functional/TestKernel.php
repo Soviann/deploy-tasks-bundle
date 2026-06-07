@@ -64,7 +64,7 @@ final class TestKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $storagePath = \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.$this->environment;
+        $storagePath = \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.\getmypid().'-'.$this->environment;
 
         $container->extension('deploy_tasks', [
             'storage' => [

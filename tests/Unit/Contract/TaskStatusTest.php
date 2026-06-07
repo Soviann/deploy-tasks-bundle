@@ -5,23 +5,27 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Unit\Contract;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 
 #[CoversClass(TaskStatus::class)]
 final class TaskStatusTest extends TestCase
 {
-    public function testBackingValuesDocumentTheContract(): void
+    /**
+     * @return iterable<string, array{string, TaskStatus}>
+     */
+    public static function provideBackingValues(): iterable
     {
-        $map = [];
-        foreach (TaskStatus::cases() as $case) {
-            $map[$case->name] = $case->value;
-        }
+        yield 'ran' => ['ran', TaskStatus::Ran];
+        yield 'failed' => ['failed', TaskStatus::Failed];
+        yield 'skipped' => ['skipped', TaskStatus::Skipped];
+    }
 
-        self::assertSame(
-            ['Ran' => 'ran', 'Failed' => 'failed', 'Skipped' => 'skipped'],
-            $map,
-        );
+    #[DataProvider('provideBackingValues')]
+    public function testBackingValueDocumentsTheContract(string $value, TaskStatus $expected): void
+    {
+        self::assertSame($expected, TaskStatus::from($value));
     }
 
     public function testFromResolvesEveryCase(): void
