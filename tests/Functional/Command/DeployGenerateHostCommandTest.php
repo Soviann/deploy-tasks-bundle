@@ -18,6 +18,12 @@ use Symfony\Component\Filesystem\Exception\IOException;
 #[CoversClass(DeployTasksGenerateHostCommand::class)]
 final class DeployGenerateHostCommandTest extends FunctionalTestCase
 {
+    /**
+     * Throwaway directory for the mandatory constructor argument, funneled through
+     * {@see makeCommand()}; every test sets the real target via the --dir option.
+     */
+    private const HOST_DIR = 'deploy/host-tasks';
+
     private CommandTester $tester;
     private string $outputDir;
     private string $relativeOutputDir;
@@ -46,7 +52,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-host-test-readonly-project-'.\uniqid();
         \mkdir($projectDir, 0o500, true);
 
-        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $command = $this->makeCommand(projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -103,7 +109,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         \mkdir($projectDir.'/tasks', 0755, true);
 
         $fixedNow = new \DateTimeImmutable('2026-04-17 12:00:00');
-        $command = new DeployTasksGenerateHostCommand(
+        $command = $this->makeCommand(
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -191,7 +197,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         \mkdir($tmpDir, 0o755, true);
 
         // No projectDir — file is written relative to CWD (which we control via chdir).
-        $command = new DeployTasksGenerateHostCommand();
+        $command = $this->makeCommand();
         $tester = new CommandTester($command);
 
         $cwd = \getcwd();
@@ -243,7 +249,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-host-runner-missing-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $command = $this->makeCommand(projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -271,7 +277,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         \mkdir($projectDir.'/bin', 0o755, true);
         \file_put_contents($projectDir.'/bin/deploy-tasks-host.sh', "#!/usr/bin/env bash\n");
 
-        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $command = $this->makeCommand(projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -299,7 +305,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-host-perms-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $command = $this->makeCommand(projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -331,7 +337,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
     #[DataProvider('pathTraversalPayloadsProvider')]
     public function testGenerateRejectsDirPathTraversal(string $dir, string $expectedMessageFragment, ?string $projectDir): void
     {
-        $command = new DeployTasksGenerateHostCommand(projectDir: $projectDir);
+        $command = $this->makeCommand(projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -371,5 +377,17 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
+    }
+
+    private function makeCommand(
+        ?string $projectDir = null,
+        ?\Closure $nowProvider = null,
+        string $hostDirectory = self::HOST_DIR,
+    ): DeployTasksGenerateHostCommand {
+        return new DeployTasksGenerateHostCommand(
+            hostDirectory: $hostDirectory,
+            projectDir: $projectDir,
+            nowProvider: $nowProvider,
+        );
     }
 }
