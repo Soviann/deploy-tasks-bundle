@@ -131,6 +131,7 @@ Behavior notes:
 deploy_tasks:
     id_generator: ~              # service ID of a custom TaskIdGeneratorInterface
     sorter: ~                    # service ID of a custom TaskSorterInterface
+    logger: ~                    # service ID of a custom PSR-3 logger (null = auto-detect app logger, monolog channel "deploy_tasks")
     default_timeout: 300         # seconds
     storage:
         type: filesystem         # filesystem | database | custom
@@ -159,9 +160,12 @@ deploy_tasks:
         enabled: true
     lock:
         enabled: true
+        ttl: 3600                # lock lifetime in seconds; the runner refreshes it between tasks
     generate:
         directory: src/DeployTasks/Task/
         template: ~              # path to a custom PHP template
+        root_namespace: App      # root namespace for src/-rooted --dir (mirrors symfony/maker-bundle)
+        host_directory: '%kernel.project_dir%/deploy/host-tasks'   # where deploytasks:generate:host writes stubs
 ```
 
 ## Storage Backends
