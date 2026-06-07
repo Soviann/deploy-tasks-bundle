@@ -84,6 +84,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -128,6 +129,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -177,6 +179,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -248,6 +251,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/T/',
                     'template' => '/tpl.php',
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -292,6 +296,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -336,6 +341,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -380,6 +386,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],
@@ -432,6 +439,7 @@ final class ConfigurationTest extends TestCase
                 'generate' => [
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
+                    'root_namespace' => 'App',
                     'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
                 ],
             ],

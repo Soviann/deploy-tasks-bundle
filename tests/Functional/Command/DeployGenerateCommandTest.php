@@ -20,8 +20,8 @@ use Symfony\Component\Filesystem\Exception\IOException;
 final class DeployGenerateCommandTest extends FunctionalTestCase
 {
     /**
-     * Throwaway value for the now-mandatory constructor argument; every test below
-     * overrides the target via the --dir option, so the value itself is never exercised.
+     * Throwaway directory for the mandatory constructor argument, funneled through
+     * {@see makeCommand()}; every test sets the real target via the --dir option.
      */
     private const DEFAULT_DIR = 'src/DeployTasks/Task/';
 
@@ -88,9 +88,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         \mkdir($projectDir.'/tasks', 0755, true);
 
         $fixedNow = new \DateTimeImmutable('2026-04-17 12:00:00');
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
+        $command = $this->makeCommand(
+            $idGenerator,
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -120,11 +119,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
-            projectDir: $projectDir,
-        );
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -152,9 +147,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $expectedFile = $projectDir.'/src/Tasks/DeployTask'.$fixedNow->format('YmdHis').'.php';
         \file_put_contents($expectedFile, '<?php // existing');
 
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
+        $command = $this->makeCommand(
+            $idGenerator,
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -256,7 +250,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         // No projectDir — file is written relative to CWD (which we control via chdir).
-        $command = new DeployTasksGenerateCommand(idGenerator: $idGenerator, defaultDirectory: self::DEFAULT_DIR);
+        $command = $this->makeCommand($idGenerator);
         $tester = new CommandTester($command);
 
         $cwd = \getcwd();
@@ -315,9 +309,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $tmpProject = \sys_get_temp_dir().'/generate-ns-'.\uniqid();
         \mkdir($tmpProject, 0o755, true);
 
-        $command = new DeployTasksGenerateCommand(
+        $command = $this->makeCommand(
             new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
-            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $tmpProject,
         );
         $cwd = \getcwd();
@@ -342,6 +335,42 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testGeneratedFileUsesConfiguredRootNamespace(): void
+    {
+        // generate.root_namespace overrides the conventional "App" root applied to a src/-rooted
+        // --dir. A non-default value here pins that dirToNamespace() reads $this->rootNamespace
+        // rather than a hardcoded "App" literal.
+        $subdir = 'src/DeployTasks/Task_'.\uniqid().'/';
+        $tmpProject = \sys_get_temp_dir().'/generate-ns-custom-'.\uniqid();
+        \mkdir($tmpProject, 0o755, true);
+
+        $command = $this->makeCommand(
+            new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+            projectDir: $tmpProject,
+            rootNamespace: 'Acme',
+        );
+        $cwd = \getcwd();
+        \assert(false !== $cwd);
+
+        try {
+            \chdir($tmpProject);
+            $tester = new CommandTester($command);
+            $tester->execute(['--dir' => $subdir]);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($tmpProject.'/'.$subdir.'DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+            $content = (string) \file_get_contents($files[0]);
+
+            self::assertMatchesRegularExpression('/namespace Acme\\\\DeployTasks\\\\Task[A-Za-z0-9_\\\\]*;/', $content);
+            self::assertStringNotContainsString('namespace App\\', $content);
+        } finally {
+            \chdir($cwd);
+            FilesystemTestHelper::cleanup($tmpProject);
+        }
+    }
+
     public function testGenerateUsesCustomTemplateWhenConfigured(): void
     {
         // Kills LogicalAndSingleSubExprNegation on line 93: a mutation that flips `null !== templatePath`
@@ -353,9 +382,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         \mkdir($projectDir, 0o755, true);
 
         try {
-            $command = new DeployTasksGenerateCommand(
+            $command = $this->makeCommand(
                 new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
-                defaultDirectory: self::DEFAULT_DIR,
                 templatePath: $template,
                 projectDir: $projectDir,
             );
@@ -384,11 +412,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
-            projectDir: $projectDir,
-        );
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -423,11 +447,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
-            projectDir: $projectDir,
-        );
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -491,9 +511,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         \mkdir($projectDir.'/tasks', 0o755, true);
 
         $fixedNow = new \DateTimeImmutable('2099-01-01 00:00:00');
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $hostileGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
+        $command = $this->makeCommand(
+            $hostileGenerator,
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -552,11 +571,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
-            projectDir: $projectDir,
-        );
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -579,11 +594,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
-        $command = new DeployTasksGenerateCommand(
-            idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
-            projectDir: $projectDir,
-        );
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
         $tester = new CommandTester($command);
 
         try {
@@ -604,5 +615,22 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
+    }
+
+    private function makeCommand(
+        TaskIdGeneratorInterface $idGenerator,
+        ?string $templatePath = null,
+        ?string $projectDir = null,
+        ?\Closure $nowProvider = null,
+        string $rootNamespace = 'App',
+    ): DeployTasksGenerateCommand {
+        return new DeployTasksGenerateCommand(
+            idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
+            rootNamespace: $rootNamespace,
+            templatePath: $templatePath,
+            projectDir: $projectDir,
+            nowProvider: $nowProvider,
+        );
     }
 }
