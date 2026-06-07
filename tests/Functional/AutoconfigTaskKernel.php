@@ -22,7 +22,7 @@ final class AutoconfigTaskKernel extends AbstractTestKernel
             'storage' => [
                 'type' => 'filesystem',
                 'filesystem' => [
-                    'path' => \sys_get_temp_dir().'/deploy-tasks-autoconfig-'.$this->environment,
+                    'path' => \sys_get_temp_dir().'/deploy-tasks-autoconfig-'.\getmypid().'-'.$this->environment,
                 ],
             ],
             'events' => ['enabled' => false],
