@@ -223,17 +223,13 @@ final class DeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        // Manual name/description via tag attributes (no #[AsCommand]) — Doctrine-bundle style.
         $services->set('deploy_tasks.command.show', DeployTasksShowCommand::class)
             ->args([
                 service('deploy_tasks.registry'),
                 service('deploy_tasks.storage'),
                 service('deploy_tasks.description_resolver'),
             ])
-            ->tag('console.command', [
-                'command' => 'deploytasks:show',
-                'description' => 'Show metadata and stored execution records for a single deploy task.',
-            ])
+            ->tag('console.command')
         ;
 
         /** @var array{directory: string, template: string|null, host_directory: string} $generateConfig */
