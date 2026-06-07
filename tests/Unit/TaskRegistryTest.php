@@ -282,4 +282,41 @@ final class TaskRegistryTest extends TestCase
         self::assertArrayNotHasKey('task.default', $filtered);
         self::assertArrayNotHasKey('test.prod_only', $filtered);
     }
+
+    public function testGroupFilterExcludesTasksThatShareNoGroupWithRequestedGroups(): void
+    {
+        // Mutants 173–174: UnwrapArrayIntersect — array_intersect removed so the
+        // entire $declared array is used instead of its intersection. Without
+        // intersection, a task whose declared groups do NOT overlap the requested
+        // groups would still be included.
+        //
+        // MultiGroupTask has groups ['predeploy', 'postdeploy'].
+        // PredeployTask has group ['predeploy'].
+        // Requesting only ['postdeploy'] must return MultiGroupTask but NOT PredeployTask.
+        $predeploy = new PredeployTask();
+        $multi = new MultiGroupTask();
+
+        $registry = new TaskRegistry([$predeploy, $multi], $this->idResolver);
+
+        $filtered = $registry->all(null, ['postdeploy']);
+
+        self::assertArrayHasKey('test.multi_group', $filtered, 'Multi-group task with postdeploy must be included.');
+        self::assertArrayNotHasKey('test.predeploy', $filtered, 'Predeploy-only task must NOT be included when requesting postdeploy.');
+    }
+
+    public function testGroupFilterRequiresIntersectionNotSuperset(): void
+    {
+        // Complementary to the previous test: requesting ['predeploy'] must include
+        // MultiGroupTask (predeploy ∩ [predeploy,postdeploy] = [predeploy] ≠ [])
+        // but must exclude a task that only has ['postdeploy'].
+        $predeploy = new PredeployTask();   // groups: ['predeploy']
+        $multi = new MultiGroupTask();      // groups: ['predeploy', 'postdeploy']
+
+        $registry = new TaskRegistry([$predeploy, $multi], $this->idResolver);
+
+        $filtered = $registry->all(null, ['predeploy']);
+
+        self::assertArrayHasKey('test.predeploy', $filtered);
+        self::assertArrayHasKey('test.multi_group', $filtered, 'Task whose groups intersect the requested set must be included.');
+    }
 }

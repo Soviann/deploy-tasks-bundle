@@ -18,6 +18,8 @@ final class DbalStorageConfigurationTest extends TestCase
         self::assertTrue($config->autoCreateTable);
         self::assertSame('error', $config->errorColumn);
         self::assertSame('executed_at', $config->executedAtColumn);
+        self::assertSame('task_group', $config->groupColumn);
+        self::assertSame(128, $config->groupColumnLength);
         self::assertSame('id', $config->idColumn);
         self::assertSame(255, $config->idColumnLength);
         self::assertSame('status', $config->statusColumn);

@@ -194,4 +194,50 @@ final class InMemoryStorageTest extends TestCase
 
         self::assertSame([], $this->storage->all());
     }
+
+    /**
+     * Kills ConcatOperandRemoval mutant on line 45 in removeAll():
+     * mutation replaces `$taskId."\0"` with `$taskId`, making str_starts_with()
+     * match keys for tasks whose ID merely starts with $taskId (e.g. task.10 when removing task.1).
+     *
+     * The internal key format is `$taskId . NUL . $group`. Without the NUL separator,
+     * str_starts_with("task.10\0", "task.1") is TRUE, so task.10 would be wrongly removed.
+     */
+    public function testRemoveAllDoesNotMatchTaskIdThatIsAPrefixOfAnother(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->storage->removeAll('task.1');
+
+        self::assertFalse($this->storage->has('task.1'), 'task.1 default slot must be removed.');
+        self::assertFalse($this->storage->has('task.1', 'predeploy'), 'task.1 predeploy slot must be removed.');
+        self::assertTrue($this->storage->has('task.10'), 'task.10 must NOT be removed by removeAll(task.1).');
+        self::assertTrue($this->storage->has('task.10', 'predeploy'), 'task.10 predeploy must NOT be removed by removeAll(task.1).');
+    }
+
+    /**
+     * Kills UnwrapArrayValues mutant on line 70 in all():
+     * mutation removes array_values(), returning the internal associative array
+     * (with composite NUL-keyed keys) instead of a proper list (0-indexed).
+     *
+     * The contract requires a list<TaskExecution> with sequential integer keys.
+     */
+    public function testAllReturnsAListWithSequentialIntegerKeys(): void
+    {
+        $first = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
+        $second = new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'));
+
+        $this->storage->save($first);
+        $this->storage->save($second);
+
+        $all = $this->storage->all();
+
+        // array_keys (not assertCount, which would let PHPStan fold the length) proves
+        // the result is re-indexed: without array_values() the keys are the internal
+        // task-id keys, not 0..n-1.
+        self::assertSame([0, 1], \array_keys($all), 'all() must return a list with sequential integer keys from 0.');
+    }
 }
