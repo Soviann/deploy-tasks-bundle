@@ -68,6 +68,21 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertMatchesRegularExpression('~<error>[^<]*boom[^<]*</error>~', $output->fetch());
     }
 
+    public function testTimeoutMessageIncludesActualTimeoutValue(): void
+    {
+        // Mutant 162 (Coalesce): '$process->getTimeout() ?? "0"' → '"0" ?? $process->getTimeout()'
+        // swaps operands so the timeout seconds always reports '0' instead of the real value.
+        // This test asserts the real configured timeout appears in the error message.
+        $output = self::createRawOutput();
+
+        self::createCaller()->invoke(
+            new Process(['php', '-r', 'sleep(5);'], timeout: 2),
+            $output,
+        );
+
+        self::assertStringContainsString('2s', $output->fetch());
+    }
+
     public function testCwdIsRespected(): void
     {
         $output = self::createRawOutput();
@@ -165,8 +180,6 @@ final class ProcessRunnerTraitTest extends TestCase
     public function testRunProcessWithTimeoutForwardsSecondsAndDelegates(): void
     {
         $output = self::createRawOutput();
-
-        $capturedTimeout = null;
 
         $process = new class(['php', '-r', 'echo "ok";']) extends Process {
             public ?int $capturedTimeout = null;

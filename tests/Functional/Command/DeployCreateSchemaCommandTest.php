@@ -79,6 +79,21 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
         self::assertStringContainsString('CREATE TABLE', $display);
     }
 
+    public function testDumpSqlOutputEndsSqlWithSemicolon(): void
+    {
+        // Kills Concat (#3): mutation swaps order to ';'.$sql — semicolon would appear before, not after.
+        // Kills ConcatOperandRemoval (#4): mutation removes ';' entirely — trailing semicolon disappears.
+        $this->tester->execute(['--dump-sql' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = \rtrim($this->tester->getDisplay());
+
+        // SQL must be terminated with a semicolon at the very end of the output.
+        self::assertStringEndsWith(';', $display);
+        // The SQL itself must come before the semicolon, not after it.
+        self::assertMatchesRegularExpression('/CREATE TABLE.*;\s*$/s', $display);
+    }
+
     public function testSchemaCreationAllowsRoundTripStorageUse(): void
     {
         $this->tester->execute([]);

@@ -374,6 +374,179 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         // Valid relative path inside the project → no failure expected (handled by testGenerateCreatesExecutableBashStubWithTimestampedName).
     }
 
+    public function testDefaultAbsoluteHostDirIsAcceptedWithoutUserFlag(): void
+    {
+        // Kills LogicalAnd→LogicalOr mutation (#20, line 77): with OR, any user-provided dir that
+        // starts with '/' would enter the absolute-path branch instead of being rejected.
+        // We assert that a user-provided absolute path IS rejected (FAILURE) while the default
+        // absolute host_directory (not user-provided) is accepted (SUCCESS).
+        $projectDir = \sys_get_temp_dir().'/generate-host-di-abs-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        // Absolute path as the injected default (simulating the DI-configured host_directory).
+        $absHostDir = $projectDir.'/host-tasks';
+        $command = $this->makeCommand(projectDir: $projectDir, hostDirectory: $absHostDir);
+        $tester = new CommandTester($command);
+
+        try {
+            // No --dir flag: uses the DI-injected absolute default → must succeed.
+            $tester->execute([]);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testUserProvidedAbsoluteDirIsRejected(): void
+    {
+        // Companion to testDefaultAbsoluteHostDirIsAcceptedWithoutUserFlag:
+        // a user-provided absolute --dir must be rejected with FAILURE.
+        $this->tester->execute(['--dir' => '/tmp/user-provided-abs/']);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('must be a relative path', \preg_replace('/\s+/', ' ', $this->tester->getDisplay()) ?? '');
+    }
+
+    public function testAbsoluteDefaultDirBoundaryCheckThrowsWhenOutsideProject(): void
+    {
+        // Kills NotIdentical→Identical mutation (#21, line 82): mutation flips null !== projectDir
+        // to null === projectDir, so the boundary check is skipped when projectDir IS set.
+        // We verify the boundary IS enforced: an absolute default dir outside the projectDir throws.
+        $projectDir = \sys_get_temp_dir().'/generate-host-boundary-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        // Host directory is completely outside projectDir — boundary check must fire.
+        $outsideDir = \sys_get_temp_dir().'/generate-host-outside-'.\uniqid();
+
+        $command = $this->makeCommand(projectDir: $projectDir, hostDirectory: $outsideDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $tester->execute([]);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            FilesystemTestHelper::cleanup($outsideDir);
+        }
+    }
+
+    public function testAbsoluteDefaultDirBoundaryCheckWithTrailingSlashInProjectDir(): void
+    {
+        // Kills UnwrapRtrim (#22) and ConcatOperandRemoval (#23,#24) mutations on boundary (line 83):
+        // mutations corrupt the boundary string (drop rtrim or drop the trailing '/').
+        // A host_dir that is a direct child of projectDir exercises the trailing-slash sensitivity.
+        $projectDir = \sys_get_temp_dir().'/generate-host-rtrim-'.\uniqid();
+        $hostDir = $projectDir.'/host-tasks';
+        \mkdir($projectDir, 0o755, true);
+
+        // projectDir with trailing slash exercises rtrim on the boundary.
+        $command = $this->makeCommand(projectDir: $projectDir.'/', hostDirectory: $hostDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute([]);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testAbsoluteDefaultDirBoundaryCheckStrStartsWithSlashOnResolvedDir(): void
+    {
+        // Kills ConcatOperandRemoval (#25, line 85): mutation removes the trailing '/' appended to
+        // $resolvedDir in str_starts_with($resolvedDir.'/', $boundary), allowing a sibling dir that
+        // merely shares a prefix to bypass the boundary check.
+        $projectDir = \sys_get_temp_dir().'/generate-host-sibling-'.\uniqid();
+        $siblingDir = $projectDir.'sibling'; // shares /tmp/generate-host-sibling-XXX prefix but is outside
+
+        $command = $this->makeCommand(projectDir: $projectDir, hostDirectory: $siblingDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $tester->execute([]);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testRelativeDirTrailingSlashNormalisedBeforePathConstruction(): void
+    {
+        // Kills UnwrapRtrim (#26, line 92): without rtrim, a dir passed as "dir//" would produce
+        // double slashes in the filename. We assert the output path contains no double slashes.
+        $this->tester->execute(['--dir' => $this->relativeOutputDir.'/']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = \strip_tags($this->tester->getDisplay());
+        self::assertStringNotContainsString('//', $display);
+    }
+
+    public function testRelativeDirBoundaryCheckWithTrailingSlashInProjectDir(): void
+    {
+        // Kills UnwrapRtrim (#27) and ConcatOperandRemoval (#28,#29) mutations on the relative-dir
+        // boundary (line 107). projectDir with a trailing slash exposes rtrim sensitivity.
+        $projectDir = \sys_get_temp_dir().'/generate-host-rel-rtrim-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $command = $this->makeCommand(projectDir: $projectDir.'/');
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'host-tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testRelativeDirBoundaryCheckStrStartsWithSlashOnResolvedDir(): void
+    {
+        // Kills ConcatOperandRemoval (#30, line 109): mutation removes '/' from $resolvedDir.'/'
+        // in str_starts_with, allowing a sibling that shares a prefix to bypass the boundary.
+        $projectDir = \sys_get_temp_dir().'/generate-host-rel-sibling-'.\uniqid();
+        $siblingDir = $projectDir.'sibling';
+
+        $command = $this->makeCommand(projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => '../'.\basename($siblingDir).'/']);
+        } catch (\InvalidArgumentException) {
+            // Boundary throws — correctly rejected.
+            return;
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+
+        // If no exception, the command must have rejected it via the allowlist (..  prefix).
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+    }
+
+    public function testGeneratedHostDirectoryHasPermissions0755(): void
+    {
+        // Kills DecrementInteger (#31, 0755→0754/492) and IncrementInteger (#32, 0755→0756/494)
+        // on the mkdir mode (line 129). Also kills MethodCallRemoval (#33) — if mkdir is removed
+        // the directory is either absent or created with wrong permissions.
+        $projectDir = \sys_get_temp_dir().'/generate-host-dir-mode-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $command = $this->makeCommand(projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'host-tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $createdDir = $projectDir.'/host-tasks';
+            self::assertDirectoryExists($createdDir);
+
+            $mode = \fileperms($createdDir) & 0o777;
+            self::assertSame(0o755, $mode, \sprintf('Expected host-tasks directory mode 0755, got 0%o.', $mode));
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

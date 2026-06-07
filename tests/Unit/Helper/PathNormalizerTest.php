@@ -53,4 +53,28 @@ final class PathNormalizerTest extends TestCase
             PathNormalizer::normalizeWithin('foo/bar', '/srv/app'),
         );
     }
+
+    public function testNormalizeWithinAcceptsBaseWithTrailingSlash(): void
+    {
+        // When $base already has a trailing slash, the boundary computation must
+        // still produce exactly one slash — otherwise `str_starts_with` fails on a
+        // valid path (Mutant 159: rtrim removed from boundary, yielding double slash).
+        self::assertSame(
+            '/srv/app/subdir',
+            PathNormalizer::normalizeWithin('subdir', '/srv/app/'),
+        );
+    }
+
+    public function testNormalizeWithinPathEqualsBase(): void
+    {
+        // When the resolved path exactly equals the base (no trailing slash),
+        // the check `str_starts_with($normalized.'/', $boundary)` passes because
+        // we append '/' to $normalized before comparing.
+        // Mutant 160 removes the appended '/' from $normalized, which would cause
+        // a valid same-directory path to be rejected.
+        self::assertSame(
+            '/srv/app',
+            PathNormalizer::normalizeWithin('.', '/srv/app'),
+        );
+    }
 }

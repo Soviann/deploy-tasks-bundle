@@ -471,6 +471,216 @@ final class ConfigurationTest extends TestCase
         self::processConfig(['lock' => ['ttl' => 59]]);
     }
 
+    public function testLockTtlAccepts60ExactlyAsMinimum(): void
+    {
+        // Mutant 129: IncrementInteger min(60→61). Value 60 must be accepted.
+        $config = self::processConfig(['lock' => ['ttl' => 60]]);
+        /** @var array{ttl: int} $lockConfig */
+        $lockConfig = $config['lock'];
+
+        self::assertSame(60, $lockConfig['ttl']);
+    }
+
+    // -------------------------------------------------------------------------
+    // StorageConfigNode — SQL identifier validation (mutants 131–143)
+    // PregMatchRemoveCaret: strings that start with a digit must be rejected.
+    // PregMatchRemoveDollar: strings that end with an invalid char must be rejected.
+    // -------------------------------------------------------------------------
+
+    public function testTableNameStartingWithDigitIsRejected(): void
+    {
+        // Mutant 131: PregMatchRemoveCaret on 'table'. Without '^', '1abc' would match.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['table' => '1invalid_table']],
+        ]);
+    }
+
+    public function testTableNameEndingWithInvalidCharIsRejected(): void
+    {
+        // Mutant 132: PregMatchRemoveDollar on 'table'. Without '$', 'valid@' would match prefix.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['table' => 'valid@invalid']],
+        ]);
+    }
+
+    public function testIdColumnNameStartingWithDigitIsRejected(): void
+    {
+        // Mutant 133: PregMatchRemoveCaret on 'id_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['id_column' => '9id']],
+        ]);
+    }
+
+    public function testIdColumnLengthMinimumIsOne(): void
+    {
+        // Mutants 134 (DecrementInteger: min→0) and 135 (IncrementInteger: min→2).
+        // Value 1 must be accepted; value 0 must be rejected.
+        $config = self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['id_column_length' => 1]],
+        ]);
+
+        $storage = $config['storage'];
+        self::assertIsArray($storage);
+        $database = $storage['database'];
+        self::assertIsArray($database);
+        self::assertSame(1, $database['id_column_length']);
+    }
+
+    public function testIdColumnLengthRejectsZero(): void
+    {
+        // Mutant 134: min(1→0) would accept 0. Without this test the decrement mutant escapes.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['id_column_length' => 0]],
+        ]);
+    }
+
+    public function testStatusColumnNameStartingWithDigitIsRejected(): void
+    {
+        // Mutant 136: PregMatchRemoveCaret on 'status_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['status_column' => '1status']],
+        ]);
+    }
+
+    public function testStatusColumnNameEndingWithInvalidCharIsRejected(): void
+    {
+        // Mutant 137: PregMatchRemoveDollar on 'status_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['status_column' => 'status@col']],
+        ]);
+    }
+
+    public function testExecutedAtColumnNameStartingWithDigitIsRejected(): void
+    {
+        // Mutant 138: PregMatchRemoveCaret on 'executed_at_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['executed_at_column' => '1executed']],
+        ]);
+    }
+
+    public function testExecutedAtColumnNameEndingWithInvalidCharIsRejected(): void
+    {
+        // Mutant 139: PregMatchRemoveDollar on 'executed_at_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['executed_at_column' => 'executed@col']],
+        ]);
+    }
+
+    public function testErrorColumnNameStartingWithDigitIsRejected(): void
+    {
+        // Mutant 140: PregMatchRemoveCaret on 'error_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['error_column' => '1error']],
+        ]);
+    }
+
+    public function testErrorColumnNameEndingWithInvalidCharIsRejected(): void
+    {
+        // Mutant 141: PregMatchRemoveDollar on 'error_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['error_column' => 'error@col']],
+        ]);
+    }
+
+    public function testGroupColumnNameStartingWithDigitIsRejected(): void
+    {
+        // Mutant 142: PregMatchRemoveCaret on 'group_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['group_column' => '1group']],
+        ]);
+    }
+
+    public function testGroupColumnNameEndingWithInvalidCharIsRejected(): void
+    {
+        // Mutant 143: PregMatchRemoveDollar on 'group_column'.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/not a valid SQL identifier/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['group_column' => 'group@col']],
+        ]);
+    }
+
+    public function testGroupColumnLengthMinimumIsOne(): void
+    {
+        // Mutants 144 (DecrementInteger: min→0) and 145 (IncrementInteger: min→2).
+        $config = self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['group_column_length' => 1]],
+        ]);
+
+        $storage = $config['storage'];
+        self::assertIsArray($storage);
+        $database = $storage['database'];
+        self::assertIsArray($database);
+        self::assertSame(1, $database['group_column_length']);
+    }
+
+    public function testGroupColumnLengthRejectsZero(): void
+    {
+        // Mutant 144: min(1→0) would accept 0.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['group_column_length' => 0]],
+        ]);
+    }
+
+    public function testDefaultTimeoutZeroIsAccepted(): void
+    {
+        // Mutants 146 (IncrementInteger: min(0→1)) and 147 (DecrementInteger: min(0→-1)).
+        // Value 0 must be valid (disables timeout check).
+        $config = self::processConfig(['default_timeout' => 0]);
+
+        self::assertSame(0, $config['default_timeout']);
+    }
+
+    public function testFilesystemTransactionalFalseIsAccepted(): void
+    {
+        // Mutant 130: FalseValue changes `?? false` to `?? true`, which would make the
+        // validator fire even when transactional: false. Verify that the default (false) is accepted.
+        $config = self::processConfig([
+            'storage' => ['type' => 'filesystem', 'filesystem' => ['transactional' => false]],
+        ]);
+
+        $storage = $config['storage'];
+        self::assertIsArray($storage);
+        $filesystem = $storage['filesystem'];
+        self::assertIsArray($filesystem);
+        self::assertFalse($filesystem['transactional']);
+    }
+
     /**
      * Malformed identifiers raise InvalidConfigurationException at compile time.
      */
