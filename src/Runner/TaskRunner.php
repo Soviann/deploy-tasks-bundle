@@ -333,8 +333,8 @@ final class TaskRunner
      * @param list<?string> $pendingSlots Slots to persist the execution outcome into
      *
      * @throws \ReflectionException
-     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws, or when
-     *                              storage throws inside the transactional closure
+     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
+     * @throws \Throwable           When storage throws inside the transactional closure
      */
     private function executeTask(DeployTaskInterface $task, OutputInterface $output, int $current, int $total, string $taskId, array $pendingSlots): TaskOutcome
     {

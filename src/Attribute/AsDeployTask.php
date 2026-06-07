@@ -35,7 +35,9 @@ final class AsDeployTask
      * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group). Names must match AsDeployTask::GROUP_NAME_PATTERN.
      *
-     * @throws \InvalidArgumentException When groups is an empty array, contains a non-string entry, or a group name does not match GROUP_NAME_PATTERN
+     * @throws \InvalidArgumentException When groups is an empty array
+     * @throws \InvalidArgumentException When groups contains a non-string entry
+     * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
      */
     public function __construct(
         public readonly string $id = '',
