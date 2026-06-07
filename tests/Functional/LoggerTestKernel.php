@@ -20,7 +20,7 @@ final class LoggerTestKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $storagePath = \sys_get_temp_dir().'/deploy-tasks-logger-'.$this->environment;
+        $storagePath = \sys_get_temp_dir().'/deploy-tasks-logger-'.\getmypid().'-'.$this->environment;
 
         $container->extension('deploy_tasks', [
             'storage' => [
