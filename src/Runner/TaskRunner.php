@@ -45,14 +45,14 @@ final class TaskRunner
         private readonly TaskSorterInterface $sorter,
         private readonly TaskIdResolver $idResolver,
         private readonly TaskDescriptionResolver $descriptionResolver,
+        private readonly int $defaultTimeout,
+        private readonly bool $transactional,
+        private readonly bool $allOrNothing,
+        private readonly int $lockTtl,
         private readonly ?EventDispatcherInterface $dispatcher = null,
         private readonly ?LockFactory $lockFactory = null,
-        private readonly int $defaultTimeout = 300,
         private readonly ?string $environment = null,
-        private readonly bool $transactional = true,
-        private readonly bool $allOrNothing = false,
         ?LoggerInterface $logger = null,
-        private readonly int $lockTtl = 3600,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
