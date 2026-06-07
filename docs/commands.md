@@ -171,7 +171,7 @@ The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTas
 
 The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute, and provides a stub `run()` method. Rename the class after generation if you want a more descriptive name — the default ID generator also handles `SeedCategoriesTask` and similar CamelCase names.
 
-The namespace is built by applying `ucfirst` to each path segment of the target directory; use CamelCase directory names (e.g. `src/DeployTasks/Task/`) to produce a CamelCase namespace (e.g. `App\DeployTasks\Task`). Lowercase segments remain lowercase apart from their first letter.
+The namespace is built by applying `ucfirst` to each path segment of the target directory; use CamelCase directory names (e.g. `src/DeployTasks/Task/`) to produce a CamelCase namespace (e.g. `App\DeployTasks\Task`). Lowercase segments remain lowercase apart from their first letter. When the directory starts with `src/`, the leading segment is rewritten to the configured root namespace — `deploy_tasks.generate.root_namespace` (default `App`, mirroring [symfony/maker-bundle](https://symfony.com/bundles/SymfonyMakerBundle/current/index.html#root-namespace)); set it to your `composer.json` PSR-4 root if that is not `App`. Pass `--namespace` to override the derived namespace entirely.
 
 ---
 

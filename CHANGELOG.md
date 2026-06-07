@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `deploy_tasks.generate.root_namespace` config option (default `App`, mirroring symfony/maker-bundle) sets the root namespace applied to `deploytasks:generate:container` output whose `--dir` starts with `src/`. Projects whose `composer.json` maps `src/` to a non-`App` PSR-4 root can now generate correctly-namespaced task classes without passing `--namespace` on every invocation.
 - `DeployTasksExceptionInterface` marker so callers can `catch (DeployTasksExceptionInterface)` for any bundle-thrown error.
 - `deploy_tasks.lock.ttl` config option; the runner refreshes the lock between tasks so deploys longer than the TTL no longer risk concurrent execution.
 - Configuration rejects malformed SQL identifiers in `storage.database` column/table names at compile time.
