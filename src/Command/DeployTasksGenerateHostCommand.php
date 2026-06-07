@@ -26,7 +26,7 @@ final class DeployTasksGenerateHostCommand extends Command
      * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic timestamps in tests
      */
     public function __construct(
-        private readonly string $hostDirectory = 'deploy/host-tasks',
+        private readonly string $hostDirectory,
         private readonly ?string $projectDir = null,
         private readonly ?\Closure $nowProvider = null,
     ) {
