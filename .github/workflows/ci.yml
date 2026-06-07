@@ -113,7 +113,10 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.2', '8.3', '8.4']
-        symfony: ['6.4.*', '7.0.*', '7.4.*']
+        # Symfony 7.0–7.3 are end-of-life and receive no security patches, so the
+        # advisory-aware resolver can never install them — only the maintained LTS
+        # lines (6.4, 7.4) are exercised. 7.4 covers the 7.x API surface.
+        symfony: ['6.4.*', '7.4.*']
         include:
           - php: '8.2'
             symfony: '6.4.*'
@@ -150,10 +153,10 @@ jobs:
           composer global require --no-progress --no-scripts --no-plugins symfony/flex
 
       # Suppress advisories that block Composer 2.9 resolution (audit.block-insecure default).
-      # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.0.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      # PKSA-b35n-565h-rs4q: symfony/http-foundation 6.4.*/7.0.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      # PKSA-rkkf-636k-qjb3: symfony/process 6.4.*/7.0.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      # PKSA-wws7-mr54-jsny: symfony/process 6.4.*/7.0.*/7.4.* — re-evaluate once Symfony ships a patched release.
+      # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
+      # PKSA-b35n-565h-rs4q: symfony/http-foundation 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
+      # PKSA-rkkf-636k-qjb3: symfony/process 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
+      # PKSA-wws7-mr54-jsny: symfony/process 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
       - name: Ignore Symfony security advisories blocking resolution
         run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
 
@@ -242,10 +245,10 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       # Same suppressions as the tests job — drop each entry once the matching Symfony release ships:
-      # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.0.*/7.4.*.
-      # PKSA-b35n-565h-rs4q: symfony/http-foundation 6.4.*/7.0.*/7.4.*.
-      # PKSA-rkkf-636k-qjb3: symfony/process 6.4.*/7.0.*/7.4.*.
-      # PKSA-wws7-mr54-jsny: symfony/process 6.4.*/7.0.*/7.4.*.
+      # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.4.*.
+      # PKSA-b35n-565h-rs4q: symfony/http-foundation 6.4.*/7.4.*.
+      # PKSA-rkkf-636k-qjb3: symfony/process 6.4.*/7.4.*.
+      # PKSA-wws7-mr54-jsny: symfony/process 6.4.*/7.4.*.
       - name: Ignore Symfony security advisories blocking resolution
         run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
 
