@@ -184,7 +184,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
                     ],
                     'events' => ['enabled' => false],
                     'lock' => ['enabled' => false],
-                    // No generate.host_directory — default (%kernel.project_dir%/deploy-tasks-host) applies.
+                    // No generate.host_directory — default (%kernel.project_dir%/deploy/host-tasks) applies.
                 ]);
 
                 $container->services()
@@ -199,12 +199,12 @@ final class HostDirectoryConfigTest extends KernelTestCase
 
         self::assertSame(Command::SUCCESS, $exitCode, $tester->getDisplay());
 
-        // The default config value '%kernel.project_dir%/deploy-tasks-host' must resolve
+        // The default config value '%kernel.project_dir%/deploy/host-tasks' must resolve
         // to the fake project dir — NOT to the bundle's own directory.
-        $expectedDir = $projectDir.'/deploy-tasks-host';
+        $expectedDir = $projectDir.'/deploy/host-tasks';
         $files = \glob($expectedDir.'/deploy_task_*.sh');
         self::assertNotFalse($files);
-        self::assertCount(1, $files, 'Expected exactly one stub in the default deploy-tasks-host directory under project dir.');
+        self::assertCount(1, $files, 'Expected exactly one stub in the default deploy/host-tasks directory under project dir.');
 
         $kernel->shutdown();
     }

@@ -86,7 +86,7 @@ final class DeployTasksBundle extends AbstractBundle
                             ->info('Path to a custom PHP template file for deploytasks:generate:container.')
                         ->end()
                         ->scalarNode('host_directory')
-                            ->defaultValue('%kernel.project_dir%/deploy-tasks-host')
+                            ->defaultValue('%kernel.project_dir%/deploy/host-tasks')
                             ->cannotBeEmpty()
                             ->info('Where deploytasks:generate:host writes new host-scope task stubs.')
                         ->end()

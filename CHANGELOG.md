@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `deploytasks:generate:host` now writes to `%kernel.project_dir%/deploy/host-tasks` by default (was `%kernel.project_dir%/deploy-tasks-host`), matching the directory `bin/deploy-tasks-host.sh` scans. Previously the generator wrote stubs to a directory the runner never looked in, so freshly generated host tasks silently never executed. Override with `deploy_tasks.generate.host_directory` or `--dir` as before.
 - Polished: tightened `findByTaskId` return type, validated `AsDeployTask` id/group lengths, quiet-mode runner output, CI job timeouts, and assorted docstring/typo fixes.
 - Tightened minimum dependency versions: `symfony/process` <6.4 explicitly conflicts; `psr/log` requires v3 (Monolog 3 / Symfony 7 stack); pre-1.0 `branch-alias` dropped.
 - `DuplicateTaskIdException` now names both colliding FQCNs and suggests `#[AsDeployTask(id: ...)]`. The default ID generator refuses to silently produce empty IDs.
