@@ -147,6 +147,21 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(['predeploy', 'postdeploy'], AsDeployTask::groupsOf(new MultiGroupTestTask()));
     }
 
+    public function testGroupsOfReIndexesNonSequentialArrayKeys(): void
+    {
+        // Simulate an array with non-sequential keys (e.g. produced by array_filter or unset).
+        // array_values() in groupsOf() must re-index — without it the mutated code returns
+        // the original keyed array, which is not a list.
+        $task = new GroupsWithGapKeysTask();
+        $result = AsDeployTask::groupsOf($task);
+
+        self::assertNotNull($result);
+        self::assertSame(['predeploy', 'postdeploy'], $result);
+        // Keys must be 0 and 1 (list), not the string keys from the attribute.
+        self::assertSame(0, \array_key_first($result));
+        self::assertSame(1, \array_key_last($result));
+    }
+
     #[DataProvider('invalidGroupNameProvider')]
     public function testConstructorRejectsGroupsContainingDisallowedCharacters(string $group): void
     {
@@ -174,6 +189,21 @@ final class AsDeployTaskTest extends TestCase
         yield 'whitespace' => ['pre deploy'];
         yield 'shell metacharacter' => ['pre;rm'];
         yield 'empty string' => [''];
+    }
+}
+
+/** Task whose attribute has explicit non-sequential integer keys in the groups array. */
+#[AsDeployTask(id: 'test.gap_keys', groups: [0 => 'predeploy', 5 => 'postdeploy'])]
+final class GroupsWithGapKeysTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Gap keys task';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
     }
 }
 

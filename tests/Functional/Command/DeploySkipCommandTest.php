@@ -137,6 +137,85 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertStringContainsString('deploytasks:run --id=', $help);
     }
 
+    public function testSkipGroupOnUngroupedTaskReturnsInvalidAndEmitsError(): void
+    {
+        // Kills ReturnRemoval (#81, line 90): if the return INVALID is dropped, execution continues
+        // past the error; we assert INVALID exit code so any code-path change is caught.
+        // Kills MethodCallRemoval (#82, line 94): if the $io->error() call is removed, no error
+        // message appears for an undeclared group — the error must be present in output.
+        $this->tester->execute(['id' => 'test.simple', '--group' => 'predeploy']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('has no groups declared', $display);
+        self::assertStringContainsString('--group=predeploy is not valid', $display);
+
+        // Must NOT have saved anything to storage.
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        self::assertFalse($storage->has('test.simple'));
+    }
+
+    public function testSkipWithNoInteractionOptionSkipsPrompt(): void
+    {
+        // Kills CastBool (#83, line 102): without cast, the boolean coercion of 'no-interaction'
+        // option value may behave differently; we assert success without any stdin input.
+        // (No setInputs() call — any prompt would block/fail.)
+        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('marked as skipped', $this->tester->getDisplay());
+    }
+
+    public function testSkipSuccessMessageForUngroupedTaskDoesNotMentionGroup(): void
+    {
+        // Kills Ternary (#85, line 116): mutation swaps the success message branches so a task
+        // with no slot uses the group-mentioning format and vice versa.
+        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Task "test.simple" marked as skipped.', \strip_tags($display));
+        // Must not contain 'in group' when there is no group slot.
+        self::assertStringNotContainsString('in group', $display);
+    }
+
+    public function testSkipSuccessMessageForGroupedTaskMentionsGroupName(): void
+    {
+        // Companion to testSkipSuccessMessageForUngroupedTaskDoesNotMentionGroup:
+        // when a slot is targeted, the message must say 'in group "predeploy"'.
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(['id' => 'test.predeploy', '--group' => 'predeploy']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('in group "predeploy"', \strip_tags($display));
+    }
+
+    public function testSkipConfirmPromptForGroupedTaskMentionsGroupName(): void
+    {
+        // Kills Ternary (#84, line 103): mutation swaps the confirmation prompt — a grouped-task
+        // skip must show the prompt that includes the group name, not the ungrouped variant.
+        $this->tester->setInputs(['no']); // decline so we can inspect the prompt
+        $this->tester->execute(['id' => 'test.predeploy', '--group' => 'predeploy'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        // The prompt for grouped task must include the group name.
+        self::assertStringContainsString('in group "predeploy"', $display);
+    }
+
+    public function testSkipConfirmPromptForUngroupedTaskDoesNotMentionGroup(): void
+    {
+        // Companion: the ungrouped confirm prompt must NOT mention any group.
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringNotContainsString('in group', $display);
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

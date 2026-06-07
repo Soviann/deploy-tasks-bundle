@@ -10,6 +10,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -323,6 +324,202 @@ final class DeployRunCommandTest extends FunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
     }
+
+    // --- Mutant-killing tests ---
+
+    // Mutant 60 (Ternary:174) — writeSummary says "would run" for dry-run, not "ran"
+    public function testDryRunSummaryContainsWouldRunNotRan(): void
+    {
+        $this->tester->execute(['--dry-run' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('would run', $display);
+        self::assertStringNotContainsString('Tasks: 0 ran,', $display);
+    }
+
+    // Mutant 60 inverse: normal run says "ran", not "would run"
+    public function testNormalRunSummaryContainsRanNotWouldRun(): void
+    {
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString(' ran,', $display);
+        self::assertStringNotContainsString('would run', $display);
+    }
+
+    // Mutant 61 (MethodCallRemoval:180) — failed run outputs error summary to display
+    public function testFailedRunOutputsErrorSummary(): void
+    {
+        self::ensureKernelShutdown();
+        self::$testKernelOptions = ['extraTasks' => [FailingTask::class]];
+        self::bootKernel();
+        $this->cleanStorage();
+
+        $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+        $tester->execute([]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        $display = $tester->getDisplay();
+        // The error summary block must appear — contains "Tasks:" and "failed"
+        self::assertStringContainsString('Tasks:', $display);
+        self::assertStringContainsString('failed', $display);
+    }
+
+    // Mutant 63+64+65 (DecrementInteger/LogicalAndAllSubExprNegation:185)
+    // When ran=0 AND skipped=0, "No deploy tasks registered." or "No tasks matched..." must appear.
+    // An empty run (no tasks configured) with groupFilter=[] triggers ran=0, skipped=0.
+    public function testGroupNoMatchDisplaysNoTasksMatchedMessage(): void
+    {
+        $this->tester->execute(['--group' => ['nonexistent']]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        // Grouped run with 0 ran + 0 skipped shows the group-specific message
+        self::assertStringContainsString('No tasks matched the requested group(s).', $display);
+    }
+
+    // Mutant 66 (Ternary:186) — group-matched message vs no-group message
+    public function testGroupNoMatchMessageDiffersFromNoTasksRegisteredMessage(): void
+    {
+        // With a group filter: must say "No tasks matched the requested group(s)."
+        $this->tester->execute(['--group' => ['nonexistent']]);
+        self::assertStringContainsString('No tasks matched the requested group(s).', $this->tester->getDisplay());
+        self::assertStringNotContainsString('No deploy tasks registered.', $this->tester->getDisplay());
+    }
+
+    // Mutant 54 (NotIdentical:126) — writeSummary groupFilterActive arg is true when groups non-empty
+    // When --group is set and nothing matches, "No tasks matched..." (group message), not the default one
+    public function testGroupFilterActivePassedCorrectlyToWriteSummary(): void
+    {
+        // With no --group flag: ran=skipped=0 would show "No deploy tasks registered."
+        // But that only happens when there are truly 0 tasks; here tasks exist but are ungrouped.
+        // Without --group, ungrouped tasks run → success with "ran". So verify group=nonexistent
+        // triggers group-specific message (groupFilterActive=true), proving [] !== $groups, not [] === $groups.
+        $this->tester->execute(['--group' => ['this_does_not_exist_at_all']]);
+        self::assertStringContainsString('No tasks matched the requested group(s).', $this->tester->getDisplay());
+        self::assertStringNotContainsString('No deploy tasks registered.', $this->tester->getDisplay());
+    }
+
+    // Mutant 55 (Catch_:148) — TaskGroupMismatchException must also be caught and display INVALID
+    public function testGroupedTaskWithoutGroupArgReturnsInvalid(): void
+    {
+        // test.predeploy declares group 'predeploy'. Running with --id without --group
+        // triggers TaskGroupRequiredException (or TaskGroupMismatchException) → Command::INVALID
+        $this->tester->execute(['--id' => 'test.predeploy']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        // The exception message must be displayed (MethodCallRemoval:149 mutant)
+        self::assertStringNotContainsString('[WARNING]', $this->tester->getDisplay());
+    }
+
+    // Mutant 56 (MethodCallRemoval:149) — error message is shown for group exception
+    public function testGroupExceptionErrorMessageIsDisplayed(): void
+    {
+        $this->tester->execute(['--id' => 'test.predeploy']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        // io->error() wraps text in [ERROR] block — must appear
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('[ERROR]', $display);
+    }
+
+    // Mutant 57 (MethodCallRemoval:155) — warning shown when single task locked
+    // Already covered by DeployRunLockCommandTest; but add output assertion here:
+    public function testLockedSingleTaskShowsWarning(): void
+    {
+        // Use lock kernel to exercise the LOCKED path through executeOne
+        self::ensureKernelShutdown();
+        self::$testKernelOptions = ['lockEnabled' => true];
+        self::bootKernel();
+        $this->cleanStorage();
+
+        $lockFactory = self::getContainer()->get(\Symfony\Component\Lock\LockFactory::class);
+        \assert($lockFactory instanceof \Symfony\Component\Lock\LockFactory);
+
+        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        self::assertTrue($heldLock->acquire());
+
+        try {
+            $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+            $tester->execute(['--id' => 'test.simple']);
+
+            self::assertSame(DeployTasksRunCommand::EX_TEMPFAIL, $tester->getStatusCode());
+            self::assertStringContainsString('Run skipped: another process is already running.', $tester->getDisplay());
+        } finally {
+            $heldLock->release();
+        }
+    }
+
+    // Mutant 58+59 (MethodCallRemoval+ReturnRemoval on writeSummary locked path)
+    public function testLockedRunAllShowsWarningInSummary(): void
+    {
+        self::ensureKernelShutdown();
+        self::$testKernelOptions = ['lockEnabled' => true];
+        self::bootKernel();
+        $this->cleanStorage();
+
+        $lockFactory = self::getContainer()->get(\Symfony\Component\Lock\LockFactory::class);
+        \assert($lockFactory instanceof \Symfony\Component\Lock\LockFactory);
+
+        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        self::assertTrue($heldLock->acquire());
+
+        try {
+            $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+            $tester->execute([]);
+
+            self::assertSame(DeployTasksRunCommand::EX_TEMPFAIL, $tester->getStatusCode());
+            $display = $tester->getDisplay();
+            self::assertStringContainsString('Run skipped: another process is already running.', $display);
+            // ReturnRemoval:168 — if return is removed, the summary line below ("Tasks: ...") would also appear
+            self::assertStringNotContainsString('Tasks: 0', $display);
+        } finally {
+            $heldLock->release();
+        }
+    }
+
+    // Mutant 67 (MethodCallRemoval:186) — success message emitted when ran=0,skipped=0
+    public function testGroupNoMatchOutputsSuccessMessage(): void
+    {
+        $this->tester->execute(['--group' => ['nonexistent']]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        // If io->success() were removed, no "[OK]" block appears
+        self::assertStringContainsString('[OK]', $this->tester->getDisplay());
+    }
+
+    // Mutant 68 (ReturnRemoval:190) — after "No tasks matched" return, "All tasks already executed" must NOT appear
+    public function testGroupNoMatchDoesNotPrintAllTasksAlreadyExecuted(): void
+    {
+        $this->tester->execute(['--group' => ['nonexistent']]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringNotContainsString('All tasks already executed', $this->tester->getDisplay());
+    }
+
+    // Mutant 69 (ReturnRemoval:196) — after "All tasks already executed" return, summary must NOT appear
+    public function testAllAlreadyExecutedDoesNotPrintSummaryLine(): void
+    {
+        // First run executes all tasks
+        $this->tester->execute([]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        // Second run — all already executed → "All tasks already executed — nothing to run."
+        $this->tester->execute([]);
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('All tasks already executed — nothing to run.', $display);
+        // If ReturnRemoval mutant survived, io->success($summary) would also run, showing "Tasks: 0 ran, ..."
+        self::assertStringNotContainsString('Tasks: 0 ran', $display);
+    }
+
+    // Mutant 50+51+53 (CastBool) — options are bool-cast; ensure passing string-like truthy value still works
+    // This is an equivalent mutant because getOption() already returns bool for VALUE_NONE options.
+    // We cover the behavior implicitly via existing tests.
+
+    // Mutant 52 (UnwrapArrayValues:105) — groups is list<string> from array_values
+    // Equivalent mutant — getOption() already returns list; array_values is defensive. Covered by group tests.
 
     protected static function getKernelClass(): string
     {

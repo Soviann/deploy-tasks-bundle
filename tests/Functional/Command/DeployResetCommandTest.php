@@ -177,6 +177,79 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertStringContainsString('deploytasks:run --id=', $help);
     }
 
+    public function testResetWithGroupNotDeclaredOnTaskEmitsWarning(): void
+    {
+        // Kills NotIdentical→Identical (#35), LogicalNot (#36), LogicalAndAllSubExprNegation (#37),
+        // LogicalAndNegation (#38) mutations on the warning condition (line 92).
+        // test.simple has no groups declared (groupsOf returns null), so passing --group triggers
+        // the "group not declared" warning only when declared IS non-null.
+        // test.predeploy HAS a group declared; passing a different group must emit the warning.
+        $this->storage->save(new TaskExecution('test.predeploy', TaskStatus::Ran, new \DateTimeImmutable(), null, 'wronggroup'));
+
+        $this->tester->execute(
+            ['id' => 'test.predeploy', '--group' => 'wronggroup', '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('not declared', $display);
+        self::assertStringContainsString('Proceeding to clean any stale row anyway', $display);
+    }
+
+    public function testResetWithGroupDeclaredOnTaskDoesNotWarn(): void
+    {
+        // Companion: when the group IS declared, no warning must appear.
+        // Kills logical inversions that would warn unconditionally.
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => 'predeploy', '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringNotContainsString('not declared', $display);
+    }
+
+    public function testGroupResetConfirmDefaultIsFalse(): void
+    {
+        // Kills FalseValue (#39, line 103) and LogicalNot (#40) mutations on the confirm() default.
+        // If default is mutated to true, pressing Enter (empty input) confirms instead of aborting.
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->tester->setInputs(['']); // empty = accept default
+        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->tester->getDisplay());
+        // Storage must be unchanged.
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+    }
+
+    public function testFindExecutedSlotsReturnsAllSlotsNotJustFirst(): void
+    {
+        // Kills ArrayOneItem (#41, line 149): mutation makes findExecutedSlots() return only the
+        // first slot when >1 exists. The "already pending" branch is skipped only when $slots is
+        // non-empty, so if only one slot is returned when two exist, the command still works for
+        // the first slot — but the success message must reflect ALL slots being reset.
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
+
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        // Both slots must be gone.
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+        // Success message refers to "all slots".
+        self::assertStringContainsString('across all slots', $this->tester->getDisplay());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
