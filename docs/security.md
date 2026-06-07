@@ -10,11 +10,20 @@ Only grant `deploytasks:run` access to trusted operators (deploy scripts, CI/CD 
 
 ## Filesystem Storage
 
-The default path (`var/deploy-tasks/`) must not be web-accessible. The bundle emits `E_USER_WARNING` if the configured path contains `/public/`. Add the storage directory to `.gitignore`.
+The default path (`var/deploy-tasks/`) must not be web-accessible. `FilesystemStorage` **throws** a `StorageException` if the configured path contains a `public`, `public_html`, `web`, or `htdocs` segment (case-insensitive). Add the storage directory to `.gitignore`.
 
 ## Database Storage
 
 Execution records are stored in a dedicated table. Ensure the table is only accessible to the application's database user, following the principle of least privilege.
+
+## Generated File Permissions
+
+Generated task files are not world-readable, since deploy tasks often embed credentials, fixtures, or production data:
+
+- `deploytasks:generate:container` writes `.php` task classes with mode `0640` (owner read/write, group read).
+- `deploytasks:generate:host` writes `.sh` task stubs with mode `0750` (owner read/write/execute, group read/execute).
+
+`FilesystemStorage` likewise persists its state directory at `0700` and each per-slot JSON file at `0600`, re-applying these modes on every write so pre-existing files tighten on the next save.
 
 ## CI/CD Recommendations
 
