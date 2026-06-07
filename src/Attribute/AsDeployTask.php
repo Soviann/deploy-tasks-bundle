@@ -35,7 +35,7 @@ final class AsDeployTask
      * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group). Names must match AsDeployTask::GROUP_NAME_PATTERN.
      *
-     * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
+     * @throws \InvalidArgumentException When groups is an empty array, contains a non-string entry, or a group name does not match GROUP_NAME_PATTERN
      */
     public function __construct(
         public readonly string $id = '',
@@ -46,15 +46,11 @@ final class AsDeployTask
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
     ) {
-        if ('' !== $id && \strlen($id) > 255) {
-            throw new \InvalidArgumentException(\sprintf('Task id "%s" exceeds maximum length of 255 characters (got %d).', $id, \strlen($id)));
-        }
-
         if ([] === $groups) {
             throw new \InvalidArgumentException('groups cannot be an empty array — omit (or pass null) to mean the default group.');
         }
 
-        if (null !== $groups && \is_array($groups)) {
+        if (\is_array($groups)) {
             foreach ($groups as $entry) {
                 /* @phpstan-ignore function.alreadyNarrowedType */
                 if (!\is_string($entry)) {
@@ -70,10 +66,6 @@ final class AsDeployTask
         };
 
         foreach ($groupList as $group) {
-            if (\strlen($group) > 128) {
-                throw new \InvalidArgumentException(\sprintf('Task group "%s" exceeds maximum length of 128 characters (got %d).', $group, \strlen($group)));
-            }
-
             if (1 !== \preg_match(self::GROUP_NAME_PATTERN, $group)) {
                 throw new \InvalidArgumentException(\sprintf('Invalid group name "%s" in #[AsDeployTask]: must match %s.', $group, self::GROUP_NAME_PATTERN));
             }
@@ -99,7 +91,13 @@ final class AsDeployTask
         }
 
         $attributes = (new \ReflectionClass($className))->getAttributes(self::class);
-        $instance = [] === $attributes ? null : $attributes[0]->newInstance();
+
+        if ([] === $attributes) {
+            return self::$cache[$className] = null;
+        }
+
+        /** @var self $instance — newInstance() is typed object in IDE stubs; this is always a self */
+        $instance = $attributes[0]->newInstance();
 
         return self::$cache[$className] = $instance;
     }
