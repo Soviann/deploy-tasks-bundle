@@ -56,14 +56,14 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 - `TaskOutcome` — per-task outcome value object
 
 **`Storage/`** — persistence
-- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `findByTaskId()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`; `findByTaskId()` returns every slot for one id as `iterable<TaskExecution>`.
+- `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `findByTaskId()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`; `findByTaskId()` returns every slot for one id as `list<TaskExecution>`.
 - `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
 - `SchemaManageable` — capability interface (`getCreateTableSql()`, `createSchema()`) opt-in for backends needing DDL provisioning. `deploytasks:create-schema` depends on it.
 - `TaskExecution` — readonly value object: id, status, executedAt, error, group
 - `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
 - `Dbal\DbalStorage` — implements `TransactionalStorageInterface` + `SchemaManageable`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
 - `Dbal\DbalStorageConfiguration` — table/column names DTO (id, status, executed_at, error, task_group columns + lengths)
-- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot. Atomic writes via `Filesystem::dumpFile()` + `LOCK_EX`. Directory mode `0700`, files `0600`. Default slot → `<id>.json`; grouped slot → `<id>@<group>.json` (verbatim, no transformation — group names constrained to `AsDeployTask::GROUP_NAME_PATTERN`). Throws `\InvalidArgumentException` if path contains a `public` directory segment.
+- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot. Atomic writes via `Filesystem::dumpFile()` + `LOCK_EX`. Directory mode `0700`, files `0600`. Default slot → `<id>.json`; grouped slot → `<id>@<group>.json` (verbatim, no transformation — group names constrained to `AsDeployTask::GROUP_NAME_PATTERN`). Throws `StorageException` if path contains a `public`/`public_html`/`web`/`htdocs` segment.
 - `InMemory\InMemoryStorage` — array-backed storage for tests
 
 ## Configuration
@@ -80,8 +80,8 @@ deploy_tasks:
         type: filesystem                    # filesystem | database | custom
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
-            transactional: false            # ignored — filesystem has no transactions
-            all_or_nothing: false           # ignored — filesystem has no transactions
+            transactional: false            # must stay false — true is rejected at container build
+            all_or_nothing: false           # must stay false — true is rejected at container build
         database:
             connection: default             # DBAL connection name
             table: deploy_task_executions
@@ -105,6 +105,7 @@ deploy_tasks:
         enabled: true
     generate:
         directory: src/DeployTasks/Task/    # default output directory for `deploytasks:generate:container`
+        host_directory: '%kernel.project_dir%/deploy/host-tasks'  # default output directory for `deploytasks:generate:host`
         template: ~                         # path to a custom PHP template
 ```
 

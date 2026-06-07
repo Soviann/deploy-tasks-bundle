@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/soviann/deploy-tasks-bundle/security/advisories/new
+    url: https://github.com/Soviann/deploy-tasks-bundle/security/advisories/new
     about: Report security issues privately via GitHub Security Advisories.
   - name: Question
-    url: https://github.com/soviann/deploy-tasks-bundle/discussions
+    url: https://github.com/Soviann/deploy-tasks-bundle/discussions
     about: Open a discussion for questions and help.

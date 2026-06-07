@@ -46,7 +46,7 @@ final class DeployTasksGenerateHostCommand extends Command
 
                     This creates a file like <comment>deploy/host-tasks/deploy_task_20260418_143022.sh</comment> with:
                       - A timestamp-prefixed filename (lexicographic sort = chronological)
-                      - An executable bit set (0755)
+                      - An executable bit set (0750)
                       - A minimal bash stub with <comment>set -euo pipefail</comment>
 
                     You can specify a custom target directory with <comment>--dir</comment>:
