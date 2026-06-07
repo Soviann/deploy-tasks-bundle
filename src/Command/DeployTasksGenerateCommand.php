@@ -28,7 +28,7 @@ final class DeployTasksGenerateCommand extends Command
      */
     public function __construct(
         private readonly TaskIdGeneratorInterface $idGenerator,
-        private readonly string $defaultDirectory = 'src/DeployTasks/Task/',
+        private readonly string $defaultDirectory,
         private readonly ?string $templatePath = null,
         private readonly ?string $projectDir = null,
         private readonly ?\Closure $nowProvider = null,
