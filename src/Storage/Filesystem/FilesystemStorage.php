@@ -52,7 +52,8 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws \InvalidArgumentException When the task id fails validation
+     * @throws \InvalidArgumentException When the group name fails validation
      */
     public function has(string $taskId, ?string $group = null): bool
     {
@@ -60,9 +61,11 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws \InvalidArgumentException When the task id fails validation
+     * @throws \InvalidArgumentException When the group name fails validation
      * @throws \JsonException            When the stored JSON file cannot be decoded
-     * @throws StorageException          When the file cannot be read or contains an invalid record
+     * @throws StorageException          When the file cannot be read
+     * @throws StorageException          When the file contains an invalid record
      */
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
@@ -82,9 +85,11 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws \InvalidArgumentException When the task id fails validation
+     * @throws \InvalidArgumentException When the group name fails validation
      * @throws \JsonException            When the execution payload cannot be encoded
-     * @throws StorageException          When the storage directory or file cannot be written
+     * @throws StorageException          When the storage directory cannot be created
+     * @throws StorageException          When the storage file cannot be written
      */
     public function save(TaskExecution $execution): void
     {
@@ -123,7 +128,8 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \InvalidArgumentException When the task id or group fails validation
+     * @throws \InvalidArgumentException When the task id fails validation
+     * @throws \InvalidArgumentException When the group name fails validation
      * @throws StorageException          When the storage file cannot be removed
      */
     public function remove(string $taskId, ?string $group = null): void

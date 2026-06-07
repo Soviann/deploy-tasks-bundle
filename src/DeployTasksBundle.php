@@ -269,7 +269,8 @@ final class DeployTasksBundle extends AbstractBundle
      * @param array<string, mixed> $config
      *
      * @throws \InvalidArgumentException When storage.type is "custom" but no service id is configured
-     * @throws \LogicException           When storage.type is "database" without doctrine/dbal installed, or unsupported
+     * @throws \LogicException           When storage.type is "database" without doctrine/dbal installed
+     * @throws \LogicException           When storage.type is unsupported
      */
     private function registerStorage(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
     {

@@ -23,7 +23,9 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 {
     /**
      * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
-     * @throws \LogicException              When two tagged tasks resolve to the same ID, or a task ID/group exceeds the configured DBAL column length
+     * @throws \LogicException              When two tagged tasks resolve to the same ID
+     * @throws \LogicException              When a task ID exceeds the configured id_column_length
+     * @throws \LogicException              When a task group exceeds the configured group_column_length
      * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails on a tagged class
      */
     public function process(ContainerBuilder $container): void
@@ -135,7 +137,9 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * and group fits the configured DBAL column length — the attribute itself is
      * storage-agnostic, so the limit can only be checked once storage is known.
      *
-     * @throws \LogicException      When two tagged tasks resolve to the same ID, or a task ID/group exceeds the configured DBAL column length
+     * @throws \LogicException      When two tagged tasks resolve to the same ID
+     * @throws \LogicException      When a task ID exceeds the configured id_column_length
+     * @throws \LogicException      When a task group exceeds the configured group_column_length
      * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
