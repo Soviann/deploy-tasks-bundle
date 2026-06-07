@@ -284,4 +284,7 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Run Infection
-        run: vendor/bin/infection --threads=max --logger-github
+        # Explicit --threads=4 (ubuntu-latest has 4 vCPUs): --threads=max fails to
+        # detect the core count on the runner and falls back to a single thread,
+        # which pushed the run to ~18 min — close to the job timeout.
+        run: vendor/bin/infection --threads=4 --logger-github
