@@ -23,7 +23,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 {
     /**
      * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
-     * @throws \LogicException              When two tagged tasks resolve to the same ID
+     * @throws \LogicException              When two tagged tasks resolve to the same ID, or a task ID/group exceeds the configured DBAL column length
      * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails on a tagged class
      */
     public function process(ContainerBuilder $container): void
@@ -131,13 +131,18 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * each task without an explicit attribute ID. Returning null opts that task
      * out of compile-time duplicate detection.
      *
-     * @throws \LogicException      When two tagged tasks resolve to the same ID
+     * When the active storage is database-backed, also enforces that each task ID
+     * and group fits the configured DBAL column length — the attribute itself is
+     * storage-agnostic, so the limit can only be checked once storage is known.
+     *
+     * @throws \LogicException      When two tagged tasks resolve to the same ID, or a task ID/group exceeds the configured DBAL column length
      * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
     {
         $generatorClass = $this->resolveGeneratorClass($container);
         $taggedServices = $container->findTaggedServiceIds('deploy_tasks.task');
+        [$idColumnLength, $groupColumnLength] = $this->resolveStorageColumnLengths($container);
 
         /** @var array<string, string> $seenIds resolved task ID → service ID */
         $seenIds = [];
@@ -155,6 +160,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 continue;
             }
 
+            if (null !== $groupColumnLength) {
+                $this->validateGroupLengths($class, $serviceId, $groupColumnLength);
+            }
+
             $attributeId = $this->readAttributeId($class);
 
             if ('' !== $attributeId) {
@@ -167,12 +176,56 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 }
             }
 
+            if (null !== $idColumnLength && \strlen($taskId) > $idColumnLength) {
+                throw new \LogicException(\sprintf('Deploy task ID "%s" (service "%s") is %d characters, exceeding the configured id_column_length of %d. Increase deploy_tasks.storage.database.id_column_length or shorten the task ID.', $taskId, $serviceId, \strlen($taskId), $idColumnLength));
+            }
+
             if (isset($seenIds[$taskId])) {
                 throw new \LogicException(\sprintf('Duplicate deploy task ID "%s" found in services "%s" and "%s".', $taskId, $seenIds[$taskId], $serviceId));
             }
 
             $seenIds[$taskId] = $serviceId;
         }
+    }
+
+    /**
+     * Throws when any group declared by the task exceeds the configured column length.
+     *
+     * @param class-string $class
+     *
+     * @throws \LogicException      When a group name exceeds $groupColumnLength
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
+     */
+    private function validateGroupLengths(string $class, string $serviceId, int $groupColumnLength): void
+    {
+        foreach (AsDeployTask::groupsOf($class) ?? [] as $group) {
+            if (\strlen($group) > $groupColumnLength) {
+                throw new \LogicException(\sprintf('Deploy task group "%s" (service "%s") is %d characters, exceeding the configured group_column_length of %d. Increase deploy_tasks.storage.database.group_column_length or shorten the group name.', $group, $serviceId, \strlen($group), $groupColumnLength));
+            }
+        }
+    }
+
+    /**
+     * Returns the configured DBAL column lengths for task IDs and groups, or
+     * [null, null] when the active storage is not database-backed — filesystem
+     * and custom storage impose no fixed column limit.
+     *
+     * @return array{0: int|null, 1: int|null} [idColumnLength, groupColumnLength]
+     */
+    private function resolveStorageColumnLengths(ContainerBuilder $container): array
+    {
+        if (!$container->hasDefinition('deploy_tasks.storage.configuration')) {
+            return [null, null];
+        }
+
+        $definition = $container->getDefinition('deploy_tasks.storage.configuration');
+
+        /** @var int $idColumnLength */
+        $idColumnLength = $definition->getArgument('$idColumnLength');
+        /** @var int $groupColumnLength */
+        $groupColumnLength = $definition->getArgument('$groupColumnLength');
+
+        return [$idColumnLength, $groupColumnLength];
     }
 
     /**
