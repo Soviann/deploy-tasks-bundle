@@ -289,6 +289,69 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertTrue($registry->has('test.autoconfigured'));
     }
 
+    public function testIdResolverReceivesIdGeneratorAsArgument(): void
+    {
+        // Mutant 148: ArrayItemRemoval removes service('deploy_tasks.id_generator') from id_resolver args.
+        // Without the generator arg, TaskIdResolver cannot delegate to the custom generator.
+        // We verify that the id_resolver definition has the id_generator as its first argument.
+        self::bootKernel();
+        // The simplest observable check: if the arg is missing, instantiating TaskIdResolver
+        // via the container would fail with a missing constructor argument.
+        // getContainer() compiles the container, so if the arg is removed, boot or get() would fail.
+        $container = self::getContainer();
+        $resolver = $container->get('deploy_tasks.id_resolver');
+        self::assertInstanceOf(TaskIdResolver::class, $resolver);
+    }
+
+    public function testShowCommandIsRegistered(): void
+    {
+        // Mutant 150: MethodCallRemoval removes the entire deploy_tasks.command.show registration.
+        // Mutant 151: ArrayItemRemoval removes service('deploy_tasks.registry') from show command args.
+        self::bootKernel();
+        $container = self::getContainer();
+
+        $command = $container->get('deploy_tasks.command.show');
+        self::assertInstanceOf(\Symfony\Component\Console\Command\Command::class, $command);
+
+        $loader = $container->get('console.command_loader');
+        \assert($loader instanceof \Symfony\Component\Console\CommandLoader\CommandLoaderInterface);
+        self::assertTrue($loader->has('deploytasks:show'));
+    }
+
+    public function testDatabaseStorageIsAliasedAsTransactionalStorageInterface(): void
+    {
+        // Mutant 153: MethodCallRemoval removes the alias(TransactionalStorageInterface, 'deploy_tasks.storage')
+        // call in the database storage case.
+        static::$class = DbalTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertTrue(
+            $container->has(TransactionalStorageInterface::class),
+            'Database storage must be aliased as TransactionalStorageInterface.',
+        );
+        self::assertInstanceOf(
+            \Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage::class,
+            $container->get(TransactionalStorageInterface::class),
+        );
+    }
+
+    public function testCreateSchemaCommandIsRegisteredForDatabaseStorage(): void
+    {
+        // Mutant 154: MethodCallRemoval removes the deploy_tasks.command.create_schema registration.
+        // Mutant 155: ArrayItemRemoval removes service('deploy_tasks.storage') from create_schema args.
+        static::$class = DbalTestKernel::class;
+        self::bootKernel();
+        $container = self::getContainer();
+
+        $command = $container->get('deploy_tasks.command.create_schema');
+        self::assertInstanceOf(\Symfony\Component\Console\Command\Command::class, $command);
+
+        $loader = $container->get('console.command_loader');
+        \assert($loader instanceof \Symfony\Component\Console\CommandLoader\CommandLoaderInterface);
+        self::assertTrue($loader->has('deploytasks:create-schema'));
+    }
+
     /**
      * @return iterable<string, array{0: string, 1: string}>
      */

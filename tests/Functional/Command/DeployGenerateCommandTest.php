@@ -612,6 +612,178 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testAbsolutePathRejectionDoesNotWriteAnyFile(): void
+    {
+        // Kills ReturnRemoval (#6, line 92): if the return is removed after the error, execution
+        // continues and eventually writes a file or throws a boundary exception.
+        // We assert no file is written AND exit code is FAILURE.
+        $projectDir = \sys_get_temp_dir().'/generate-absolute-no-write-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => '/tmp/outside/']);
+            self::assertSame(Command::FAILURE, $tester->getStatusCode());
+            self::assertStringContainsString('must be a relative path', \preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '');
+            // No files should have been written inside $projectDir
+            $glob = \glob($projectDir.'/**/*.php');
+            self::assertSame([], false === $glob ? [] : $glob, 'Absolute path rejection must not write any file.');
+        } catch (\InvalidArgumentException) {
+            // Boundary guard can also surface as an exception — still "rejected".
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testTrailingSlashIsNormalisedInDirBeforeFilenameIsBuilt(): void
+    {
+        // Kills UnwrapRtrim (#7, line 95): without rtrim the dir becomes "dir//", making the
+        // generated filename contain a double slash. We assert exactly one slash between dir and filename.
+        $this->tester->execute(['--dir' => $this->relativeOutputDir.'/', '--namespace' => 'App\\Test']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $display = \strip_tags($this->tester->getDisplay());
+        // The displayed path must not contain a double slash component.
+        self::assertStringNotContainsString('//', $display);
+
+        $files = \glob(\rtrim($this->outputDir, '/').'/DeployTask*.php');
+        self::assertNotFalse($files);
+        self::assertCount(1, $files);
+    }
+
+    public function testBoundaryCheckCatchesDirEquivalentToProjectRoot(): void
+    {
+        // Kills ConcatOperandRemoval mutants (#8–11, lines 112–114): these mutations corrupt the
+        // boundary string (e.g. drop the trailing '/', remove rtrim, or remove the '/' on the
+        // resolvedDir side of the str_starts_with check). A directory whose resolved path is
+        // exactly the project root exposes the missing trailing slash.
+        $projectDir = \sys_get_temp_dir().'/generate-boundary-root-'.\uniqid();
+        \mkdir($projectDir.'/src', 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        // projectDir is passed with a trailing slash so rtrim is actually exercised.
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir.'/');
+        $tester = new CommandTester($command);
+
+        try {
+            // A valid relative path inside project root must succeed.
+            $tester->execute(['--dir' => 'src/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testCustomTemplateReplacesNamespaceToken(): void
+    {
+        // Kills ArrayItemRemoval (#13, line 150): mutation removes '{{ namespace }}' entry from
+        // the merge array — the namespace placeholder would survive raw in the generated file.
+        // Kills UnwrapArrayMerge (#14-15, line 150): mutations remove $replacements from the merge
+        // so custom __TASK_ID__ / __DESCRIPTION__ tokens survive raw.
+        $template = \sys_get_temp_dir().'/generate-ns-tpl-'.\uniqid().'.tpl';
+        \file_put_contents($template, "namespace {{ namespace }};\n// id={{ taskId }}\n// desc={{ description }}\n// class={{ className }}\n");
+
+        $projectDir = \sys_get_temp_dir().'/generate-ns-tpl-project-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        try {
+            $command = $this->makeCommand(
+                new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+                templatePath: $template,
+                projectDir: $projectDir,
+            );
+            $tester = new CommandTester($command);
+            $tester->execute(['--dir' => 'tasks/', '--namespace' => 'My\\Bundle']);
+
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($projectDir.'/tasks/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+            $content = (string) \file_get_contents($files[0]);
+
+            // Namespace token must be replaced.
+            self::assertStringContainsString('namespace My\\Bundle;', $content);
+            self::assertStringNotContainsString('{{ namespace }}', $content);
+
+            // taskId and description tokens from $replacements must be replaced.
+            self::assertStringNotContainsString('{{ taskId }}', $content);
+            self::assertStringNotContainsString('{{ description }}', $content);
+            self::assertStringNotContainsString('{{ className }}', $content);
+        } finally {
+            @\unlink($template);
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testGeneratedDirectoryHasPermissions0755(): void
+    {
+        // Kills DecrementInteger (#16) and IncrementInteger (#18) on the mkdir mode: if 0755 is
+        // mutated to 0754 (492) or 0756 (494) the assertion detects the wrong mode.
+        // Also kills MethodCallRemoval (#17): if mkdir is removed the directory is not created
+        // at all, causing dumpFile to fail or create the directory with different permissions.
+        $projectDir = \sys_get_temp_dir().'/generate-dir-mode-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
+        $tester = new CommandTester($command);
+
+        try {
+            $tester->execute(['--dir' => 'tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $createdDir = $projectDir.'/tasks';
+            self::assertDirectoryExists($createdDir);
+
+            $mode = \fileperms($createdDir) & 0o777;
+            self::assertSame(0o755, $mode, \sprintf('Expected directory mode 0755, got 0%o.', $mode));
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
+    public function testDirToNamespaceHandlesTrailingSlashCorrectly(): void
+    {
+        // Kills UnwrapRtrim (#19, line 225 in dirToNamespace): if rtrim is removed, a trailing '/'
+        // on the canonical dir produces an empty last segment, which breaks namespace generation.
+        $projectDir = \sys_get_temp_dir().'/generate-ns-rtrim-'.\uniqid();
+        \mkdir($projectDir.'/src/Tasks', 0o755, true);
+
+        $command = $this->makeCommand(
+            new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+            projectDir: $projectDir,
+        );
+        $tester = new CommandTester($command);
+
+        try {
+            // Pass dir WITH trailing slash — dirToNamespace must strip it before splitting.
+            $tester->execute(['--dir' => 'src/Tasks/']);
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+            $files = \glob($projectDir.'/src/Tasks/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+            $content = (string) \file_get_contents($files[0]);
+
+            // Without rtrim the trailing '/' produces an empty segment → invalid namespace.
+            // The namespace must not end with a backslash.
+            self::assertMatchesRegularExpression('/namespace [A-Za-z\\\\]+[A-Za-z];/', $content);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

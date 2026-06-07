@@ -658,4 +658,81 @@ final class FilesystemStorageTest extends TestCase
         // Cleanup the bracket path
         FilesystemTestHelper::cleanup($bracketPath);
     }
+
+    /**
+     * Kills ConcatOperandRemoval mutants on line 104 that drop either the $path prefix
+     * or the '.lock' suffix of the lock-file name.
+     *
+     * Mutant A: `$lockPath = '.lock'`  → lock file is named '.lock' with no path prefix,
+     *           landing in CWD — NOT in storagePath.
+     * Mutant B: `$lockPath = $path`    → lock file IS the JSON file itself (no '.lock' suffix).
+     *
+     * After a successful save the lock sidecar must exist at exactly "$jsonPath.lock" — i.e.,
+     * inside storagePath, named "<taskId>.json.lock".  Both mutants produce a different filename,
+     * so asserting the exact expected path kills them.
+     */
+    public function testLockFileIsCoLocatedWithJsonFileAndHasLockSuffix(): void
+    {
+        $this->storage->save(new TaskExecution('task.lock-probe', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $expectedJsonPath = $this->storagePath.'/task.lock-probe.json';
+        $expectedLockPath = $expectedJsonPath.'.lock';
+
+        // The lock sidecar is left on disk after save.
+        self::assertFileExists($expectedLockPath, 'Lock file must be co-located with the JSON record at "<json>.lock".');
+
+        // Mutant A creates a bare ".lock" file in CWD; assert no stray lock exists at the
+        // storage-dir level (which is distinct from the per-record sidecar).
+        self::assertFileDoesNotExist($this->storagePath.'/.lock', 'A stray bare ".lock" inside storagePath must not exist; the sidecar must include the full record filename.');
+    }
+
+    /**
+     * Kills the ConcatOperandRemoval mutant on line 163 inside removeAll():
+     * mutation replaces `$taskId.'@'` with `$taskId`, making str_starts_with()
+     * match task IDs that merely start with $taskId (e.g. 'task.1' matches 'task.10').
+     *
+     * removeAll('task.1') must remove only task.1 slots and leave task.10 untouched.
+     */
+    public function testRemoveAllDoesNotMatchTaskIdPrefixOfAnother(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->storage->removeAll('task.1');
+
+        self::assertFalse($this->storage->has('task.1'), 'task.1 default slot must be removed.');
+        self::assertFalse($this->storage->has('task.1', 'predeploy'), 'task.1 predeploy slot must be removed.');
+        self::assertTrue($this->storage->has('task.10'), 'task.10 default slot must NOT be removed by removeAll(task.1).');
+        self::assertTrue($this->storage->has('task.10', 'predeploy'), 'task.10 predeploy slot must NOT be removed by removeAll(task.1).');
+    }
+
+    /**
+     * Kills the ConcatOperandRemoval mutant on line 201 inside findByTaskId():
+     * mutation replaces `$taskId.'@'` with `$taskId`, making str_starts_with()
+     * also match files whose name merely starts with $taskId (e.g. 'task.10').
+     *
+     * findByTaskId('task.1') must return only task.1 records, not task.10.
+     */
+    public function testFindByTaskIdDoesNotMatchTaskIdPrefixOfAnother(): void
+    {
+        $e1 = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
+        $e1pre = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy');
+        $e10 = new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'));
+        $e10pre = new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:45:00+00:00'), null, 'predeploy');
+
+        $this->storage->save($e1);
+        $this->storage->save($e1pre);
+        $this->storage->save($e10);
+        $this->storage->save($e10pre);
+
+        $matches = $this->storage->findByTaskId('task.1');
+
+        self::assertCount(2, $matches, 'findByTaskId(task.1) must return exactly the task.1 slots.');
+
+        $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $matches);
+        self::assertNotContains('task.10', $ids, 'findByTaskId(task.1) must not return task.10 records.');
+        self::assertContains('task.1', $ids);
+    }
 }

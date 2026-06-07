@@ -5,22 +5,27 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Unit\Contract;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\TaskResult;
 
 #[CoversClass(TaskResult::class)]
 final class TaskResultTest extends TestCase
 {
-    public function testBackingValuesDocumentTheContract(): void
+    /**
+     * @return iterable<string, array{int, TaskResult}>
+     */
+    public static function provideBackingValues(): iterable
     {
-        $map = [];
-        foreach (TaskResult::cases() as $case) {
-            $map[$case->name] = $case->value;
-        }
+        yield 'SUCCESS' => [0, TaskResult::SUCCESS];
+        yield 'FAILURE' => [1, TaskResult::FAILURE];
+        yield 'SKIPPED' => [2, TaskResult::SKIPPED];
+        yield 'LOCKED' => [3, TaskResult::LOCKED];
+    }
 
-        self::assertSame(
-            ['SUCCESS' => 0, 'FAILURE' => 1, 'SKIPPED' => 2, 'LOCKED' => 3],
-            $map,
-        );
+    #[DataProvider('provideBackingValues')]
+    public function testBackingValueDocumentsTheContract(int $value, TaskResult $expected): void
+    {
+        self::assertSame($expected, TaskResult::from($value));
     }
 }

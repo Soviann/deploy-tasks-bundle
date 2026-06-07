@@ -65,6 +65,54 @@ final class DefaultTaskSorterTest extends TestCase
         self::assertSame($second, $tasks[1]);
     }
 
+    public function testUnattributedTaskHasSamePriorityAsExplicitZero(): void
+    {
+        // A task without #[AsDeployTask] must default to priority 0, equal to an attributed
+        // task with explicit priority: 0. Original registration order must be the tiebreaker.
+        // Mutant DecrementInteger (-1): unattributed gets -1, so it sorts AFTER the attributed
+        //   task regardless of registration order — test fails.
+        // Mutant IncrementInteger (1): unattributed gets 1, so it sorts BEFORE the attributed
+        //   task even if it was registered second — need a second test covering that direction.
+        $unattributed = new SimpleTask('task.no_attr');   // no #[AsDeployTask] → priority defaults to 0
+        $attributed = new \Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask(); // priority: 0 explicitly
+
+        // registered: [unattributed, attributed] → same priority → order preserved
+        $sorted = $this->sorter->sort([$unattributed, $attributed]);
+
+        self::assertSame($unattributed, $sorted[0], 'Unattributed task registered first must stay first when priorities are equal.');
+        self::assertSame($attributed, $sorted[1]);
+    }
+
+    public function testUnattributedTaskDoesNotGainHigherPriorityThanExplicitZero(): void
+    {
+        // Mutant IncrementInteger (1): unattributed task gets priority 1, outranking any
+        // attributed task with explicit priority: 0 and sorting before it even if registered after.
+        $attributed = new \Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask(); // priority: 0
+        $unattributed = new SimpleTask('task.no_attr');   // registered second
+
+        // registered: [attributed (p=0), unattributed (p=0)] → order preserved
+        $sorted = $this->sorter->sort([$attributed, $unattributed]);
+
+        self::assertSame($attributed, $sorted[0], 'Attributed task registered first must stay first when priorities are equal.');
+        self::assertSame($unattributed, $sorted[1]);
+    }
+
+    public function testMultipleDatelessTasksPreserveRegistrationOrder(): void
+    {
+        // Two no-date tasks: if compareDates(null, null) returns anything other than 0,
+        // their relative order will flip for some comparisons in usort (Mutant 230: returns -1).
+        $alpha = new SimpleTask('task.alpha_no_date');
+        $beta = new SimpleTask('task.beta_no_date');
+        $gamma = new SimpleTask('task.gamma_no_date');
+
+        $sorted = $this->sorter->sort([$alpha, $beta, $gamma]);
+
+        // All same priority (0), no date — registration order must be preserved.
+        self::assertSame($alpha, $sorted[0]);
+        self::assertSame($beta, $sorted[1]);
+        self::assertSame($gamma, $sorted[2]);
+    }
+
     public function testEmptyCollection(): void
     {
         self::assertSame([], $this->sorter->sort([]));

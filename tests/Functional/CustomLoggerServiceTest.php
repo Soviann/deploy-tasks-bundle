@@ -74,6 +74,24 @@ final class CustomLoggerServiceTest extends TestCase
         self::assertSame('deploy_tasks', $tags[0]['channel'] ?? null);
     }
 
+    public function testDeployTasksLoggerAliasPointsToUserServiceWhenLoggerIsConfigured(): void
+    {
+        // Mutant 156: MethodCallRemoval removes `$services->alias('deploy_tasks.logger', $userLoggerId)`.
+        // Without that alias, the 'deploy_tasks.logger' service would not exist in the container.
+        $container = $this->buildContainer(['logger' => 'app.custom_logger']);
+        $container->register('app.custom_logger', ArrayLogger::class)->setPublic(true);
+
+        self::assertTrue(
+            $container->hasAlias('deploy_tasks.logger'),
+            'deploy_tasks.logger alias must be registered when a custom logger service is configured.',
+        );
+        self::assertSame(
+            'app.custom_logger',
+            (string) $container->getAlias('deploy_tasks.logger'),
+            'deploy_tasks.logger alias must point to the user-configured logger service.',
+        );
+    }
+
     /**
      * @param array<string, mixed> $extraConfig
      */
