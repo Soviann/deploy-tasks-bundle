@@ -85,6 +85,11 @@ final class DeployTasksBundle extends AbstractBundle
                             ->defaultNull()
                             ->info('Path to a custom PHP template file for deploytasks:generate:container.')
                         ->end()
+                        ->scalarNode('root_namespace')
+                            ->defaultValue('App')
+                            ->cannotBeEmpty()
+                            ->info('Root namespace for deploytasks:generate:container output when --dir starts with "src/" (mirrors symfony/maker-bundle\'s root_namespace). Set to your composer.json PSR-4 root if it is not "App".')
+                        ->end()
                         ->scalarNode('host_directory')
                             ->defaultValue('%kernel.project_dir%/deploy/host-tasks')
                             ->cannotBeEmpty()
@@ -232,15 +237,16 @@ final class DeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        /** @var array{directory: string, template: string|null, host_directory: string} $generateConfig */
+        /** @var array{directory: string, template: string|null, root_namespace: string, host_directory: string} $generateConfig */
         $generateConfig = $config['generate'];
 
         $services->set('deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
             ->args([
-                service('deploy_tasks.id_generator'),
-                $generateConfig['directory'],
-                $generateConfig['template'],
-                '%kernel.project_dir%',
+                '$idGenerator' => service('deploy_tasks.id_generator'),
+                '$defaultDirectory' => $generateConfig['directory'],
+                '$rootNamespace' => $generateConfig['root_namespace'],
+                '$templatePath' => $generateConfig['template'],
+                '$projectDir' => '%kernel.project_dir%',
             ])
             ->tag('console.command')
         ;
