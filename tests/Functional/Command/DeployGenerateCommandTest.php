@@ -19,6 +19,12 @@ use Symfony\Component\Filesystem\Exception\IOException;
 #[CoversClass(DeployTasksGenerateCommand::class)]
 final class DeployGenerateCommandTest extends FunctionalTestCase
 {
+    /**
+     * Throwaway value for the now-mandatory constructor argument; every test below
+     * overrides the target via the --dir option, so the value itself is never exercised.
+     */
+    private const DEFAULT_DIR = 'src/DeployTasks/Task/';
+
     private CommandTester $tester;
     private string $outputDir;
     private string $relativeOutputDir;
@@ -84,6 +90,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $fixedNow = new \DateTimeImmutable('2026-04-17 12:00:00');
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -115,6 +122,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
         );
         $tester = new CommandTester($command);
@@ -146,6 +154,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -247,7 +256,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         // No projectDir — file is written relative to CWD (which we control via chdir).
-        $command = new DeployTasksGenerateCommand(idGenerator: $idGenerator);
+        $command = new DeployTasksGenerateCommand(idGenerator: $idGenerator, defaultDirectory: self::DEFAULT_DIR);
         $tester = new CommandTester($command);
 
         $cwd = \getcwd();
@@ -308,6 +317,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $tmpProject,
         );
         $cwd = \getcwd();
@@ -345,6 +355,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         try {
             $command = new DeployTasksGenerateCommand(
                 new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+                defaultDirectory: self::DEFAULT_DIR,
                 templatePath: $template,
                 projectDir: $projectDir,
             );
@@ -375,6 +386,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
         );
         $tester = new CommandTester($command);
@@ -413,6 +425,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
         );
         $tester = new CommandTester($command);
@@ -480,6 +493,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $fixedNow = new \DateTimeImmutable('2099-01-01 00:00:00');
         $command = new DeployTasksGenerateCommand(
             idGenerator: $hostileGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
             nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
         );
@@ -540,6 +554,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
         );
         $tester = new CommandTester($command);
@@ -566,6 +581,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
         $command = new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
+            defaultDirectory: self::DEFAULT_DIR,
             projectDir: $projectDir,
         );
         $tester = new CommandTester($command);
