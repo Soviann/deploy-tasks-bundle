@@ -441,15 +441,8 @@ final class TaskRunnerTest extends TestCase
     public function testTransactionalWrapping(): void
     {
         $storage = new TransactionalInMemoryStorageFixture();
-        $idResolver = new TaskIdResolver();
 
-        $runner = new TaskRunner(
-            new TaskRegistry([new TransactionalTask()], $idResolver),
-            $storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-        );
+        $runner = $this->createRunner([new TransactionalTask()], $storage);
 
         $runner->runAll($this->output);
 
@@ -474,22 +467,13 @@ final class TaskRunnerTest extends TestCase
         // so auto-init inside allOrNothing would roll back the table along with the data.
         $storage = new DbalStorage($connection);
         $connection->executeStatement($storage->getCreateTableSql());
-        $idResolver = new TaskIdResolver();
         $logger = new ArrayLogger();
 
-        $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First'), new FailingTask()], $idResolver),
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First'), new FailingTask()],
             $storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            null,
-            300,
-            null,
-            true,
-            true, // allOrNothing
-            $logger,
+            logger: $logger,
+            allOrNothing: true,
         );
 
         try {
@@ -534,25 +518,15 @@ final class TaskRunnerTest extends TestCase
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         $storage = new DbalStorage($connection);
         $connection->executeStatement($storage->getCreateTableSql());
-        $idResolver = new TaskIdResolver();
-
         $task1 = new SimpleTask('task.1', 'First');
         $task2Error = new \RuntimeException('task 2 failed');
         $task2 = $this->makeFailingTaskWithError('task.2', $task2Error);
         $task3 = new SimpleTask('task.3', 'Third');
 
-        $runner = new TaskRunner(
-            new TaskRegistry([$task1, $task2, $task3], $idResolver),
+        $runner = $this->createRunner(
+            [$task1, $task2, $task3],
             $storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            null,
-            300,
-            null,
-            true,
-            true, // allOrNothing
+            allOrNothing: true,
         );
 
         try {
@@ -576,20 +550,10 @@ final class TaskRunnerTest extends TestCase
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         $storage = new DbalStorage($connection);
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First'), new SimpleTask('task.2', 'Second')], $idResolver),
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First'), new SimpleTask('task.2', 'Second')],
             $storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            null,
-            300,
-            null,
-            true,
-            true, // allOrNothing
+            allOrNothing: true,
         );
 
         $runner->runAll($this->output);
@@ -621,16 +585,9 @@ final class TaskRunnerTest extends TestCase
             ->with('deploy_tasks_run', 3600)
             ->willReturn($lock);
 
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            $lockFactory,
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            lockFactory: $lockFactory,
         );
 
         $result = $runner->runAll($this->output);
@@ -652,16 +609,9 @@ final class TaskRunnerTest extends TestCase
         $lockFactory = $this->createMock(LockFactory::class);
         $lockFactory->method('createLock')->willReturn($lock);
 
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([new FailingTask()], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            $lockFactory,
+        $runner = $this->createRunner(
+            [new FailingTask()],
+            lockFactory: $lockFactory,
         );
 
         $runner->runAll($this->output);
@@ -766,16 +716,9 @@ final class TaskRunnerTest extends TestCase
         $lockFactory = $this->createMock(LockFactory::class);
         $lockFactory->method('createLock')->willReturn($lock);
 
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([new SimpleTask('task.1', 'First')], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            $lockFactory,
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            lockFactory: $lockFactory,
         );
 
         $result = $runner->runOne('task.1', $this->output);
@@ -811,18 +754,9 @@ final class TaskRunnerTest extends TestCase
     {
         // ProdOnlyTask is annotated #[AsDeployTask(env: 'prod')]; runner is in 'dev'.
         $prodOnlyTask = new ProdOnlyTask();
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([$prodOnlyTask], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            null,
-            300,
-            'dev', // runner environment
+        $runner = $this->createRunner(
+            [$prodOnlyTask],
+            environment: 'dev',
         );
 
         try {
@@ -843,18 +777,9 @@ final class TaskRunnerTest extends TestCase
         // Task with matching env runs fine; task with no env constraint (null) always runs.
         $prodOnlyTask = new ProdOnlyTask();
         $defaultTask = new SimpleTask('task.default', 'Default');
-        $idResolver = new TaskIdResolver();
-
-        $runnerProd = new TaskRunner(
-            new TaskRegistry([$prodOnlyTask, $defaultTask], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            null,
-            300,
-            'prod', // runner environment matches ProdOnlyTask
+        $runnerProd = $this->createRunner(
+            [$prodOnlyTask, $defaultTask],
+            environment: 'prod',
         );
 
         $resultProd = $runnerProd->runOne('test.prod_only', $this->output);
@@ -866,17 +791,12 @@ final class TaskRunnerTest extends TestCase
 
     public function testTimeoutExceededLogsWarningWithoutFailing(): void
     {
-        $idResolver = new TaskIdResolver();
         $logger = new ArrayLogger();
 
         // 1.1s sleep against a 1s timeout — reliably crosses the threshold without depending
         // on microsecond-level scheduling. Slow by design (~1.1s per run).
-        $runner = new TaskRunner(
-            new TaskRegistry([new SleepingTask('task.1', 1_100_000)], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
+        $runner = $this->createRunner(
+            [new SleepingTask('task.1', 1_100_000)],
             logger: $logger,
             defaultTimeout: 1,
         );
@@ -891,16 +811,11 @@ final class TaskRunnerTest extends TestCase
 
     public function testDefaultTimeoutZeroDisablesTimeoutCheck(): void
     {
-        $idResolver = new TaskIdResolver();
         $logger = new ArrayLogger();
 
         // 50ms sleep against a disabled timeout (0): no warning, regardless of duration.
-        $runner = new TaskRunner(
-            new TaskRegistry([new SleepingTask('task.1', 50_000)], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
+        $runner = $this->createRunner(
+            [new SleepingTask('task.1', 50_000)],
             logger: $logger,
             defaultTimeout: 0,
         );
@@ -976,14 +891,8 @@ final class TaskRunnerTest extends TestCase
     public function testTimeoutWarningMessageIncludesExactValues(): void
     {
         // Pins the exact warning format — kills Minus/CastInt mutants on the `(int) $duration` and `$duration - $start` lines.
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([new SleepingTask('task.1', 1_100_000)], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
+        $runner = $this->createRunner(
+            [new SleepingTask('task.1', 1_100_000)],
             defaultTimeout: 1,
         );
 
@@ -1076,16 +985,10 @@ final class TaskRunnerTest extends TestCase
     public function testTimeoutExceedsLogsWarning(): void
     {
         $logger = new ArrayLogger();
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([new SleepingTask('task.1', 1_100_000)], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            defaultTimeout: 1,
+        $runner = $this->createRunner(
+            [new SleepingTask('task.1', 1_100_000)],
             logger: $logger,
+            defaultTimeout: 1,
         );
 
         $runner->runAll($this->output);
@@ -1317,14 +1220,7 @@ final class TaskRunnerTest extends TestCase
             }
         };
 
-        $idResolver = new TaskIdResolver();
-        $runner = new TaskRunner(
-            new TaskRegistry([$task], $idResolver),
-            $storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-        );
+        $runner = $this->createRunner([$task], $storage);
 
         try {
             $runner->runAll($this->output);
@@ -1352,20 +1248,13 @@ final class TaskRunnerTest extends TestCase
         $lockFactory = $this->createMock(LockFactory::class);
         $lockFactory->method('createLock')->willReturn($lock);
 
-        $idResolver = new TaskIdResolver();
-
-        $runner = new TaskRunner(
-            new TaskRegistry([
+        $runner = $this->createRunner(
+            [
                 new SimpleTask('task.1', 'First'),
                 new SimpleTask('task.2', 'Second'),
                 new SimpleTask('task.3', 'Third'),
-            ], $idResolver),
-            $this->storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            $lockFactory,
+            ],
+            lockFactory: $lockFactory,
         );
 
         $runner->runAll($this->output);
@@ -1378,21 +1267,7 @@ final class TaskRunnerTest extends TestCase
      */
     private function createAllOrNothingRunner(array $tasks, TaskStorageInterface $storage): TaskRunner
     {
-        $idResolver = new TaskIdResolver();
-
-        return new TaskRunner(
-            new TaskRegistry($tasks, $idResolver),
-            $storage,
-            new DefaultTaskSorter($idResolver),
-            $idResolver,
-            new TaskDescriptionResolver(),
-            null,
-            null,
-            300,
-            null,
-            true,
-            true, // allOrNothing
-        );
+        return $this->createRunner($tasks, $storage, allOrNothing: true);
     }
 
     private function makeFailingTask(string $taskId): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
@@ -1476,6 +1351,11 @@ final class TaskRunnerTest extends TestCase
         ?EventDispatcherInterface $dispatcher = null,
         ?LoggerInterface $logger = null,
         ?LockFactory $lockFactory = null,
+        int $defaultTimeout = 300,
+        bool $transactional = true,
+        bool $allOrNothing = false,
+        int $lockTtl = 3600,
+        ?string $environment = null,
     ): TaskRunner {
         $idResolver = new TaskIdResolver();
 
@@ -1485,8 +1365,13 @@ final class TaskRunnerTest extends TestCase
             new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
-            $dispatcher,
-            $lockFactory,
+            $defaultTimeout,
+            $transactional,
+            $allOrNothing,
+            $lockTtl,
+            dispatcher: $dispatcher,
+            lockFactory: $lockFactory,
+            environment: $environment,
             logger: $logger ?? new NullLogger(),
         );
     }
