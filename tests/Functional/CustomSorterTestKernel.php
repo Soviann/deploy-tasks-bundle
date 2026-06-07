@@ -19,7 +19,7 @@ final class CustomSorterTestKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $storagePath = \sys_get_temp_dir().'/deploy-tasks-custom-'.$this->environment;
+        $storagePath = \sys_get_temp_dir().'/deploy-tasks-custom-'.\getmypid().'-'.$this->environment;
 
         $container->extension('deploy_tasks', [
             'sorter' => 'test.custom_sorter',
