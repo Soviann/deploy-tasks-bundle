@@ -7,7 +7,9 @@ namespace Soviann\DeployTasksBundle\Tests\Functional;
 use Soviann\DeployTasksBundle\DeployTasksBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 abstract class AbstractTestKernel extends Kernel
 {
@@ -26,7 +28,17 @@ abstract class AbstractTestKernel extends Kernel
 
     public function getCacheDir(): string
     {
-        return \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-cache-'.\getmypid().'/'.$this->environment;
+        $cacheDir = \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-cache-'.\getmypid().'/'.$this->environment;
+
+        // Pre-create the directory: on Symfony 6.4 the annotations cache warmer
+        // writes <cache_dir>/annotations.map during boot before Symfony creates
+        // the dir for these throwaway per-test kernels, which otherwise fails with
+        // "No such file or directory". mkdir() is idempotent here.
+        if (!\is_dir($cacheDir)) {
+            (new Filesystem())->mkdir($cacheDir);
+        }
+
+        return $cacheDir;
     }
 
     public function getLogDir(): string
@@ -35,6 +47,17 @@ abstract class AbstractTestKernel extends Kernel
     }
 
     abstract protected static function kernelName(): string;
+
+    /**
+     * These kernels exercise the bundle's services, not HTTP routing. Declaring an
+     * empty route configuration stops MicroKernelTrait from importing a default
+     * route resource from a `config/` directory that does not exist here — on
+     * Symfony 6.4 the router cache warmer loads routes during boot and otherwise
+     * fails with FileLocatorFileNotFoundException.
+     */
+    protected function configureRoutes(RoutingConfigurator $routes): void
+    {
+    }
 
     /**
      * @return array<string, mixed>
