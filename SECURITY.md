@@ -10,7 +10,7 @@
 
 **Please do not open a public issue for security problems.**
 
-- **Preferred:** report privately via [GitHub Security Advisories](https://github.com/soviann/deploy-tasks-bundle/security/advisories/new). This keeps the discussion confidential until a fix is released.
+- **Preferred:** report privately via [GitHub Security Advisories](https://github.com/Soviann/deploy-tasks-bundle/security/advisories/new). This keeps the discussion confidential until a fix is released.
 - **Alternative:** email `vasse.nicolas@gmail.com` if you do not have a GitHub account.
 
 Please include:

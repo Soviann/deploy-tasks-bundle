@@ -158,13 +158,13 @@ interface TaskStorageInterface
     public function get(string $taskId, ?string $group = null): ?TaskExecution;
     public function save(TaskExecution $execution): void;
     public function remove(string $taskId, ?string $group = null): void;
-    public function removeAll(): void;
+    public function removeAll(string $taskId): void;
 
-    /** @return iterable<TaskExecution> */
-    public function findByTaskId(string $taskId): iterable;
+    /** @return list<TaskExecution> */
+    public function findByTaskId(string $taskId): array;
 
-    /** @return iterable<TaskExecution> */
-    public function all(): iterable;
+    /** @return list<TaskExecution> */
+    public function all(): array;
 
     public function reset(): void;
 }
@@ -227,31 +227,42 @@ final class RedisStorage implements TaskStorageInterface
         $this->redis->srem(self::INDEX_KEY, $key);
     }
 
-    public function removeAll(): void
+    public function removeAll(string $taskId): void
     {
-        $this->reset();
+        foreach ($this->redis->keys(self::KEY_PREFIX.$taskId.':*') as $key) {
+            $this->redis->del([$key]);
+            $this->redis->srem(self::INDEX_KEY, $key);
+        }
     }
 
-    public function findByTaskId(string $taskId): iterable
+    public function findByTaskId(string $taskId): array
     {
+        $executions = [];
+
         foreach ($this->redis->keys(self::KEY_PREFIX.$taskId.':*') as $key) {
             $payload = $this->redis->hgetall($key);
 
             if ([] !== $payload) {
-                yield $this->hydrate($payload);
+                $executions[] = $this->hydrate($payload);
             }
         }
+
+        return $executions;
     }
 
-    public function all(): iterable
+    public function all(): array
     {
+        $executions = [];
+
         foreach ($this->redis->smembers(self::INDEX_KEY) as $key) {
             $payload = $this->redis->hgetall($key);
 
             if ([] !== $payload) {
-                yield $this->hydrate($payload);
+                $executions[] = $this->hydrate($payload);
             }
         }
+
+        return $executions;
     }
 
     public function reset(): void

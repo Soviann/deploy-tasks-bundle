@@ -127,7 +127,7 @@ Convenience method: `isSuccessful()` returns `true` iff `failed === 0 && !locked
 
 `TaskRegistry` exposes two task accessors with different semantics:
 
-- `all(?string $environment = null, array $groups = []): array<string, DeployTaskInterface>` — returns the subset that matches the current runtime filter. When `$environment` is non-null, tasks whose `#[AsDeployTask(environments: ...)]` attribute excludes that environment are dropped. When `$groups` is non-empty, only tasks declaring at least one of the listed groups are returned. This is the accessor every runtime code path uses (`TaskRunner`, `deploytasks:run`, `deploytasks:status`).
+- `all(?string $environment = null, array $groups = []): array<string, DeployTaskInterface>` — returns the subset that matches the current runtime filter. When `$environment` is non-null, tasks whose `#[AsDeployTask(env: ...)]` attribute excludes that environment are dropped. When `$groups` is non-empty, only tasks declaring at least one of the listed groups are returned. This is the accessor every runtime code path uses (`TaskRunner`, `deploytasks:run`, `deploytasks:status`).
 - `allRegistered(): array<string, DeployTaskInterface>` — returns every task registered with the bundle, unfiltered. Use it for tooling that must inspect the full registered surface regardless of environment or group scoping (compiler-pass diagnostics, admin listings, custom introspection commands).
 
 Both return the same `array<string, DeployTaskInterface>` shape keyed by resolved task ID; the difference is purely the filter scope.

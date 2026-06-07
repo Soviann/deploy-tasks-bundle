@@ -130,7 +130,7 @@ Remove a task's execution record so it is treated as pending and will run again 
 
 ```bash
 bin/console deploytasks:reset task_20260412143000_seed_categories
-bin/console deploytasks:reset task_20260412143000_seed_categories --no-interaction
+bin/console deploytasks:reset task_20260412143000_seed_categories --no-interaction --force
 bin/console deploytasks:reset task_20260412143000_seed_categories --group=predeploy
 ```
 
@@ -144,7 +144,8 @@ bin/console deploytasks:reset task_20260412143000_seed_categories --group=predep
 
 | Option | Description |
 |---|---|
-| `--no-interaction` | Skip the confirmation prompt; useful in CI scripts |
+| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
+| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
 | `--group=<name>` | Reset only the given group slot; without this flag every slot recorded for the task is cleared |
 
 If the task has no execution record, the command reports it is already pending and exits successfully without error.
@@ -189,7 +190,7 @@ bin/console deploytasks:generate:host --dir=deploy/host-tasks/
 |---|---|---|
 | `--dir` | `deploy/host-tasks/` | Target directory for the generated script |
 
-The generated filename follows the pattern `deploy_task_<YYYYMMDD>_<HHMMSS>.sh` (e.g. `deploy_task_20260418_143022.sh`). The file is executable (`0755`) and contains a bash stub with `set -euo pipefail` and a `# TODO: implement` marker. Lexicographic filename ordering on disk drives execution order.
+The generated filename follows the pattern `deploy_task_<YYYYMMDD>_<HHMMSS>.sh` (e.g. `deploy_task_20260418_143022.sh`). The file is executable (`0750`) and contains a bash stub with `set -euo pipefail` and a `# TODO: implement` marker. Lexicographic filename ordering on disk drives execution order.
 
 ---
 
@@ -199,7 +200,7 @@ Clear all execution records and mark every registered task as executed. Useful f
 
 ```bash
 bin/console deploytasks:rollup
-bin/console deploytasks:rollup --no-interaction
+bin/console deploytasks:rollup --no-interaction --force
 bin/console deploytasks:rollup --group=predeploy
 bin/console deploytasks:rollup --group=predeploy --group=postdeploy
 ```
@@ -208,10 +209,11 @@ bin/console deploytasks:rollup --group=predeploy --group=postdeploy
 
 | Option | Description |
 |---|---|
-| `--no-interaction` | Skip the confirmation prompt; useful in CI scripts |
+| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
+| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
 | `--group=<name>` | Roll up only the given group slot(s); repeatable. Preserves records for other slots. Without this flag, every slot is rolled up and the whole table is reset. |
 
-You are prompted for confirmation before proceeding. Use `--no-interaction` to skip the prompt (e.g. in CI).
+You are prompted for confirmation before proceeding. In CI, pass `--no-interaction --force` (a non-interactive run is refused without `--force`/`--yes`).
 
 If the storage backend implements `TransactionalStorageInterface`, the reset and re-mark operations are wrapped in a single transaction.
 

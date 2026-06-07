@@ -8,7 +8,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/soviann/deploy-tasks-bundle.git
+git clone https://github.com/Soviann/deploy-tasks-bundle.git
 cd deploy-tasks-bundle
 composer install
 ```
@@ -84,7 +84,7 @@ CI runs automatically on every pull request. All checks (PHPStan, CS Fixer, test
 
 ## Releasing
 
-1. Decide the next version (semver: MAJOR for breaking changes, MINOR for new features, PATCH for fixes).
+1. Decide the next version (semver: MAJOR for breaking changes, MINOR for new features, PATCH for fixes). **Pre-1.0:** breaking changes bump MINOR, not MAJOR, per the bundle's pre-release policy.
 2. In `CHANGELOG.md`, move the `## [Unreleased]` bullets into a new `## [X.Y.Z] - YYYY-MM-DD` section above it. Add a fresh empty `## [Unreleased]` at the top.
 3. Update the compare links at the bottom of `CHANGELOG.md`:
    - `[Unreleased]: .../compare/vX.Y.Z...HEAD`
