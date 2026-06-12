@@ -77,6 +77,18 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringContainsString('ran', $this->tester->getDisplay());
     }
 
+    public function testDryRunWithRerunAllPreviewsAlreadyExecutedTasks(): void
+    {
+        $this->tester->execute([]);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $this->tester->execute(['--dry-run' => true, '--rerun-all' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('would run', $this->tester->getDisplay());
+        self::assertStringNotContainsString('0 would run', $this->tester->getDisplay());
+    }
+
     public function testIdRunsSingleTask(): void
     {
         $this->tester->execute(['--id' => 'test.simple']);
