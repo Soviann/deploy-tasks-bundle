@@ -879,6 +879,18 @@ final class TaskRunnerTest extends TestCase
         self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
     }
 
+    public function testPartiallyPendingMultiSlotTaskCountsDoneSlotsAsSkipped(): void
+    {
+        $task = new MultiGroupTask();
+        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $runner = $this->createRunner([$task]);
+        $result = $runner->runAll($this->output, groups: ['predeploy', 'postdeploy']);
+
+        self::assertSame(1, $result->ran);
+        self::assertSame(1, $result->skipped, 'Already-done slots of a partially-pending task must be counted as skipped');
+    }
+
     public function testRunOneThrowsWhenTaskDeclaresGroupsAndNoneRequested(): void
     {
         $runner = $this->createRunner([new PredeployTask()]);
