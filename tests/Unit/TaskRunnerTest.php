@@ -646,6 +646,40 @@ final class TaskRunnerTest extends TestCase
         self::assertInstanceOf(\RuntimeException::class, $rollback[0]['context']['exception']);
     }
 
+    public function testRunOneAllOrNothingRollsBackOnFailure(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        // Pre-create the table outside any transaction — SQLite DDL is transactional,
+        // so auto-init inside allOrNothing would roll back the table along with the data.
+        $storage = new DbalStorage($connection);
+        $connection->executeStatement($storage->getCreateTableSql());
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [new FailingTask()],
+            $storage,
+            logger: $logger,
+            allOrNothing: true,
+        );
+
+        try {
+            $runner->runOne('test.failing', $this->output);
+            self::fail('Expected rollback to propagate the original throwable.');
+        } catch (\Throwable $e) {
+            // runOne rethrows the raw task exception — no AllOrNothingFailureException wrap.
+            self::assertSame(\RuntimeException::class, $e::class);
+            self::assertSame('Task failed!', $e->getMessage());
+        }
+
+        // The failure record persisted inside the transaction must be rolled back.
+        self::assertSame([], $storage->all());
+
+        $rollback = $logger->recordsMatching('error', 'transaction rolled back');
+        self::assertCount(1, $rollback);
+        self::assertArrayHasKey('exception', $rollback[0]['context']);
+        self::assertInstanceOf(\RuntimeException::class, $rollback[0]['context']['exception']);
+    }
+
     public function testAllOrNothingWithNonTransactionalStorageRunsUnwrapped(): void
     {
         // Non-transactional storage bypasses the transactional wrap on line 69 (`storage instanceof TransactionalStorageInterface`).
