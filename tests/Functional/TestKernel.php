@@ -66,7 +66,7 @@ final class TestKernel extends AbstractTestKernel
 
         $storagePath = \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.\getmypid().'-'.$this->environment;
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'filesystem',
                 'filesystem' => [
@@ -87,40 +87,40 @@ final class TestKernel extends AbstractTestKernel
 
         $services->set('test.task.simple', SimpleTask::class)
             ->args(['test.simple', 'A simple test task'])
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.prod_only', ProdOnlyTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.prioritized', PrioritizedTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.skipping', SkippingTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.multi_env', MultiEnvTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.predeploy', PredeployTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.multi_group', MultiGroupTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.attribute_description', AttributeDescriptionOnlyTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         foreach ($this->extraTasks as $class) {
             $services->set('test.task.extra.'.(new \ReflectionClass($class))->getShortName(), $class)
-                ->tag('deploy_tasks.task')
+                ->tag('soviann_deploy_tasks.task')
             ;
         }
     }

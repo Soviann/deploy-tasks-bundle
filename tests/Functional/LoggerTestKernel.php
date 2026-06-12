@@ -22,7 +22,7 @@ final class LoggerTestKernel extends AbstractTestKernel
 
         $storagePath = \sys_get_temp_dir().'/deploy-tasks-logger-'.\getmypid().'-'.$this->environment;
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'filesystem',
                 'filesystem' => ['path' => $storagePath],
@@ -40,11 +40,11 @@ final class LoggerTestKernel extends AbstractTestKernel
 
         $services->set('test.task.simple', SimpleTask::class)
             ->args(['test.simple', 'Simple task'])
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
 
         $services->set('test.task.skipping', SkippingTask::class)
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
     }
 }

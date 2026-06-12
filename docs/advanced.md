@@ -26,7 +26,7 @@ final class MySorter implements TaskSorterInterface
 Register it in the bundle configuration:
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     sorter: App\Deploy\MySorter
 ```
 
@@ -35,7 +35,7 @@ deploy_tasks:
 When `symfony/lock` is installed, the runner acquires a lock before execution to prevent concurrent runs.
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     lock:
         enabled: true  # default
 ```
@@ -51,7 +51,7 @@ The default timeout is 300 seconds (5 minutes). Override globally or per task.
 Global override:
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     default_timeout: 600  # 10 minutes
 ```
 
@@ -102,7 +102,7 @@ final class MyIdGenerator implements TaskIdGeneratorInterface
 Register it in the bundle configuration:
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     id_generator: App\Deploy\MyIdGenerator
 ```
 

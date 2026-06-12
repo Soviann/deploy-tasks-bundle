@@ -18,7 +18,7 @@ final class AutoconfigTaskKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'filesystem',
                 'filesystem' => [
@@ -29,7 +29,7 @@ final class AutoconfigTaskKernel extends AbstractTestKernel
             'lock' => ['enabled' => false],
         ]);
 
-        // Intentionally no `->tag('deploy_tasks.task')` — autoconfiguration must apply it.
+        // Intentionally no `->tag('soviann_deploy_tasks.task')` — autoconfiguration must apply it.
         $container->services()
             ->set('test.task.autoconfigured', AutoconfiguredTask::class)
             ->autoconfigure()

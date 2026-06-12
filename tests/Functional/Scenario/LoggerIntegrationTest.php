@@ -11,7 +11,7 @@ use Soviann\DeployTasksBundle\Tests\Functional\LoggerTestKernel;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
- * End-to-end: the user's PSR-3 service (resolved via `deploy_tasks.logger`) actually
+ * End-to-end: the user's PSR-3 service (resolved via `soviann_deploy_tasks.logger`) actually
  * receives runtime records — companion to LoggerWiringTest which only checks definition
  * wiring at compile time.
  */

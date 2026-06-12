@@ -81,7 +81,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testGenerateFileAlreadyExists(): void
     {
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $projectDir = \sys_get_temp_dir().'/generate-exists-guard-'.\uniqid();
@@ -116,7 +116,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-test-readonly-project-'.\uniqid();
         \mkdir($projectDir, 0o500, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
@@ -137,7 +137,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         // With a relative --dir, the guard must resolve against the injected projectDir,
         // not the CWD — otherwise pre-existing files inside the resolved target are missed.
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $projectDir = \sys_get_temp_dir().'/generate-absolute-guard-'.\uniqid();
@@ -246,7 +246,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $tmpDir = \sys_get_temp_dir().'/generate-realpath-'.\uniqid();
         \mkdir($tmpDir, 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         // No projectDir — file is written relative to CWD (which we control via chdir).
@@ -409,7 +409,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-perms-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
@@ -444,7 +444,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     #[DataProvider('pathTraversalPayloadsProvider')]
     public function testGenerateRejectsDirPathTraversal(string $dir, string $expectedMessageFragment, ?string $projectDir): void
     {
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
@@ -568,7 +568,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-ns-reject-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
@@ -591,7 +591,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-ns-override-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
@@ -620,7 +620,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-absolute-no-write-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);
@@ -666,7 +666,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-boundary-root-'.\uniqid();
         \mkdir($projectDir.'/src', 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         // projectDir is passed with a trailing slash so rtrim is actually exercised.
@@ -733,7 +733,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $projectDir = \sys_get_temp_dir().'/generate-dir-mode-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        $idGenerator = self::getContainer()->get('deploy_tasks.id_generator');
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
         $command = $this->makeCommand($idGenerator, projectDir: $projectDir);

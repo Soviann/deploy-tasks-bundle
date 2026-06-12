@@ -50,19 +50,19 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function validateAllOrNothingStorage(ContainerBuilder $container): void
     {
-        if (!$container->hasParameter('deploy_tasks.runner.all_or_nothing')) {
+        if (!$container->hasParameter('soviann_deploy_tasks.runner.all_or_nothing')) {
             return;
         }
 
         /** @var bool $allOrNothing */
-        $allOrNothing = $container->getParameter('deploy_tasks.runner.all_or_nothing');
-        $container->getParameterBag()->remove('deploy_tasks.runner.all_or_nothing');
+        $allOrNothing = $container->getParameter('soviann_deploy_tasks.runner.all_or_nothing');
+        $container->getParameterBag()->remove('soviann_deploy_tasks.runner.all_or_nothing');
 
         if (!$allOrNothing) {
             return;
         }
 
-        $class = $container->findDefinition('deploy_tasks.storage')->getClass();
+        $class = $container->findDefinition('soviann_deploy_tasks.storage')->getClass();
 
         if (null === $class) {
             return;
@@ -88,13 +88,13 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function maybeAliasTransactionalCustomStorage(ContainerBuilder $container): void
     {
-        if (!$container->hasParameter('deploy_tasks.storage.custom_service_id')) {
+        if (!$container->hasParameter('soviann_deploy_tasks.storage.custom_service_id')) {
             return;
         }
 
         /** @var string $customServiceId */
-        $customServiceId = $container->getParameter('deploy_tasks.storage.custom_service_id');
-        $container->getParameterBag()->remove('deploy_tasks.storage.custom_service_id');
+        $customServiceId = $container->getParameter('soviann_deploy_tasks.storage.custom_service_id');
+        $container->getParameterBag()->remove('soviann_deploy_tasks.storage.custom_service_id');
 
         $class = $container->findDefinition($customServiceId)->getClass();
 
@@ -103,7 +103,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         }
 
         if (null !== $class && \is_a($class, TransactionalStorageInterface::class, true)) {
-            $container->setAlias(TransactionalStorageInterface::class, 'deploy_tasks.storage');
+            $container->setAlias(TransactionalStorageInterface::class, 'soviann_deploy_tasks.storage');
         }
 
         $this->validateCustomTransactionalStorage($container, $customServiceId, $class);
@@ -123,11 +123,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function validateCustomTransactionalStorage(ContainerBuilder $container, string $customServiceId, ?string $customStorageClass): void
     {
-        if (!$container->hasDefinition('deploy_tasks.runner')) {
+        if (!$container->hasDefinition('soviann_deploy_tasks.runner')) {
             return;
         }
 
-        $runnerDefinition = $container->findDefinition('deploy_tasks.runner');
+        $runnerDefinition = $container->findDefinition('soviann_deploy_tasks.runner');
         $transactional = $runnerDefinition->getArgument('$transactional');
 
         if (true !== $transactional) {
@@ -165,7 +165,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     private function validateTaggedTasks(ContainerBuilder $container): void
     {
         $generatorClass = $this->resolveGeneratorClass($container);
-        $taggedServices = $container->findTaggedServiceIds('deploy_tasks.task');
+        $taggedServices = $container->findTaggedServiceIds('soviann_deploy_tasks.task');
         [$idColumnLength, $groupColumnLength] = $this->resolveStorageColumnLengths($container);
 
         /** @var array<string, string> $seenIds resolved task ID → service ID */
@@ -209,7 +209,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             }
 
             if (null !== $idColumnLength && \strlen($taskId) > $idColumnLength) {
-                throw new \LogicException(\sprintf('Deploy task ID "%s" (service "%s") is %d characters, exceeding the configured id_column_length of %d. Increase deploy_tasks.storage.database.id_column_length or shorten the task ID.', $taskId, $serviceId, \strlen($taskId), $idColumnLength));
+                throw new \LogicException(\sprintf('Deploy task ID "%s" (service "%s") is %d characters, exceeding the configured id_column_length of %d. Increase soviann_deploy_tasks.storage.database.id_column_length or shorten the task ID.', $taskId, $serviceId, \strlen($taskId), $idColumnLength));
             }
 
             if (isset($seenIds[$taskId])) {
@@ -232,7 +232,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     {
         foreach (AsDeployTask::groupsOf($class) ?? [] as $group) {
             if (\strlen($group) > $groupColumnLength) {
-                throw new \LogicException(\sprintf('Deploy task group "%s" (service "%s") is %d characters, exceeding the configured group_column_length of %d. Increase deploy_tasks.storage.database.group_column_length or shorten the group name.', $group, $serviceId, \strlen($group), $groupColumnLength));
+                throw new \LogicException(\sprintf('Deploy task group "%s" (service "%s") is %d characters, exceeding the configured group_column_length of %d. Increase soviann_deploy_tasks.storage.database.group_column_length or shorten the group name.', $group, $serviceId, \strlen($group), $groupColumnLength));
             }
         }
     }
@@ -246,11 +246,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function resolveStorageColumnLengths(ContainerBuilder $container): array
     {
-        if (!$container->hasDefinition('deploy_tasks.storage.configuration')) {
+        if (!$container->hasDefinition('soviann_deploy_tasks.storage.configuration')) {
             return [null, null];
         }
 
-        $definition = $container->getDefinition('deploy_tasks.storage.configuration');
+        $definition = $container->getDefinition('soviann_deploy_tasks.storage.configuration');
 
         /** @var int $idColumnLength */
         $idColumnLength = $definition->getArgument('$idColumnLength');
@@ -267,7 +267,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function resolveGeneratorClass(ContainerBuilder $container): string
     {
-        $definition = $container->findDefinition('deploy_tasks.id_generator');
+        $definition = $container->findDefinition('soviann_deploy_tasks.id_generator');
         $class = $definition->getClass();
 
         if (null === $class || !\class_exists($class)) {
@@ -295,15 +295,15 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
     private function wireOptionalDependencies(ContainerBuilder $container): void
     {
-        if (!$container->hasDefinition('deploy_tasks.runner')) {
+        if (!$container->hasDefinition('soviann_deploy_tasks.runner')) {
             return;
         }
 
-        $runnerDefinition = $container->getDefinition('deploy_tasks.runner');
+        $runnerDefinition = $container->getDefinition('soviann_deploy_tasks.runner');
 
         // Event dispatcher (argument index 5)
         /** @var bool $eventsEnabled */
-        $eventsEnabled = $container->getParameter('deploy_tasks.events.enabled');
+        $eventsEnabled = $container->getParameter('soviann_deploy_tasks.events.enabled');
 
         if ($eventsEnabled && $container->has('event_dispatcher')) {
             $runnerDefinition->setArgument('$dispatcher', new Reference('event_dispatcher'));
@@ -313,7 +313,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
         // Lock factory (argument index 6)
         /** @var bool $lockEnabled */
-        $lockEnabled = $container->getParameter('deploy_tasks.lock.enabled');
+        $lockEnabled = $container->getParameter('soviann_deploy_tasks.lock.enabled');
 
         if ($lockEnabled && $container->has('lock.factory')) {
             $runnerDefinition->setArgument('$lockFactory', new Reference('lock.factory'));
@@ -322,7 +322,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         }
 
         // Clean up internal parameters
-        $container->getParameterBag()->remove('deploy_tasks.events.enabled');
-        $container->getParameterBag()->remove('deploy_tasks.lock.enabled');
+        $container->getParameterBag()->remove('soviann_deploy_tasks.events.enabled');
+        $container->getParameterBag()->remove('soviann_deploy_tasks.lock.enabled');
     }
 }

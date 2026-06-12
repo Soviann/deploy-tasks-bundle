@@ -806,7 +806,7 @@ final class TaskRunnerTest extends TestCase
         // Lock must be created with the canonical name and a 1-hour TTL — kills IncrementInteger on the 3600 literal.
         $lockFactory->expects(self::once())
             ->method('createLock')
-            ->with('deploy_tasks_run', 3600)
+            ->with('soviann_deploy_tasks_run', 3600)
             ->willReturn($lock);
 
         $runner = $this->createRunner(
@@ -1252,7 +1252,7 @@ final class TaskRunnerTest extends TestCase
         $logger = new ArrayLogger();
         $lockFactory = new LockFactory(new InMemoryStore());
         // Pre-acquire the shared lock outside the runner so its own acquire call fails.
-        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        $heldLock = $lockFactory->createLock('soviann_deploy_tasks_run', 3600);
         self::assertTrue($heldLock->acquire());
 
         $runner = $this->createRunner(

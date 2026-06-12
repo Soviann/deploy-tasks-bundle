@@ -24,7 +24,7 @@ With Symfony Flex, the bundle is registered automatically. Without Flex, registe
 ```php
 return [
     // ...
-    Soviann\DeployTasksBundle\DeployTasksBundle::class => ['all' => true],
+    Soviann\DeployTasksBundle\SoviannDeployTasksBundle::class => ['all' => true],
 ];
 ```
 
@@ -127,11 +127,11 @@ Behavior notes:
 ## Configuration
 
 ```yaml
-# config/packages/deploy_tasks.yaml
-deploy_tasks:
+# config/packages/soviann_deploy_tasks.yaml
+soviann_deploy_tasks:
     id_generator: ~              # service ID of a custom TaskIdGeneratorInterface
     sorter: ~                    # service ID of a custom TaskSorterInterface
-    logger: ~                    # service ID of a custom PSR-3 logger (null = auto-detect app logger, monolog channel "deploy_tasks")
+    logger: ~                    # service ID of a custom PSR-3 logger (null = auto-detect app logger, monolog channel "soviann_deploy_tasks")
     default_timeout: 300         # seconds
     storage:
         type: filesystem         # filesystem | database | custom
@@ -295,14 +295,14 @@ the full DSN, including credentials, into their message and stack trace — forw
 that object to a handler that renders `previous.trace` (the Monolog default) would
 export the password into every sink the channel writes to.
 
-Operators routing the `deploy_tasks` Monolog channel to a shared destination
+Operators routing the `soviann_deploy_tasks` Monolog channel to a shared destination
 (central logging, stderr slurpers, chat alerts) should still take care:
 
 - Prefer a handler that renders context as JSON with a normaliser configured to
   limit trace depth (Monolog's `LineFormatter` with `$allowInlineLineBreaks = false`
   or the `JsonFormatter` + `NormalizerFormatter::setMaxNormalizeDepth(1)`) rather
   than rolling dumps that serialise every nested exception verbatim.
-- Keep the dedicated `deploy_tasks` channel routed to a handler you control — don't
+- Keep the dedicated `soviann_deploy_tasks` channel routed to a handler you control — don't
   fan it into generic "application error" sinks whose redaction guarantees are not
   under your control.
 - Set the application's Doctrine connection DSN via environment variables, not

@@ -21,7 +21,7 @@ final class CustomSorterTestKernel extends AbstractTestKernel
 
         $storagePath = \sys_get_temp_dir().'/deploy-tasks-custom-'.\getmypid().'-'.$this->environment;
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'sorter' => 'test.custom_sorter',
             'storage' => [
                 'type' => 'filesystem',
@@ -37,7 +37,7 @@ final class CustomSorterTestKernel extends AbstractTestKernel
 
         $services->set('test.task.simple', SimpleTask::class)
             ->args(['test.simple', 'A simple test task'])
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
     }
 }

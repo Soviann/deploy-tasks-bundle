@@ -14,7 +14,7 @@ final class AutoconfiguredTask implements DeployTaskInterface
 {
     public function getDescription(): string
     {
-        return 'Task registered without explicit deploy_tasks.task tag';
+        return 'Task registered without explicit soviann_deploy_tasks.task tag';
     }
 
     public function run(OutputInterface $output): TaskResult

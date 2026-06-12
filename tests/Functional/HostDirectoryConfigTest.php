@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -18,10 +18,10 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpKernel\Kernel;
 
 /**
- * Verifies that deploy_tasks.generate.host_directory is honoured at kernel-boot time
+ * Verifies that soviann_deploy_tasks.generate.host_directory is honoured at kernel-boot time
  * and that the default value (%kernel.project_dir%/deploy-tasks-host) is resolved correctly.
  */
-#[CoversClass(DeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksBundle::class)]
 #[CoversClass(DeployTasksGenerateHostCommand::class)]
 final class HostDirectoryConfigTest extends KernelTestCase
 {
@@ -67,7 +67,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
             public function registerBundles(): iterable
             {
                 yield new \Symfony\Bundle\FrameworkBundle\FrameworkBundle();
-                yield new DeployTasksBundle();
+                yield new SoviannDeployTasksBundle();
             }
 
             public function getProjectDir(): string
@@ -95,7 +95,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
                     'php_errors' => ['log' => true],
                 ]);
 
-                $container->extension('deploy_tasks', [
+                $container->extension('soviann_deploy_tasks', [
                     'storage' => [
                         'type' => 'filesystem',
                         'filesystem' => ['path' => $this->fakeProjectDir.'/var/deploy-tasks-storage'],
@@ -149,7 +149,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
             public function registerBundles(): iterable
             {
                 yield new \Symfony\Bundle\FrameworkBundle\FrameworkBundle();
-                yield new DeployTasksBundle();
+                yield new SoviannDeployTasksBundle();
             }
 
             public function getProjectDir(): string
@@ -177,7 +177,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
                     'php_errors' => ['log' => true],
                 ]);
 
-                $container->extension('deploy_tasks', [
+                $container->extension('soviann_deploy_tasks', [
                     'storage' => [
                         'type' => 'filesystem',
                         'filesystem' => ['path' => $this->fakeProjectDir.'/var/deploy-tasks-storage'],

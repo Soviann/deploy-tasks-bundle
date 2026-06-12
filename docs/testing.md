@@ -36,20 +36,20 @@ Boot a minimal kernel with the bundle registered to test DI wiring, commands, an
 
 ```php
 use Symfony\Component\HttpKernel\Kernel;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 
 final class TestKernel extends Kernel
 {
     public function registerBundles(): iterable
     {
         yield new \Symfony\Bundle\FrameworkBundle\FrameworkBundle();
-        yield new DeployTasksBundle();
+        yield new SoviannDeployTasksBundle();
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', ['test' => true]);
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'filesystem',
                 'filesystem' => ['path' => sys_get_temp_dir().'/deploy-tasks-test'],
@@ -58,7 +58,7 @@ final class TestKernel extends Kernel
         // Register test tasks with the bundle tag
         $container->services()
             ->set(YourTestTask::class)
-            ->tag('deploy_tasks.task');
+            ->tag('soviann_deploy_tasks.task');
     }
 }
 ```

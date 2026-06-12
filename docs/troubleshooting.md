@@ -6,7 +6,7 @@ Symptom-first reference for the errors and surprises contributors most often hit
 
 Most common causes, in order:
 
-1. **The class is not in a service-autoconfigured directory.** Tasks rely on Symfony's `autoconfigure: true` to receive the `deploy_tasks.task` tag automatically. Make sure the namespace is covered by `App\:` (or your own) `resource:` line in `config/services.yaml`.
+1. **The class is not in a service-autoconfigured directory.** Tasks rely on Symfony's `autoconfigure: true` to receive the `soviann_deploy_tasks.task` tag automatically. Make sure the namespace is covered by `App\:` (or your own) `resource:` line in `config/services.yaml`.
 2. **The task declares an `env` that does not match.** `#[AsDeployTask(env: 'prod')]` is silently skipped on `dev`. Compare the task's declared `env` against your current environment.
 3. **The task declares a `groups:` value but you ran `deploytasks:run` without `--group`.** Tasks declared with one or more groups *only* run when the matching `--group=<name>` flag is passed; the default (ungrouped) slot only runs when no `--group` is passed. See [creating-tasks.md → Group filtering](creating-tasks.md#group-filtering).
 4. **The task already ran in this slot.** Use `deploytasks:show <id>` to see every recorded slot. `deploytasks:reset <id>` clears one execution record.

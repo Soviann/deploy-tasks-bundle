@@ -15,7 +15,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 
 - `DeployTaskInterface` — task contract: `getDescription(): string`, `run(OutputInterface): TaskResult`
 - `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`, `LOCKED`
-- `DeployTasksBundle` — `AbstractBundle`. `configure()` builds the config tree; `loadExtension()` registers services; `build()` autoconfigures `DeployTaskInterface` with tag `deploy_tasks.task`.
+- `SoviannDeployTasksBundle` — `AbstractBundle`. `configure()` builds the config tree; `loadExtension()` registers services; `build()` autoconfigures `DeployTaskInterface` with tag `soviann_deploy_tasks.task`.
 
 ### Role-based folders
 
@@ -68,10 +68,10 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 
 ## Configuration
 
-Root key `deploy_tasks:`.
+Root key `soviann_deploy_tasks:`.
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     id_generator: ~                         # service ID or null (default: DefaultTaskIdGenerator)
     sorter: ~                               # service ID or null (default: DefaultTaskSorter)
     logger: ~                               # PSR-3 service ID; null = autodetect app logger, NullLogger fallback
@@ -117,7 +117,7 @@ Validation: `type: database` requires `doctrine/dbal` at compile time. `type: cu
 ## Service Registration
 
 ### Autoconfiguration
-Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tasks.task`.
+Any class implementing `DeployTaskInterface` is automatically tagged `soviann_deploy_tasks.task`.
 
 ### Attribute
 `#[AsDeployTask(id, priority, env, timeout, transactional, description, groups)]` provides task metadata. `AsDeployTask::of($task)` is the only attribute reader in the codebase. The `description` attribute is the fallback when `getDescription()` returns an empty string — same pattern as `id` resolution.
@@ -172,20 +172,20 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 
 | Need | Touch |
 |---|---|
-| New storage backend | Implement `TaskStorageInterface` (or `TransactionalStorageInterface`) in `src/Storage/`. Add a service + config branch in `DeployTasksBundle::configure()` and `loadExtension()`. |
-| Custom ID scheme | Implement `TaskIdGeneratorInterface`. Set `deploy_tasks.id_generator` to its service ID. |
+| New storage backend | Implement `TaskStorageInterface` (or `TransactionalStorageInterface`) in `src/Storage/`. Add a service + config branch in `SoviannDeployTasksBundle::configure()` and `loadExtension()`. |
+| Custom ID scheme | Implement `TaskIdGeneratorInterface`. Set `soviann_deploy_tasks.id_generator` to its service ID. |
 | Dynamic per-task ID | Task implements `TaskIdProviderInterface::getTaskId()`. |
-| Custom ordering | Implement `TaskSorterInterface`. Set `deploy_tasks.sorter`. |
+| Custom ordering | Implement `TaskSorterInterface`. Set `soviann_deploy_tasks.sorter`. |
 | React to lifecycle | Subscribe to `BeforeTaskEvent` / `AfterTaskEvent` / `TaskFailedEvent` (all carry `$taskId`). |
-| Custom logger | Set `deploy_tasks.logger` to a PSR-3 service ID. Default auto-detects the app logger with a `deploy_tasks` Monolog channel; `NullLogger` if no logger is available. |
-| New command | Add to `src/Command/`, register in `DeployTasksBundle::loadExtension()`. |
+| Custom logger | Set `soviann_deploy_tasks.logger` to a PSR-3 service ID. Default auto-detects the app logger with a `soviann_deploy_tasks` Monolog channel; `NullLogger` if no logger is available. |
+| New command | Add to `src/Command/`, register in `SoviannDeployTasksBundle::loadExtension()`. |
 
 ## Key Design Decisions
 
 - **Filesystem default** — zero dependencies, no migration needed
 - **Auto-create DB table** — `auto_create_table: true` by default; `deploytasks:create-schema` available for explicit control
 - **Optional event dispatcher and lock factory** — graceful degradation when `symfony/event-dispatcher` or `symfony/lock` is absent
-- **PSR-3 logging, channel-aware** — requires `psr/log` (universal); the runner uses `@logger` when available with a `deploy_tasks` Monolog channel tag, otherwise falls back to `NullLogger`. Mirrors the event-dispatcher / lock graceful-degradation pattern.
+- **PSR-3 logging, channel-aware** — requires `psr/log` (universal); the runner uses `@logger` when available with a `soviann_deploy_tasks` Monolog channel tag, otherwise falls back to `NullLogger`. Mirrors the event-dispatcher / lock graceful-degradation pattern.
 - **Single attribute reader** — `AsDeployTask::of()` is the sole entry point for attribute parsing
 - **All classes `final`** — composition over inheritance
 

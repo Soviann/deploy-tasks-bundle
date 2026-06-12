@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -18,15 +18,15 @@ use Symfony\Component\DependencyInjection\Reference;
  * Pins the wiring contract for the runner's logger argument and the monolog channel tag.
  *
  * When no user override is configured, the runner gets a NULL_ON_INVALID_REFERENCE
- * reference to `logger` and is tagged `monolog.logger { channel: deploy_tasks }` so
+ * reference to `logger` and is tagged `monolog.logger { channel: soviann_deploy_tasks }` so
  * MonologBundle's LoggerChannelPass rewrites the reference to the channel-scoped logger.
  * TaskRunner falls back to a NullLogger at runtime when no logger service exists.
  *
- * When the user sets `deploy_tasks.logger: <service_id>`, the runner receives a direct
+ * When the user sets `soviann_deploy_tasks.logger: <service_id>`, the runner receives a direct
  * reference to that service and carries NO `monolog.logger` tag — the channel rewrite
  * must not silently override the user's explicit choice.
  */
-#[CoversClass(DeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksBundle::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
 final class LoggerWiringTest extends TestCase
 {
@@ -46,19 +46,19 @@ final class LoggerWiringTest extends TestCase
     {
         $container = $this->buildContainer();
 
-        $loggerArg = $container->getDefinition('deploy_tasks.runner')->getArgument('$logger');
+        $loggerArg = $container->getDefinition('soviann_deploy_tasks.runner')->getArgument('$logger');
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('logger', (string) $loggerArg);
         self::assertSame(ContainerInterface::NULL_ON_INVALID_REFERENCE, $loggerArg->getInvalidBehavior());
-        self::assertMonologChannelTag($container->getDefinition('deploy_tasks.runner'));
+        self::assertMonologChannelTag($container->getDefinition('soviann_deploy_tasks.runner'));
     }
 
     public function testRunnerReferencesUserLoggerDirectlyWhenUserOverrides(): void
     {
         $container = $this->buildContainer(['logger' => 'my_logger']);
 
-        $runner = $container->getDefinition('deploy_tasks.runner');
+        $runner = $container->getDefinition('soviann_deploy_tasks.runner');
         $loggerArg = $runner->getArgument('$logger');
 
         self::assertInstanceOf(Reference::class, $loggerArg);
@@ -69,11 +69,11 @@ final class LoggerWiringTest extends TestCase
     public function testCompilerPassDoesNotTouchLoggerArgument(): void
     {
         $container = $this->buildContainer();
-        $loggerArgBefore = $container->getDefinition('deploy_tasks.runner')->getArgument('$logger');
+        $loggerArgBefore = $container->getDefinition('soviann_deploy_tasks.runner')->getArgument('$logger');
 
         (new RegisterTasksCompilerPass())->process($container);
 
-        $loggerArgAfter = $container->getDefinition('deploy_tasks.runner')->getArgument('$logger');
+        $loggerArgAfter = $container->getDefinition('soviann_deploy_tasks.runner')->getArgument('$logger');
 
         self::assertEquals($loggerArgBefore, $loggerArgAfter);
     }
@@ -82,7 +82,7 @@ final class LoggerWiringTest extends TestCase
     {
         $tags = $runner->getTag('monolog.logger');
         self::assertCount(1, $tags, 'runner must carry a single monolog.logger tag');
-        self::assertSame('deploy_tasks', $tags[0]['channel'] ?? null);
+        self::assertSame('soviann_deploy_tasks', $tags[0]['channel'] ?? null);
     }
 
     /**
@@ -98,7 +98,7 @@ final class LoggerWiringTest extends TestCase
         $container->setParameter('kernel.build_dir', $projectDir.'/build');
         $container->setParameter('kernel.cache_dir', $projectDir.'/cache');
 
-        $bundle = new DeployTasksBundle();
+        $bundle = new SoviannDeployTasksBundle();
         $extension = $bundle->getContainerExtension();
         self::assertNotNull($extension);
 

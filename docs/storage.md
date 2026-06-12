@@ -7,7 +7,7 @@ The storage backend records which tasks have been executed, their status, and wh
 Stores one JSON file per task execution under a configurable directory. Requires no additional packages.
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     storage:
         type: filesystem
         filesystem:
@@ -37,7 +37,7 @@ composer require doctrine/dbal
 ```
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     storage:
         type: database
         database:
@@ -88,7 +88,7 @@ These are the default column names and widths; adjust them to match your configu
 When deploying the bundle into an application that already has a tracking table with different column names or sizes, all six column identifiers and both `VARCHAR` widths are configurable:
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     storage:
         type: database
         database:
@@ -118,7 +118,7 @@ For containerised deployments, prefer one of:
 Transaction wrapping is configured per storage backend under `storage.<type>`:
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     storage:
         type: database
         database:
@@ -174,7 +174,7 @@ All read/write methods are scoped by `(taskId, ?group)` — `null` is the defaul
 
 ### End-to-end Redis example
 
-The example below stores execution records as Redis hashes keyed `deploy_tasks:<id>:<group>`. It uses [`predis/predis`](https://github.com/predis/predis), but `phpredis` works the same way — only the client method names differ.
+The example below stores execution records as Redis hashes keyed `soviann_deploy_tasks:<id>:<group>`. It uses [`predis/predis`](https://github.com/predis/predis), but `phpredis` works the same way — only the client method names differ.
 
 ```php
 namespace App\Storage;
@@ -186,8 +186,8 @@ use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 
 final class RedisStorage implements TaskStorageInterface
 {
-    private const KEY_PREFIX = 'deploy_tasks:';
-    private const INDEX_KEY = 'deploy_tasks:index';
+    private const KEY_PREFIX = 'soviann_deploy_tasks:';
+    private const INDEX_KEY = 'soviann_deploy_tasks:index';
 
     public function __construct(private readonly ClientInterface $redis)
     {
@@ -306,8 +306,8 @@ services:
 ```
 
 ```yaml
-# config/packages/deploy_tasks.yaml
-deploy_tasks:
+# config/packages/soviann_deploy_tasks.yaml
+soviann_deploy_tasks:
     storage:
         type: custom
         custom:
