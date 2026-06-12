@@ -119,5 +119,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The execution record is now persisted before `AfterTaskEvent` / `TaskFailedEvent` listeners run, so a throwing listener can no longer lose the record and cause silent double execution on the next deploy.
 - `deploytasks:run --id` now runs inside a transaction when `all_or_nothing` is enabled — previously a single-task run executed with no transaction at all under the database storage defaults.
 - `deploytasks:run --id` combined with `--dry-run` now previews instead of silently executing the task for real.
+- `--dry-run --rerun-all` now previews the forced re-run instead of reporting already-executed tasks as skipped.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/74d55c7...HEAD

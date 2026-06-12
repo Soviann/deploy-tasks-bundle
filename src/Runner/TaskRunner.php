@@ -87,7 +87,7 @@ final class TaskRunner
             $effectiveGroups = [] === $groups ? [null] : $groups;
 
             if ($dryRun) {
-                return $this->dryRun($sorted, $output, $effectiveGroups);
+                return $this->dryRun($sorted, $output, $effectiveGroups, $force);
             }
 
             if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
@@ -236,12 +236,15 @@ final class TaskRunner
     /**
      * Lists pending (task, slot) pairs without executing them.
      *
+     * When `$force` is true, every slot is treated as pending, mirroring what a
+     * forced run would re-execute.
+     *
      * @param list<DeployTaskInterface> $tasks
      * @param list<?string>             $effectiveGroups
      *
      * @throws \ReflectionException
      */
-    private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups): RunResult
+    private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups, bool $force): RunResult
     {
         $pending = 0;
         $skipped = 0;
@@ -251,7 +254,7 @@ final class TaskRunner
             $slots = self::computeSlots($task, $effectiveGroups);
 
             foreach ($slots as $slot) {
-                $execution = $this->storage->get($taskId, $slot);
+                $execution = $force ? null : $this->storage->get($taskId, $slot);
 
                 if (null !== $execution && TaskStatus::Failed !== $execution->status) {
                     ++$skipped;
