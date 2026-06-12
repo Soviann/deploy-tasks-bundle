@@ -18,6 +18,7 @@ use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Exception\TaskReturnedFailureException;
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
@@ -476,7 +477,7 @@ final class TaskRunner
         float $duration,
         OutputInterface $output,
     ): TaskOutcome {
-        $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
+        $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, ConsoleSanitizer::sanitize($e->getMessage())));
         $this->logger->error('Deploy task failed', [
             'task_id' => $taskId,
             'duration_ms' => (int) \round($duration * 1000),

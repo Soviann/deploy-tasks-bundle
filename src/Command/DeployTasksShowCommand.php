@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -116,7 +117,7 @@ final class DeployTasksShowCommand extends Command
         ];
 
         if (null !== $execution->error) {
-            $rows[] = ['Error' => $execution->error];
+            $rows[] = ['Error' => ConsoleSanitizer::sanitize($execution->error)];
         }
 
         $io->definitionList(...$rows);
