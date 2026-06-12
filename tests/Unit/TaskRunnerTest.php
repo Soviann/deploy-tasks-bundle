@@ -261,6 +261,29 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
     }
 
+    public function testRunOneDryRunListsPendingWithoutExecuting(): void
+    {
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
+
+        $result = $runner->runOne('task.1', $this->output, dryRun: true);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('[would run] task.1 - First', $this->output->fetch());
+        self::assertFalse($this->storage->has('task.1'));
+    }
+
+    public function testRunOneDryRunOnExecutedTaskReportsAlreadyExecuted(): void
+    {
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
+        $runner->runOne('task.1', $this->output);
+        $this->output->fetch();
+
+        $result = $runner->runOne('task.1', $this->output, dryRun: true);
+
+        self::assertSame(TaskResult::SKIPPED, $result);
+        self::assertStringContainsString('already been executed', $this->output->fetch());
+    }
+
     public function testEventsDispatched(): void
     {
         $dispatched = [];
