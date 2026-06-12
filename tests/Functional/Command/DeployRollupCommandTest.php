@@ -68,6 +68,19 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertTrue($this->storage->has('test.simple'));
     }
 
+    public function testBareEnterAtConfirmationAborts(): void
+    {
+        // A stale record proves nothing was wiped: a completed rollup would delete it.
+        $this->storage->save(new TaskExecution('stale.nonexistent', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->setInputs(['']);
+        $this->tester->execute([], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->tester->getDisplay());
+        self::assertTrue($this->storage->has('stale.nonexistent'), 'Aborted rollup must not touch storage');
+    }
+
     public function testRollupNoInteractionWithoutForceRefuses(): void
     {
         $this->tester->execute(['--no-interaction' => true], ['interactive' => false]);
