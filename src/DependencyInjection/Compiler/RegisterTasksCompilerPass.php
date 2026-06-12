@@ -10,6 +10,7 @@ use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -24,6 +25,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 {
     /**
      * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
+     * @throws IncompatibleStorageException When the custom storage service does not implement TaskStorageInterface
      * @throws \LogicException              When two tagged tasks resolve to the same ID
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
@@ -75,8 +77,14 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * When storage.type is "custom" and the user-provided service implements
      * TransactionalStorageInterface, exposes it under that interface too.
      *
+     * Also rejects custom storage services that do not implement
+     * TaskStorageInterface at all — without this check the container builds
+     * fine and TaskRunner explodes at runtime with a TypeError.
+     *
      * Deferred to the compiler pass because the user's service definition is not
      * visible during extension loading (which runs in an isolated temp container).
+     *
+     * @throws IncompatibleStorageException When the custom storage service does not implement TaskStorageInterface
      */
     private function maybeAliasTransactionalCustomStorage(ContainerBuilder $container): void
     {
@@ -89,6 +97,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         $container->getParameterBag()->remove('deploy_tasks.storage.custom_service_id');
 
         $class = $container->findDefinition($customServiceId)->getClass();
+
+        if (null !== $class && !\is_a($class, TaskStorageInterface::class, true)) {
+            throw new IncompatibleStorageException(\sprintf('Custom storage service "%s" (class "%s") must implement %s.', $customServiceId, $class, TaskStorageInterface::class));
+        }
 
         if (null !== $class && \is_a($class, TransactionalStorageInterface::class, true)) {
             $container->setAlias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->setPublic(true);
