@@ -303,10 +303,9 @@ final class TaskRunner
             }
 
             $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
+            $skipped += \count($slots) - \count($pendingSlots);
 
             if ([] === $pendingSlots) {
-                $skipped += \count($slots);
-
                 continue;
             }
 
