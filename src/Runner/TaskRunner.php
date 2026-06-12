@@ -327,9 +327,11 @@ final class TaskRunner
      * Emits a `[current/total] FQCN` progress line before execution and a
      * `→ status (ms)` completion line after.
      *
-     * Persistence uses a dedicated per-task transaction after run() completes (see
-     * persistOutcomeTransactional()); the execution record is always written before
-     * After/Failed events are dispatched.
+     * Persistence happens after run() completes: the success path writes through
+     * persistOutcomeTransactional() (a dedicated per-task transaction on transactional
+     * backends), the failure path through plain persistOutcome(); under all_or_nothing
+     * both nest inside the run-wide transaction. The execution record is always written
+     * before After/Failed events are dispatched.
      *
      * @param list<?string> $pendingSlots Slots to persist the execution outcome into
      *
@@ -348,17 +350,9 @@ final class TaskRunner
 
         $this->logger->info('Deploy task starting', ['task_id' => $taskId]);
 
-        try {
-            $this->dispatcher?->dispatch(new BeforeTaskEvent($taskId, $task));
-        } catch (\Throwable $listenerError) {
-            $this->logger->error('Deploy task listener failed', [
-                'event' => BeforeTaskEvent::class,
-                'task' => $taskId,
-                'exception' => $listenerError,
-            ]);
-
-            throw new EventListenerException(\sprintf('Listener for %s failed.', BeforeTaskEvent::class), 0, $listenerError);
-        }
+        // Dispatched before the main try block: a Before-listener failure must propagate
+        // directly without entering the task-failure handling below.
+        $this->dispatchGuarded(new BeforeTaskEvent($taskId, $task), $taskId);
 
         $start = \microtime(true);
         $taskRanSuccessfully = false;
@@ -376,19 +370,16 @@ final class TaskRunner
 
             $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
 
-            // Record persisted — a throwing listener can no longer lose the execution.
-            $this->dispatchAfterTask($task, $taskId, $result, $duration);
+            // Persist must precede dispatch so a throwing listener cannot lose the record.
+            $this->dispatchGuarded(new AfterTaskEvent($taskId, $task, $result, $duration), $taskId);
 
             return $outcome;
-        } catch (EventListenerException $listenerError) {
-            // Record already persisted; re-raise so the caller sees the listener bug.
-            throw $listenerError;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
-            // When the task ran successfully but the storage save threw, propagate without
-            // attempting a second write — a failure record would be misleading and a second
-            // save() call would likely fail again on a broken storage.
+            // Re-raise when the task itself succeeded: the record is already persisted, and a
+            // failure record would be wrong — this covers both a storage save() failure and a
+            // throwing AfterTaskEvent listener.
             if ($taskRanSuccessfully) {
                 throw $e;
             }
@@ -401,7 +392,7 @@ final class TaskRunner
 
             $this->persistOutcome($taskId, $outcome, $pendingSlots);
 
-            $this->dispatchTaskFailed($task, $taskId, $e, $duration);
+            $this->dispatchGuarded(new TaskFailedEvent($taskId, $task, $e, $duration), $taskId);
 
             if ($this->allOrNothing) {
                 // Propagate so the outer transaction rolls everything back
@@ -471,33 +462,24 @@ final class TaskRunner
         );
     }
 
-    private function dispatchAfterTask(DeployTaskInterface $task, string $taskId, TaskResult $result, float $duration): void
+    /**
+     * Dispatches a lifecycle event, wrapping any listener failure so the caller
+     * can distinguish listener bugs from task failures.
+     *
+     * @throws EventListenerException When a listener throws
+     */
+    private function dispatchGuarded(object $event, string $taskId): void
     {
         try {
-            $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
+            $this->dispatcher?->dispatch($event);
         } catch (\Throwable $listenerError) {
             $this->logger->error('Deploy task listener failed', [
-                'event' => AfterTaskEvent::class,
+                'event' => $event::class,
                 'task' => $taskId,
                 'exception' => $listenerError,
             ]);
 
-            throw new EventListenerException(\sprintf('Listener for %s failed.', AfterTaskEvent::class), 0, $listenerError);
-        }
-    }
-
-    private function dispatchTaskFailed(DeployTaskInterface $task, string $taskId, \Throwable $e, float $duration): void
-    {
-        try {
-            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
-        } catch (\Throwable $listenerError) {
-            $this->logger->error('Deploy task listener failed', [
-                'event' => TaskFailedEvent::class,
-                'task' => $taskId,
-                'exception' => $listenerError,
-            ]);
-
-            throw new EventListenerException(\sprintf('Listener for %s failed.', TaskFailedEvent::class), 0, $listenerError);
+            throw new EventListenerException(\sprintf('Listener for %s failed.', $event::class), 0, $listenerError);
         }
     }
 
