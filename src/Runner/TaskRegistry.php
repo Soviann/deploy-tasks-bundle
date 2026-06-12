@@ -27,13 +27,18 @@ final class TaskRegistry
      * @param iterable<DeployTaskInterface> $tasks      Tagged deploy task services
      * @param TaskIdResolver                $idResolver Resolves the canonical ID for each task
      *
-     * @throws DuplicateTaskIdException When two tasks resolve to the same id
-     * @throws \ReflectionException     When the #[AsDeployTask] attribute lookup fails for a tagged task
+     * @throws DuplicateTaskIdException  When two tasks resolve to the same id
+     * @throws \InvalidArgumentException When a resolved id does not match AsDeployTask::TASK_ID_PATTERN
+     * @throws \ReflectionException      When the #[AsDeployTask] attribute lookup fails for a tagged task
      */
     public function __construct(iterable $tasks, TaskIdResolver $idResolver)
     {
         foreach ($tasks as $task) {
             $id = $idResolver->resolve($task);
+
+            if (1 !== \preg_match(AsDeployTask::TASK_ID_PATTERN, $id)) {
+                throw new \InvalidArgumentException(\sprintf('Invalid task id "%s" (from %s): must match %s.', $id, $task::class, AsDeployTask::TASK_ID_PATTERN));
+            }
 
             if (isset($this->tasks[$id])) {
                 throw DuplicateTaskIdException::create($id, $this->taskFqcns[$id], $task::class);

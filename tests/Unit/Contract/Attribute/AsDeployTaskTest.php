@@ -162,6 +162,19 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(1, \array_key_last($result));
     }
 
+    public function testRejectsIdWithDisallowedCharacters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid task id/');
+
+        new AsDeployTask(id: "evil/../\x1b[2Jid");
+    }
+
+    public function testAcceptsEmptyIdAsAutoDeductionSentinel(): void
+    {
+        self::assertSame('', (new AsDeployTask())->id);
+    }
+
     #[DataProvider('invalidGroupNameProvider')]
     public function testConstructorRejectsGroupsContainingDisallowedCharacters(string $group): void
     {

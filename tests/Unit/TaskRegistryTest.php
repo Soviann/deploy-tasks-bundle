@@ -111,6 +111,31 @@ final class TaskRegistryTest extends TestCase
         }
     }
 
+    public function testRejectsProviderIdWithDisallowedCharacters(): void
+    {
+        $task = new class implements DeployTaskInterface, TaskIdProviderInterface {
+            public function getTaskId(): string
+            {
+                return "bad id\x1b!";
+            }
+
+            public function getDescription(): string
+            {
+                return 'Task with a hostile provider id';
+            }
+
+            public function run(OutputInterface $output): TaskResult
+            {
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid task id/');
+
+        new TaskRegistry([$task], new TaskIdResolver());
+    }
+
     public function testGetReturnsTask(): void
     {
         $task = new SimpleTask('task.one', 'My task description');
