@@ -137,8 +137,8 @@ deploy_tasks:
         type: filesystem         # filesystem | database | custom
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
-            transactional: false     # filesystem storage ignores these (no transaction support)
-            all_or_nothing: false
+            transactional: false     # must stay false — true is rejected at container build
+            all_or_nothing: false    # must stay false — true is rejected at container build
         database:
             connection: default
             table: deploy_task_executions
@@ -219,6 +219,8 @@ The runner loads env files in Symfony cascade order (lowest to highest priority)
 4. `.env.$APP_ENV.local`
 5. `deploy-tasks-host.local.sh` (bash source, for overrides the `.env` parser can't express)
 
+Values are taken literally — no variable expansion, no inline comments, no multiline values; `deploy-tasks-host.local.sh` is the escape hatch for anything the parser can't express.
+
 Values in host task scripts reference exported env vars (`$NAS_HOST`, etc.).
 
 ### Concurrency
@@ -245,10 +247,10 @@ Paths are resolved relative to the runner's current working directory (the repo 
 | `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable), `--filter-status=<comma-list>` |
 | `deploytasks:show <id>` | Show full metadata and every stored execution record for a single task | — |
 | `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` |
-| `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>` |
-| `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir` |
+| `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>`, `--force` / `--yes` |
+| `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
 | `deploytasks:generate:host` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
-| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable) |
+| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` / `--yes` |
 | `deploytasks:create-schema` | Create the storage table | `--dump-sql` |
 
 ## Task Groups
