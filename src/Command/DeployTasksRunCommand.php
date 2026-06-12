@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Runner\RunResult;
@@ -147,7 +148,7 @@ final class DeployTasksRunCommand extends Command
 
         try {
             $taskResult = $this->runner->runOne($taskId, $output, force: $force, groups: $groups, dryRun: $dryRun);
-        } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
+        } catch (TaskGroupRequiredException|TaskGroupMismatchException|TaskEnvironmentMismatchException $e) {
             $io->error($e->getMessage());
 
             return Command::INVALID;
