@@ -39,7 +39,7 @@ trait ProcessRunnerTrait
 
             return TaskResult::FAILURE;
         } catch (ProcessExceptionInterface $e) {
-            $output->writeln(\sprintf('<error>Process error: %s</error>', $e->getMessage()));
+            $output->writeln(\sprintf('<error>Process error: %s</error>', ConsoleSanitizer::sanitize($e->getMessage())));
 
             return TaskResult::FAILURE;
         }

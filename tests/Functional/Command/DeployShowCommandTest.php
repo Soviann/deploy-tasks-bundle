@@ -69,6 +69,18 @@ final class DeployShowCommandTest extends FunctionalTestCase
         self::assertStringContainsString($error, $display);
     }
 
+    public function testErrorRowStripsAnsiEscapeSequences(): void
+    {
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable(), "boom\x1b[2J"));
+
+        $this->tester->execute(['id' => 'test.simple']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('boom', $display);
+        self::assertStringNotContainsString("\x1b", $display);
+    }
+
     public function testShowIncludesCrossReferenceHints(): void
     {
         $this->tester->execute(['id' => 'test.simple']);
