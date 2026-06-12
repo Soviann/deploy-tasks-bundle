@@ -429,6 +429,45 @@ final class TaskRunnerTest extends TestCase
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
     }
 
+    public function testStorageFailureDuringFailurePersistPropagatesWithoutTaskFailedEvent(): void
+    {
+        // Failure-path twin of testStorageFailureDuringPersistPropagates: on the failure
+        // path persistOutcome() also runs BEFORE the TaskFailedEvent dispatch, so when
+        // save() throws, the StorageException propagates (superseding the task's own
+        // exception) and no TaskFailedEvent is dispatched — only BeforeTaskEvent fired.
+        $dispatched = [];
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')
+            ->willReturnCallback(static function (object $event) use (&$dispatched): object {
+                $dispatched[] = $event;
+
+                return $event;
+            });
+
+        $storage = $this->createMock(TaskStorageInterface::class);
+        $storage->method('has')->willReturn(false);
+        $storage->method('get')->willReturn(null);
+        $storage->method('save')->willThrowException(
+            new StorageException('Failed to save task "test.failing": disk full', 0, new \RuntimeException('disk full')),
+        );
+
+        $runner = $this->createRunner(
+            [new FailingTask()],
+            storage: $storage,
+            dispatcher: $dispatcher,
+        );
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected StorageException to propagate from persistOutcome on the failure path');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('test.failing', $e->getMessage());
+        }
+
+        self::assertCount(1, $dispatched, 'Only BeforeTaskEvent fires when the failure-path persist throws — TaskFailedEvent is dispatched after a successful persist');
+        self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
+    }
+
     public function testSkippedTaskStatus(): void
     {
         $runner = $this->createRunner([new SkippingTask()]);
@@ -1126,16 +1165,15 @@ final class TaskRunnerTest extends TestCase
 
     public function testExecuteTaskRollsBackOnSaveFailure(): void
     {
-        // Goal: when storage is transactional, task->run() and storage->save() must execute
-        // inside a single transactional() closure. If save() throws, the transaction
-        // catches the exception (triggering rollback) and re-raises it, so callers see
-        // the failure and the storage stays clean.
+        // Goal: on transactional storage, persistence runs in its own per-task transaction
+        // (persistOutcomeTransactional). If save() throws, the task's own transaction has
+        // already committed; the persist transaction catches the exception (triggering
+        // rollback) and re-raises it, so callers see the failure, no failure record is
+        // written, and a partial multi-slot write cannot survive.
         //
         // The distinguishing observable: $rollbackTriggered is set to true only when the
         // exception from save() is caught by transactional() — which only happens if save()
-        // was called INSIDE the closure.  With the pre-fix code, save() was called by the
-        // caller after transactional() returned, so transactional() never saw the exception
-        // and $rollbackTriggered stayed false.
+        // was called INSIDE a transactional() closure, proving the persist is wrapped.
 
         $storage = new class implements TransactionalStorageInterface {
             /** @var array<string, TaskExecution> */
@@ -1378,7 +1416,7 @@ final class TaskRunnerTest extends TestCase
 
     public function testBeforeListenerFailureLogIncludesEventKey(): void
     {
-        // Kills ArrayItemRemoval on line 353 ('event' key in listener-failed error log).
+        // Kills ArrayItemRemoval on the 'event' key in dispatchGuarded's listener-failed error log.
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
         $dispatcher->method('dispatch')
             ->willReturnCallback(static function (object $event): object {
@@ -1441,7 +1479,8 @@ final class TaskRunnerTest extends TestCase
 
     public function testBeforeListenerExceptionCodeIsZero(): void
     {
-        // Kills DecrementInteger (-1) and IncrementInteger (+1) mutants on line 359.
+        // Kills DecrementInteger (-1) and IncrementInteger (+1) mutants on the
+        // EventListenerException code argument in dispatchGuarded().
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
         $dispatcher->method('dispatch')
             ->willReturnCallback(static function (object $event): object {
@@ -1468,14 +1507,15 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // CatchBlockRemoval (line 365) — EventListenerException must not be swallowed
+    // Listener failures after persistence — the execution record must survive
     // -------------------------------------------------------------------------
 
     public function testAfterListenerExceptionPropagatesWithoutMarkingTaskFailed(): void
     {
-        // Kills CatchBlockRemoval on line 365: without the specific catch for
-        // EventListenerException, it would be caught by the generic \Throwable
-        // handler which calls buildFailureOutcome and writes a FAILED storage record.
+        // Invariant: executeTask's success path persists the Ran record BEFORE
+        // dispatching AfterTaskEvent. A throwing After listener surfaces as
+        // EventListenerException without overwriting the record — the generic
+        // \Throwable handler re-raises it because the task itself succeeded.
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
         $dispatcher->method('dispatch')
             ->willReturnCallback(static function (object $event): object {
@@ -1523,11 +1563,16 @@ final class TaskRunnerTest extends TestCase
 
         $runner = $this->createRunner([new FailingTask()], dispatcher: $dispatcher);
 
+        $caught = null;
+
         try {
             $runner->runAll($this->output);
             self::fail('Expected EventListenerException');
-        } catch (EventListenerException) {
+        } catch (EventListenerException $e) {
+            $caught = $e;
         }
+
+        self::assertSame('failed listener boom', $caught->getPrevious()?->getMessage(), 'the original listener error is chained as the previous exception');
 
         $execution = $this->storage->get('test.failing');
         self::assertNotNull($execution, 'Failed record must be persisted before TaskFailedEvent listeners run');
