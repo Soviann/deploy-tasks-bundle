@@ -502,6 +502,116 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(TaskStatus::Failed, $this->storage->get('test.failing')?->status);
     }
 
+    public function testRunOneWrapsExecutionInTransactionWhenAllOrNothing(): void
+    {
+        // A save-side probe is not enough: persistOutcomeTransactional() already wraps
+        // save() in its own transaction even when runOne() runs the task bare. The
+        // discriminating signal is the task's run() itself executing inside
+        // storage->transactional() — hence the depth counter probed at run() time.
+        // The counter (not a bool) survives the nested per-save transaction.
+        $spy = new class($this->storage) implements TransactionalStorageInterface {
+            public int $transactionDepth = 0;
+            public bool $saveHappenedInsideTransaction = false;
+
+            public function __construct(private readonly TaskStorageInterface $inner)
+            {
+            }
+
+            public function transactional(\Closure $callback): mixed
+            {
+                ++$this->transactionDepth;
+
+                try {
+                    return $callback();
+                } finally {
+                    --$this->transactionDepth;
+                }
+            }
+
+            public function has(string $taskId, ?string $group = null): bool
+            {
+                return $this->inner->has($taskId, $group);
+            }
+
+            public function get(string $taskId, ?string $group = null): ?TaskExecution
+            {
+                return $this->inner->get($taskId, $group);
+            }
+
+            public function save(TaskExecution $execution): void
+            {
+                $this->saveHappenedInsideTransaction = $this->saveHappenedInsideTransaction || $this->transactionDepth > 0;
+                $this->inner->save($execution);
+            }
+
+            public function remove(string $taskId, ?string $group = null): void
+            {
+                $this->inner->remove($taskId, $group);
+            }
+
+            public function removeAll(string $taskId): void
+            {
+                $this->inner->removeAll($taskId);
+            }
+
+            /**
+             * @return list<TaskExecution>
+             */
+            public function findByTaskId(string $taskId): array
+            {
+                return $this->inner->findByTaskId($taskId);
+            }
+
+            /**
+             * @return list<TaskExecution>
+             */
+            public function all(): array
+            {
+                return $this->inner->all();
+            }
+
+            public function reset(): void
+            {
+                $this->inner->reset();
+            }
+        };
+
+        $task = new class(static fn (): bool => $spy->transactionDepth > 0) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public bool $ranInsideTransaction = false;
+
+            /**
+             * @param \Closure(): bool $inTransactionProbe
+             */
+            public function __construct(private readonly \Closure $inTransactionProbe)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return 'task.1';
+            }
+
+            public function getDescription(): string
+            {
+                return 'Records whether run() executes inside a storage transaction';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->ranInsideTransaction = ($this->inTransactionProbe)();
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $runner = $this->createRunner([$task], storage: $spy, allOrNothing: true);
+        $result = $runner->runOne('task.1', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertTrue($task->ranInsideTransaction, 'runOne with all_or_nothing must wrap task execution in storage->transactional()');
+        self::assertTrue($spy->saveHappenedInsideTransaction, 'runOne with all_or_nothing must persist the execution record inside storage->transactional()');
+    }
+
     public function testAllOrNothingRollsBackOnFailure(): void
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
