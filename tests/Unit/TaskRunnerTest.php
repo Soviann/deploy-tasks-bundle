@@ -422,9 +422,11 @@ final class TaskRunnerTest extends TestCase
             self::assertStringContainsString('task.1', $e->getMessage());
         }
 
-        self::assertCount(2, $dispatched, 'Before/After events must fire before persistOutcome');
+        // Persistence happens before AfterTaskEvent: when the save throws, only
+        // BeforeTaskEvent has fired and no After event is dispatched for an
+        // execution that was never recorded.
+        self::assertCount(1, $dispatched, 'Only BeforeTaskEvent fires when persistOutcome throws — AfterTaskEvent is dispatched after a successful persist');
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
-        self::assertInstanceOf(AfterTaskEvent::class, $dispatched[1]);
     }
 
     public function testSkippedTaskStatus(): void
@@ -1500,12 +1502,36 @@ final class TaskRunnerTest extends TestCase
 
         self::assertSame('after listener boom', $caught->getPrevious()?->getMessage(), 'the original listener error is chained as the previous exception');
 
-        // The task ran successfully and persistOutcome fired before the listener threw;
-        // the record must NOT be FAILED.
+        // The record must be persisted BEFORE the After listener runs, so a throwing
+        // listener cannot lose a successful execution.
         $execution = $this->storage->get('task.1');
-        if (null !== $execution) {
-            self::assertNotSame(TaskStatus::Failed, $execution->status, 'After-listener failure must not overwrite a successful task record with FAILED');
+        self::assertNotNull($execution, 'Successful task must be persisted before AfterTaskEvent listeners run');
+        self::assertSame(TaskStatus::Ran, $execution->status);
+    }
+
+    public function testFailedListenerExceptionDoesNotLoseFailureRecord(): void
+    {
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')
+            ->willReturnCallback(static function (object $event): object {
+                if ($event instanceof TaskFailedEvent) {
+                    throw new \RuntimeException('failed listener boom');
+                }
+
+                return $event;
+            });
+
+        $runner = $this->createRunner([new FailingTask()], dispatcher: $dispatcher);
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected EventListenerException');
+        } catch (EventListenerException) {
         }
+
+        $execution = $this->storage->get('test.failing');
+        self::assertNotNull($execution, 'Failed record must be persisted before TaskFailedEvent listeners run');
+        self::assertSame(TaskStatus::Failed, $execution->status);
     }
 
     // -------------------------------------------------------------------------
