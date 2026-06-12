@@ -130,10 +130,12 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     /**
      * Validates at compile time that no two tagged tasks resolve to the same ID.
      *
-     * Tasks implementing TaskIdProviderInterface are skipped entirely: their real
-     * ID only exists at runtime (getTaskId() is an instance method), so any
-     * compile-time check would run against a phantom ID. TaskRegistry covers them
-     * at boot.
+     * Tasks implementing TaskIdProviderInterface are skipped from the ID checks
+     * only (duplicate detection and id_column_length): their real ID only exists
+     * at runtime (getTaskId() is an instance method), so any compile-time ID check
+     * would run against a phantom ID. TaskRegistry covers them at boot. Group-length
+     * validation still runs for them — groups are declared on the attribute and are
+     * fully known at compile time.
      *
      * When a custom generator is configured, its generateStatic() is called for
      * each task without an explicit attribute ID. Returning null opts that task
@@ -177,7 +179,8 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             if (\is_a($class, TaskIdProviderInterface::class, true)) {
                 // The runtime ID comes from getTaskId(); validating generateStatic(FQCN)
                 // would check a phantom ID and reject legal setups. TaskRegistry re-checks
-                // duplicates (and id_column_length is best-effort only) at boot.
+                // duplicates at boot; id_column_length cannot be checked for provider
+                // tasks before runtime.
                 continue;
             }
 
