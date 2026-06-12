@@ -802,6 +802,43 @@ final class DbalStorageTest extends TestCase
         }
     }
 
+    public function testTransactionalInitializesSchemaBeforeOpeningTransaction(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+
+        $payload = 'ok-'.\bin2hex(\random_bytes(4));
+        $result = $storage->transactional(static fn (): string => $payload);
+
+        self::assertSame($payload, $result);
+        self::assertTrue(
+            $connection->createSchemaManager()->tablesExist(['deploy_task_executions']),
+            'transactional() must run auto-create DDL eagerly — inside the transaction it would implicitly commit on MySQL',
+        );
+    }
+
+    public function testCreateSchemaToleratesLosingTheCreateRace(): void
+    {
+        $schemaManager = $this->createMock(\Doctrine\DBAL\Schema\AbstractSchemaManager::class);
+        $schemaManager->method('tablesExist')->willReturn(false);
+
+        $driverException = new class('table "deploy_task_executions" already exists') extends \Doctrine\DBAL\Driver\AbstractException {};
+
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('createSchemaManager')->willReturn($schemaManager);
+        // The first DDL statement losing the check-then-create race must abort the
+        // loop silently — the table exists, which is exactly the desired outcome.
+        $connection->expects(self::once())
+            ->method('executeStatement')
+            ->willThrowException(new \Doctrine\DBAL\Exception\TableExistsException($driverException, null));
+
+        $storage = new DbalStorage($connection, $this->configuration);
+
+        $storage->createSchema();
+    }
+
     /**
      * Kills DecrementInteger / IncrementInteger on code `0` in hydrate()'s
      * ConversionException catch block (line 473, mutants 255/256).

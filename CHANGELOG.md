@@ -123,5 +123,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `deploytasks:run --id` combined with `--dry-run` now previews instead of silently executing the task for real.
 - `--dry-run --rerun-all` now previews the forced re-run instead of reporting already-executed tasks as skipped.
 - Run summaries no longer under-count skipped slots when a multi-group task is only partially pending.
+- Database storage now creates its table before opening the `all_or_nothing` transaction (MySQL DDL implicitly commits, which voided the rollback guarantee on first run) and tolerates losing a concurrent table-create race.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/74d55c7...HEAD
