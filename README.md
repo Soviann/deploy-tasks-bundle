@@ -264,6 +264,8 @@ See [`docs/creating-tasks.md`](docs/creating-tasks.md#group-filtering) and [`doc
 
 ## Documentation
 
+Full index: [`docs/index.md`](docs/index.md).
+
 | Topic | File |
 |---|---|
 | Installation, requirements, optional packages | [`docs/installation.md`](docs/installation.md) |
