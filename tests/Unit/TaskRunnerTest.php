@@ -1152,6 +1152,21 @@ final class TaskRunnerTest extends TestCase
         self::assertStringContainsString('Task "test.failing" failed: Task failed!', $this->output->fetch());
     }
 
+    public function testFailureErrorMessageIsStrippedOfTerminalControlCharacters(): void
+    {
+        // A task exception carrying an ANSI escape sequence must not reach the
+        // terminal raw — the runner sanitizes the message before writeln.
+        $runner = $this->createRunner([
+            $this->makeFailingTaskWithError('task.ansi', new \RuntimeException("boom\x1b[2J")),
+        ]);
+
+        $runner->runAll($this->output);
+
+        $output = $this->output->fetch();
+        self::assertStringContainsString('boom', $output);
+        self::assertStringNotContainsString("\x1b", $output);
+    }
+
     public function testRunAllLogsLifecycle(): void
     {
         $logger = new ArrayLogger();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -160,7 +161,7 @@ final class DeployTasksStatusCommand extends Command
         };
 
         $errorCell = TaskStatus::Failed === $execution->status && null !== $execution->error
-            ? u($execution->error)->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')->toString()
+            ? u(ConsoleSanitizer::sanitize($execution->error))->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')->toString()
             : '';
 
         return [$id, $groupLabel, $description, $status, $errorCell, $execution->executedAt->format('Y-m-d H:i:s')];
