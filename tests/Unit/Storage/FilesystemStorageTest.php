@@ -297,6 +297,11 @@ final class FilesystemStorageTest extends TestCase
         yield 'public as final directory (no trailing slash)' => ['/srv/web/public', true];
         yield 'uppercase PUBLIC segment' => ['/PUBLIC/state', true];
         yield 'mixed-case Public segment' => ['/srv/Public/state', true];
+        yield 'html segment (Apache default docroot)' => ['/var/www/html/deploy-tasks', true];
+        yield 'wwwroot segment' => ['/srv/site/wwwroot/var', true];
+        yield 'httpdocs segment' => ['/var/www/vhosts/example.com/httpdocs/var', true];
+        yield 'substring xhtml is safe' => ['/srv/xhtml/state', false];
+        yield 'substring html-reports is safe' => ['/var/html-reports/state', false];
         yield 'substring my-public is safe' => ['/var/my-public/state', false];
         yield 'substring public-static is safe' => ['/public-static/state', false];
         yield 'substring publication is safe' => ['/var/publications/state', false];
@@ -684,6 +689,80 @@ final class FilesystemStorageTest extends TestCase
         // Mutant A creates a bare ".lock" file in CWD; assert no stray lock exists at the
         // storage-dir level (which is distinct from the per-record sidecar).
         self::assertFileDoesNotExist($this->storagePath.'/.lock', 'A stray bare ".lock" inside storagePath must not exist; the sidecar must include the full record filename.');
+    }
+
+    public function testRemoveDeletesLockSidecar(): void
+    {
+        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        self::assertFileExists($this->storagePath.'/task.a.json.lock');
+
+        $this->storage->remove('task.a');
+
+        self::assertFileDoesNotExist($this->storagePath.'/task.a.json.lock');
+    }
+
+    public function testRemoveAllDeletesLockSidecars(): void
+    {
+        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
+
+        $this->storage->removeAll('task.a');
+
+        self::assertSame([], \glob($this->storagePath.'/*.lock'));
+    }
+
+    public function testResetDeletesLockSidecars(): void
+    {
+        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.b', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->storage->reset();
+
+        self::assertSame([], \glob($this->storagePath.'/*.lock'));
+    }
+
+    public function testSaveIntoUnwritableDirectoryThrowsStorageException(): void
+    {
+        if ('/' !== \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('POSIX file permissions not enforced on non-Unix systems.');
+        }
+
+        if (\function_exists('posix_geteuid') && 0 === \posix_geteuid()) {
+            self::markTestSkipped('Directory permissions are not enforced for the root user.');
+        }
+
+        // Chmod-ing the storage dir itself is futile: ensureDirectoryExists() owner-chmods
+        // it back to 0700 on every save. Simulate the unwritable directory one level up —
+        // a read-only parent makes the mkdir of the not-yet-created storage dir fail.
+        $parent = FilesystemTestHelper::tempDir();
+        $storage = new FilesystemStorage($parent.'/store');
+        \chmod($parent, 0o500);
+
+        try {
+            $this->expectException(StorageException::class);
+            $this->expectExceptionMessageMatches('/Failed to create storage directory/');
+
+            $storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
+        } finally {
+            \chmod($parent, 0o700);
+            FilesystemTestHelper::cleanup($parent);
+        }
+    }
+
+    public function testSaveThrowsLockUnavailableWhenLockSidecarCannotBeOpened(): void
+    {
+        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        // A directory squatting the lock path makes fopen($lockPath, 'c') fail
+        // deterministically — no permission games, works even when running as root.
+        \mkdir($this->storagePath.'/task.b.json.lock');
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Failed to acquire lock file/');
+
+        $this->storage->save(new TaskExecution('task.b', TaskStatus::Ran, new \DateTimeImmutable()));
     }
 
     /**
