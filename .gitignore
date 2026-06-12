@@ -2,7 +2,7 @@
 .claude/
 .idea/
 .infection/
-/DeployTask*.php
+/DeployTask*
 .php-cs-fixer.cache
 .phpstan.cache/
 .phpunit.cache/
