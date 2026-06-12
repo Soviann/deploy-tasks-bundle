@@ -89,9 +89,14 @@ final class CustomTransactionalStorageValidationTest extends KernelTestCase
 
         try {
             // If we reach here, the kernel booted without exceptions — correct.
+            // The alias is private (autowiring-only), so fetch it through the
+            // test container, which exposes private services and aliases.
+            $testContainer = $kernel->getContainer()->get('test.service_container');
+            \assert($testContainer instanceof \Symfony\Component\DependencyInjection\ContainerInterface);
+
             self::assertInstanceOf(
                 TransactionalStorageInterface::class,
-                $kernel->getContainer()->get(TransactionalStorageInterface::class),
+                $testContainer->get(TransactionalStorageInterface::class),
             );
         } finally {
             $kernel->shutdown();
