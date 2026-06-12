@@ -100,6 +100,16 @@ final class DeployRunEnvTest extends FunctionalTestCase
         self::assertTrue($storage->has('test.multi_env'), 'Multi-env task (dev+test) must run in test env');
     }
 
+    public function testRunByIdRefusesEnvMismatchWithCleanError(): void
+    {
+        $this->bootAndBuildTester();
+
+        $this->tester->execute(['--id' => 'test.prod_only']);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('restricted to env', $this->tester->getDisplay());
+    }
+
     public function testMultiEnvTaskIsExcludedInProdEnv(): void
     {
         $this->bootAndBuildTester([], ['environment' => 'prod']);
