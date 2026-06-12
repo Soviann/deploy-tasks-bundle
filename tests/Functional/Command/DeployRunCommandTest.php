@@ -53,6 +53,18 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertEmpty($storage->all());
     }
 
+    public function testDryRunWithIdDoesNotExecuteTask(): void
+    {
+        $this->tester->execute(['--id' => 'test.simple', '--dry-run' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString('would run', $this->tester->getDisplay());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        self::assertEmpty($storage->all());
+    }
+
     public function testRerunAllRerunsAllTasks(): void
     {
         // First run

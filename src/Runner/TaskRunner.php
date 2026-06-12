@@ -118,6 +118,9 @@ final class TaskRunner
     /**
      * Runs a single task by ID, recording one storage row per target slot.
      *
+     * When `$dryRun` is true, pending slots are listed without executing the task
+     * and nothing is written to storage.
+     *
      * When `all_or_nothing` is enabled and the storage backend is transactional,
      * execution and persistence run inside a single transaction, mirroring runAll():
      * a failure rolls back every side-effect before the exception escapes.
@@ -138,9 +141,9 @@ final class TaskRunner
      * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
      * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception escapes after the transaction is rolled back
      */
-    public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
+    public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = [], bool $dryRun = false): TaskResult
     {
-        $result = $this->withLock($output, function (?LockInterface $lock) use ($taskId, $output, $force, $groups): TaskResult {
+        $result = $this->withLock($output, function (?LockInterface $lock) use ($taskId, $output, $force, $groups, $dryRun): TaskResult {
             $task = $this->registry->get($taskId);
 
             $attribute = AsDeployTask::of($task);
@@ -162,6 +165,15 @@ final class TaskRunner
                 $this->logger->info('Deploy task skipped (already executed)', ['task_id' => $taskId]);
 
                 return TaskResult::SKIPPED;
+            }
+
+            if ($dryRun) {
+                foreach ($pendingSlots as $slot) {
+                    $label = null === $slot ? $taskId : $taskId.'@'.$slot;
+                    $output->writeln(\sprintf('  [would run] %s - %s', $label, $this->descriptionResolver->resolve($task)));
+                }
+
+                return TaskResult::SUCCESS;
             }
 
             if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {

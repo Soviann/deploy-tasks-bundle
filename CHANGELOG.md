@@ -118,5 +118,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A task returning `TaskResult::FAILURE` (instead of throwing) is now recorded as `failed`, dispatches `TaskFailedEvent`, aborts `all_or_nothing` runs, and is retried on the next run — previously it was silently stored as `ran` with no error and never retried, breaking every task built on `ProcessRunnerTrait`. Returning the runner-reserved `TaskResult::LOCKED` is treated the same way.
 - The execution record is now persisted before `AfterTaskEvent` / `TaskFailedEvent` listeners run, so a throwing listener can no longer lose the record and cause silent double execution on the next deploy.
 - `deploytasks:run --id` now runs inside a transaction when `all_or_nothing` is enabled — previously a single-task run executed with no transaction at all under the database storage defaults.
+- `deploytasks:run --id` combined with `--dry-run` now previews instead of silently executing the task for real.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/74d55c7...HEAD
