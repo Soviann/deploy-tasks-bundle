@@ -103,7 +103,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         }
 
         if (null !== $class && \is_a($class, TransactionalStorageInterface::class, true)) {
-            $container->setAlias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->setPublic(true);
+            $container->setAlias(TransactionalStorageInterface::class, 'deploy_tasks.storage');
         }
 
         $this->validateCustomTransactionalStorage($container, $customServiceId, $class);

@@ -126,7 +126,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tas
 - `TransactionalStorageInterface` → active storage when it supports transactions
 - `TaskIdGeneratorInterface` → configured or default generator
 - `TaskSorterInterface` → configured or default sorter
-- `TaskRegistry`, `TaskRunner` → public
+- `TaskRegistry`, `TaskRunner` → autowirable (private aliases, constructor injection only)
 
 ## Console Commands
 

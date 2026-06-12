@@ -12,8 +12,6 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 
 /**
  * In-memory registry of all discovered deploy tasks, keyed by ID.
- *
- * @internal
  */
 final class TaskRegistry
 {

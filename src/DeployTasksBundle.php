@@ -119,7 +119,7 @@ final class DeployTasksBundle extends AbstractBundle
                 service('deploy_tasks.id_resolver'),
             ])
         ;
-        $services->alias(TaskRegistry::class, 'deploy_tasks.registry')->public();
+        $services->alias(TaskRegistry::class, 'deploy_tasks.registry');
 
         // ID generator
         $this->registerIdGenerator($config, $services);
@@ -187,7 +187,7 @@ final class DeployTasksBundle extends AbstractBundle
             // User supplied a logger service — route as-is, no channel tag.
             $runnerDefinition->setArgument('$logger', new Reference($userLoggerId));
         }
-        $services->alias(TaskRunner::class, 'deploy_tasks.runner')->public();
+        $services->alias(TaskRunner::class, 'deploy_tasks.runner');
 
         // Commands
         $services->set('deploy_tasks.command.run', DeployTasksRunCommand::class)
@@ -309,7 +309,7 @@ final class DeployTasksBundle extends AbstractBundle
                     ])
                 ;
 
-                $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage')->public();
+                $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage');
 
                 $services->set('deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
                     ->args([
@@ -367,7 +367,7 @@ final class DeployTasksBundle extends AbstractBundle
             $services->alias('deploy_tasks.id_generator', 'deploy_tasks.default_id_generator');
         }
 
-        $services->alias(TaskIdGeneratorInterface::class, 'deploy_tasks.id_generator')->public();
+        $services->alias(TaskIdGeneratorInterface::class, 'deploy_tasks.id_generator');
     }
 
     /**
@@ -386,7 +386,7 @@ final class DeployTasksBundle extends AbstractBundle
             ;
         }
 
-        $services->alias(TaskSorterInterface::class, 'deploy_tasks.sorter')->public();
+        $services->alias(TaskSorterInterface::class, 'deploy_tasks.sorter');
     }
 
     /**

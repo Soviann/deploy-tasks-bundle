@@ -265,9 +265,10 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::assertStringContainsString('VARCHAR(64)', $storage->getCreateTableSql());
     }
 
-    public function testTaskIdGeneratorInterfaceAliasIsPublic(): void
+    public function testTaskIdGeneratorInterfaceAliasIsAutowirable(): void
     {
-        // Kills MethodCallRemoval on the `$services->alias(TaskIdGeneratorInterface::class, ...)->public()` call at line 383.
+        // Kills MethodCallRemoval on the `$services->alias(TaskIdGeneratorInterface::class, ...)` call.
+        // The alias is private; the test container exposes it the same way autowiring would.
         self::bootKernel();
         $container = self::getContainer();
 
