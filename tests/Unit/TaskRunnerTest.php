@@ -195,6 +195,21 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(1, $result->skipped);
     }
 
+    public function testDryRunWithForceCountsAllSlotsAsPending(): void
+    {
+        // Pre-seed an executed record, then force-preview: every slot must count as
+        // pending (ran) and none as skipped — kills ternary-arm mutants in dryRun().
+        $task = new SimpleTask('task.1', 'First');
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $runner = $this->createRunner([$task]);
+        $result = $runner->runAll($this->output, dryRun: true, force: true);
+
+        self::assertSame(1, $result->ran);
+        self::assertSame(0, $result->skipped);
+        self::assertNotNull($this->storage->get('task.1'), 'Dry run must not touch storage');
+    }
+
     public function testRunAllWithNoTasks(): void
     {
         $runner = $this->createRunner([]);
