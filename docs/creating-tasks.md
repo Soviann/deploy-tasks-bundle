@@ -116,6 +116,8 @@ The bundle resolves task IDs in this order:
 
 If both `getTaskId()` and the attribute `id` return non-empty **different** values, a `E_USER_WARNING` is triggered and the interface value takes precedence.
 
+Whatever the source, the resolved ID must match `AsDeployTask::TASK_ID_PATTERN` (`^[a-zA-Z0-9._-]+$`) — attribute IDs are validated at construction, provider/generator IDs at registry boot.
+
 Most tasks only need the attribute. Use `TaskIdProviderInterface` when you need to compute the ID dynamically:
 
 ```php

@@ -23,11 +23,17 @@ final class AsDeployTask
      */
     public const GROUP_NAME_PATTERN = '/^[a-zA-Z0-9._-]+$/';
 
+    /**
+     * Allowlist for task IDs — identical to GROUP_NAME_PATTERN; every accepted value
+     * is safe as a filesystem name, DB primary-key value, and terminal output.
+     */
+    public const TASK_ID_PATTERN = '/^[a-zA-Z0-9._-]+$/';
+
     /** @var array<class-string, ?self> */
     private static array $cache = [];
 
     /**
-     * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or FQCN auto-deduction)
+     * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or FQCN auto-deduction). Non-empty values must match AsDeployTask::TASK_ID_PATTERN.
      * @param int                  $priority      Execution priority (higher runs first, default 0)
      * @param string|string[]|null $env           Restrict to specific environment(s), null for all
      * @param int|null             $timeout       Max execution time in seconds, null for default
@@ -35,6 +41,7 @@ final class AsDeployTask
      * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group). Names must match AsDeployTask::GROUP_NAME_PATTERN.
      *
+     * @throws \InvalidArgumentException When a non-empty id does not match TASK_ID_PATTERN
      * @throws \InvalidArgumentException When groups is an empty array
      * @throws \InvalidArgumentException When groups contains a non-string entry
      * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
@@ -71,6 +78,10 @@ final class AsDeployTask
             if (1 !== \preg_match(self::GROUP_NAME_PATTERN, $group)) {
                 throw new \InvalidArgumentException(\sprintf('Invalid group name "%s" in #[AsDeployTask]: must match %s.', $group, self::GROUP_NAME_PATTERN));
             }
+        }
+
+        if ('' !== $id && 1 !== \preg_match(self::TASK_ID_PATTERN, $id)) {
+            throw new \InvalidArgumentException(\sprintf('Invalid task id "%s" in #[AsDeployTask]: must match %s.', $id, self::TASK_ID_PATTERN));
         }
     }
 
