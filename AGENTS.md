@@ -8,7 +8,7 @@ DeployTasksBundle — Symfony bundle for one-time deploy tasks (data migrations,
 
 ## Architecture
 
-Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/` with `Dbal/`, `Filesystem/`, `InMemory/` sub-namespaces). Root-level public API: `DeployTaskInterface`, `DeployTasksBundle`, `TaskResult`.
+Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/` with `Dbal/`, `Filesystem/`, `InMemory/` sub-namespaces). Root-level public API: `DeployTaskInterface`, `SoviannDeployTasksBundle`, `TaskResult`.
 
 ## Namespaces
 

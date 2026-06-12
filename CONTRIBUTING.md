@@ -52,7 +52,7 @@ vendor/bin/php-cs-fixer fix --dry-run
 
 ## Architecture
 
-Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout with role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/`). Root-level public API: `DeployTaskInterface`, `DeployTasksBundle`, `TaskResult`.
+Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout with role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/`). Root-level public API: `DeployTaskInterface`, `SoviannDeployTasksBundle`, `TaskResult`.
 
 ## Working with AI assistants
 
