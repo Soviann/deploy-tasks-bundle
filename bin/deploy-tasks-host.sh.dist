@@ -28,10 +28,22 @@ export APP_ENV
 
 _load_env() {
     [ -f "$1" ] || return 0
-    set -a
-    # shellcheck disable=SC1090
-    source "$1"
-    set +a
+    # Parse KEY=VALUE pairs instead of sourcing: dotenv syntax is not shell
+    # syntax, and sourcing would execute $(…) substitutions or break on
+    # unquoted metacharacters.
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            ''|\#*) continue ;;
+        esac
+        if [[ "$line" =~ ^(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+            local key="${BASH_REMATCH[2]}" value="${BASH_REMATCH[3]}"
+            # Strip one layer of matching surrounding quotes
+            if [[ "$value" =~ ^\"(.*)\"$ ]] || [[ "$value" =~ ^\'(.*)\'$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            fi
+            export "$key=$value"
+        fi
+    done < "$1"
 }
 _load_env .env
 _load_env ".env.$APP_ENV"
@@ -56,7 +68,7 @@ exit_code=0
 shopt -s nullglob
 for task_file in "$TASKS_DIR"/*.sh; do
     id=$(basename "$task_file" .sh)
-    if grep -Fxq "$id" "$STORAGE"; then
+    if grep -Fxq -e "$id" "$STORAGE"; then
         echo "[OK] $id (skipped)"
         continue
     fi
@@ -66,7 +78,7 @@ for task_file in "$TASKS_DIR"/*.sh; do
     fi
     echo ">> $id"
     if bash "$task_file"; then
-        echo "$id" >> "$STORAGE"
+        printf '%s\n' "$id" >> "$STORAGE"
     else
         exit_code=$?
         echo "[FAIL] $id failed (exit $exit_code)"

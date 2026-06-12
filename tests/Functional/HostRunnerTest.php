@@ -111,6 +111,17 @@ final class HostRunnerTest extends FunctionalTestCase
         self::assertSame("y\n", \file_get_contents($output));
     }
 
+    public function testEnvValuesAreNotExecutedAsShell(): void
+    {
+        // A dotenv value containing a command substitution must be taken literally, not executed.
+        $marker = $this->workspace.'/pwned';
+        \file_put_contents($this->workspace.'/.env', 'DEPLOY_TASKS_HOST_STORAGE=$(touch '.$marker.')'."\n");
+
+        $this->runRunner();
+
+        self::assertFileDoesNotExist($marker, 'Dotenv values must never be executed as shell code');
+    }
+
     public function testDryRunDoesNotExecuteOrMarkTasks(): void
     {
         $output = $this->workspace.'/ran.txt';
