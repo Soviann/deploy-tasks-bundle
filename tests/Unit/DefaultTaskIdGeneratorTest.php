@@ -72,6 +72,24 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         self::assertSame('123_seed', DefaultTaskIdGenerator::generateStatic('Task123Seed'));
     }
 
+    public function testDoesNotStripTaskPrefixMidWord(): void
+    {
+        // 'Task' is only a prefix at a CamelCase/digit boundary — 'Tasking' and
+        // 'Taskmaster' are single words and must keep their full names.
+        /* @phpstan-ignore argument.type */
+        self::assertSame('tasking', DefaultTaskIdGenerator::generateStatic('App\Tasking'));
+        /* @phpstan-ignore argument.type */
+        self::assertSame('taskmaster', DefaultTaskIdGenerator::generateStatic('App\Taskmaster'));
+    }
+
+    public function testStillStripsRealPrefixes(): void
+    {
+        /* @phpstan-ignore argument.type */
+        self::assertSame('task_20260416205300', DefaultTaskIdGenerator::generateStatic('App\Task20260416205300'));
+        /* @phpstan-ignore argument.type */
+        self::assertSame('seed_categories', DefaultTaskIdGenerator::generateStatic('App\TaskSeedCategories'));
+    }
+
     public function testEmptyIdRaisesForRootNamespaceSingleWordClass(): void
     {
         if (!\class_exists('Task', false)) {
