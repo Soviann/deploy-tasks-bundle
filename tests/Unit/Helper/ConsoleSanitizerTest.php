@@ -27,4 +27,9 @@ final class ConsoleSanitizerTest extends TestCase
     {
         self::assertSame('ab', ConsoleSanitizer::sanitize("a\rb"));
     }
+
+    public function testStripsDeleteByte(): void
+    {
+        self::assertSame('ab', ConsoleSanitizer::sanitize("a\x7fb"));
+    }
 }

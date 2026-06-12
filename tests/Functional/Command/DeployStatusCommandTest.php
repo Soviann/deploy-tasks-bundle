@@ -102,6 +102,21 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString($longError, $display);
     }
 
+    public function testErrorCellStripsAnsiEscapeSequences(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable(), "boom\x1b[2J"));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('boom', $display);
+        self::assertStringNotContainsString("\x1b", $display);
+    }
+
     public function testErrorColumnEmptyForNonFailedExecutions(): void
     {
         $storage = self::getContainer()->get(TaskStorageInterface::class);
