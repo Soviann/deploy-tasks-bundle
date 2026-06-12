@@ -7,14 +7,16 @@ namespace Soviann\DeployTasksBundle\Identifier;
 /**
  * Converts a FQCN to a snake_case task identifier.
  *
- * Strips a leading `DeployTask` or `Task` prefix and/or a trailing `DeployTask`
- * or `Task` suffix, then converts the remainder to snake_case. When the stripped
- * remainder is purely numeric (timestamp class produced by `deploytasks:generate:container`),
- * prefixes `task_` so the output matches the recommended `task_<timestamp>` naming.
+ * Strips a leading `DeployTask` or `Task` prefix (only when followed by an
+ * uppercase letter or digit, so single words like `Tasking` keep their names)
+ * and/or a trailing `DeployTask` or `Task` suffix, then converts the remainder
+ * to snake_case. When the stripped remainder is purely numeric (timestamp class
+ * produced by `deploytasks:generate:container`), prefixes `task_` so the output
+ * matches the recommended `task_<timestamp>` naming.
  *
  * Throws `\InvalidArgumentException` when stripping consumes the entire short name
- * (e.g. root-namespace `Task` or `DeployTask`). In that case callers must supply an
- * explicit id via `#[AsDeployTask(id: ...)]`.
+ * (root-namespace `Task` or `DeployTask`, emptied by the suffix strip). In that
+ * case callers must supply an explicit id via `#[AsDeployTask(id: ...)]`.
  *
  * Examples:
  *  - App\Tasks\DeployTask20260416205300  → task_20260416205300
@@ -22,6 +24,7 @@ namespace Soviann\DeployTasksBundle\Identifier;
  *  - App\Tasks\SeedCategoriesTask        → seed_categories
  *  - App\Tasks\SeedCategoriesDeployTask  → seed_categories
  *  - App\Tasks\SeedCategories            → seed_categories
+ *  - App\Tasking                         → tasking
  *
  * @internal
  */
@@ -37,8 +40,9 @@ final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
         $lastBackslash = \strrpos($className, '\\');
         $shortName = false === $lastBackslash ? $className : \substr($className, $lastBackslash + 1);
 
-        // Strip leading DeployTask / Task prefix — try longer prefix first
-        $shortName = (string) \preg_replace('/^(?:DeployTask|Task)/', '', $shortName);
+        // Strip leading DeployTask / Task prefix only at a CamelCase/digit boundary,
+        // so Tasking/Taskmaster keep their names — try longer prefix first
+        $shortName = (string) \preg_replace('/^(?:DeployTask|Task)(?=[A-Z0-9])/', '', $shortName);
 
         // Strip trailing DeployTask / Task suffix — try longer suffix first
         $shortName = (string) \preg_replace('/(?:DeployTask|Task)$/', '', $shortName);
