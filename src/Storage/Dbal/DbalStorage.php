@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Storage\Dbal;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Exception\TableExistsException;
 use Doctrine\DBAL\Platforms\MariaDBPlatform;
 use Doctrine\DBAL\Platforms\MySQLPlatform;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
@@ -360,6 +361,11 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     public function transactional(\Closure $callback): mixed
     {
         try {
+            // Run any pending auto-create DDL *before* opening the transaction:
+            // MySQL/MariaDB DDL implicitly commits, which would silently void an
+            // all_or_nothing run's rollback guarantee on first use.
+            $this->ensureInitialized();
+
             return $this->connection->transactional(static fn (Connection $connection): mixed => $callback());
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Transaction failed: %s', $e->getMessage()), 0, $e);
@@ -380,7 +386,12 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
 
         foreach ($this->buildSchemaSql() as $sql) {
-            $this->connection->executeStatement($sql);
+            try {
+                $this->connection->executeStatement($sql);
+            } catch (TableExistsException) {
+                // Lost a create race against a concurrent command — table exists, done.
+                return;
+            }
         }
     }
 
