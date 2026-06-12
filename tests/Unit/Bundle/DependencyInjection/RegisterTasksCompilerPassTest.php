@@ -12,6 +12,8 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\A\ClashTask as ClashTaskA;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\B\ClashTask as ClashTaskB;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -443,6 +445,30 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $this->expectExceptionMessageMatches('/Duplicate deploy task ID "attribute_only"/');
 
         $pass->process($container);
+    }
+
+    // -------------------------------------------------------------------------
+    // validateTaggedTasks — provider tasks are skipped at compile time
+    // -------------------------------------------------------------------------
+
+    public function testProviderTasksWithSameShortClassNameDoNotFalselyCollide(): void
+    {
+        // Both ClashTask classes implement TaskIdProviderInterface and return
+        // distinct runtime IDs — but generateStatic() derives "clash" from both
+        // short class names. The pass must not validate that phantom ID.
+        $container = $this->baseContainer();
+
+        $def1 = new Definition(ClashTaskA::class);
+        $def1->addTag('deploy_tasks.task');
+        $container->setDefinition('service.clash_a', $def1);
+
+        $def2 = new Definition(ClashTaskB::class);
+        $def2->addTag('deploy_tasks.task');
+        $container->setDefinition('service.clash_b', $def2);
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        $this->addToAssertionCount(1);
     }
 
     /**

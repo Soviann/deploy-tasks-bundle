@@ -120,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The container no longer fails to build when two `TaskIdProviderInterface` tasks share a short class name across namespaces — compile-time duplicate/length checks now skip provider tasks (whose real ID only exists at runtime) and defer to the registry's boot-time check.
 - `deploytasks:run --id` on a task restricted to another environment now exits with a clean usage error instead of an unhandled exception.
 - A task returning `TaskResult::FAILURE` (instead of throwing) is now recorded as `failed`, dispatches `TaskFailedEvent`, aborts `all_or_nothing` runs, and is retried on the next run — previously it was silently stored as `ran` with no error and never retried, breaking every task built on `ProcessRunnerTrait`. Returning the runner-reserved `TaskResult::LOCKED` is treated the same way.
 - The execution record is now persisted before `AfterTaskEvent` / `TaskFailedEvent` listeners run, so a throwing listener can no longer lose the record and cause silent double execution on the next deploy.

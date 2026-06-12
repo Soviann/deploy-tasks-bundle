@@ -9,6 +9,7 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
+use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -129,6 +130,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     /**
      * Validates at compile time that no two tagged tasks resolve to the same ID.
      *
+     * Tasks implementing TaskIdProviderInterface are skipped entirely: their real
+     * ID only exists at runtime (getTaskId() is an instance method), so any
+     * compile-time check would run against a phantom ID. TaskRegistry covers them
+     * at boot.
+     *
      * When a custom generator is configured, its generateStatic() is called for
      * each task without an explicit attribute ID. Returning null opts that task
      * out of compile-time duplicate detection.
@@ -166,6 +172,13 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
             if (null !== $groupColumnLength) {
                 $this->validateGroupLengths($class, $serviceId, $groupColumnLength);
+            }
+
+            if (\is_a($class, TaskIdProviderInterface::class, true)) {
+                // The runtime ID comes from getTaskId(); validating generateStatic(FQCN)
+                // would check a phantom ID and reject legal setups. TaskRegistry re-checks
+                // duplicates (and id_column_length is best-effort only) at boot.
+                continue;
             }
 
             $attributeId = $this->readAttributeId($class);
