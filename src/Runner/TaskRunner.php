@@ -327,9 +327,9 @@ final class TaskRunner
      * Emits a `[current/total] FQCN` progress line before execution and a
      * `→ status (ms)` completion line after.
      *
-     * When storage is transactional, both `$task->run()` and the per-slot `save()` calls
-     * execute inside a single `transactional()` closure so that a storage failure rolls back
-     * the task's side-effects together with the execution record.
+     * Persistence uses a dedicated per-task transaction after run() completes (see
+     * persistOutcomeTransactional()); the execution record is always written before
+     * After/Failed events are dispatched.
      *
      * @param list<?string> $pendingSlots Slots to persist the execution outcome into
      *
@@ -368,7 +368,7 @@ final class TaskRunner
             $taskRanSuccessfully = true;
             $duration = \microtime(true) - $start;
 
-            $outcome = $this->buildSuccessOutcome($task, $taskId, $result, $duration, $timeout, $output);
+            $outcome = $this->buildSuccessOutcome($taskId, $result, $duration, $timeout, $output);
 
             if (!$output->isQuiet()) {
                 $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
@@ -376,9 +376,12 @@ final class TaskRunner
 
             $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
 
+            // Record persisted — a throwing listener can no longer lose the execution.
+            $this->dispatchAfterTask($task, $taskId, $result, $duration);
+
             return $outcome;
         } catch (EventListenerException $listenerError) {
-            // Task outcome stands as it ran. Re-raise so the caller sees the listener bug.
+            // Record already persisted; re-raise so the caller sees the listener bug.
             throw $listenerError;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
@@ -390,13 +393,15 @@ final class TaskRunner
                 throw $e;
             }
 
-            $outcome = $this->buildFailureOutcome($task, $taskId, $e, $duration, $output);
+            $outcome = $this->buildFailureOutcome($taskId, $e, $duration, $output);
 
             if (!$output->isQuiet()) {
                 $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
             }
 
             $this->persistOutcome($taskId, $outcome, $pendingSlots);
+
+            $this->dispatchTaskFailed($task, $taskId, $e, $duration);
 
             if ($this->allOrNothing) {
                 // Propagate so the outer transaction rolls everything back
@@ -408,7 +413,6 @@ final class TaskRunner
     }
 
     private function buildSuccessOutcome(
-        DeployTaskInterface $task,
         string $taskId,
         TaskResult $result,
         float $duration,
@@ -437,18 +441,6 @@ final class TaskRunner
             'duration_ms' => (int) \round($duration * 1000),
         ]);
 
-        try {
-            $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
-        } catch (\Throwable $listenerError) {
-            $this->logger->error('Deploy task listener failed', [
-                'event' => AfterTaskEvent::class,
-                'task' => $taskId,
-                'exception' => $listenerError,
-            ]);
-
-            throw new EventListenerException(\sprintf('Listener for %s failed.', AfterTaskEvent::class), 0, $listenerError);
-        }
-
         return new TaskOutcome(
             result: $result,
             status: $status,
@@ -458,24 +450,11 @@ final class TaskRunner
     }
 
     private function buildFailureOutcome(
-        DeployTaskInterface $task,
         string $taskId,
         \Throwable $e,
         float $duration,
         OutputInterface $output,
     ): TaskOutcome {
-        try {
-            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
-        } catch (\Throwable $listenerError) {
-            $this->logger->error('Deploy task listener failed', [
-                'event' => TaskFailedEvent::class,
-                'task' => $taskId,
-                'exception' => $listenerError,
-            ]);
-
-            throw new EventListenerException(\sprintf('Listener for %s failed.', TaskFailedEvent::class), 0, $listenerError);
-        }
-
         $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, $e->getMessage()));
         $this->logger->error('Deploy task failed', [
             'task_id' => $taskId,
@@ -490,6 +469,36 @@ final class TaskRunner
             durationSeconds: $duration,
             error: $e->getMessage(),
         );
+    }
+
+    private function dispatchAfterTask(DeployTaskInterface $task, string $taskId, TaskResult $result, float $duration): void
+    {
+        try {
+            $this->dispatcher?->dispatch(new AfterTaskEvent($taskId, $task, $result, $duration));
+        } catch (\Throwable $listenerError) {
+            $this->logger->error('Deploy task listener failed', [
+                'event' => AfterTaskEvent::class,
+                'task' => $taskId,
+                'exception' => $listenerError,
+            ]);
+
+            throw new EventListenerException(\sprintf('Listener for %s failed.', AfterTaskEvent::class), 0, $listenerError);
+        }
+    }
+
+    private function dispatchTaskFailed(DeployTaskInterface $task, string $taskId, \Throwable $e, float $duration): void
+    {
+        try {
+            $this->dispatcher?->dispatch(new TaskFailedEvent($taskId, $task, $e, $duration));
+        } catch (\Throwable $listenerError) {
+            $this->logger->error('Deploy task listener failed', [
+                'event' => TaskFailedEvent::class,
+                'task' => $taskId,
+                'exception' => $listenerError,
+            ]);
+
+            throw new EventListenerException(\sprintf('Listener for %s failed.', TaskFailedEvent::class), 0, $listenerError);
+        }
     }
 
     /**
