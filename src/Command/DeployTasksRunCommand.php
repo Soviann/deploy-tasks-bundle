@@ -43,7 +43,7 @@ final class DeployTasksRunCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them.')
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them. Combines with `--id` to preview a single task.')
             ->addOption('rerun-all', null, InputOption::VALUE_NONE, 'Re-execute all tasks regardless of their current state.')
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.')
             ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID. Combine with `--rerun-all` to re-execute even if already ran.')
@@ -76,6 +76,7 @@ final class DeployTasksRunCommand extends Command
 
                     <info>%command.full_name% --id=task_20260412143000_seed_categories</info>
                     <info>%command.full_name% --id=task_20260412143000_seed_categories --rerun-all</info>
+                    <info>%command.full_name% --id=my.task --dry-run</info>
 
                 When a task declares groups, <comment>--id</comment> must be combined with
                 <comment>--group</comment> to select which slot(s) to record:
@@ -104,6 +105,8 @@ final class DeployTasksRunCommand extends Command
         /** @var list<string> $groups */
         $groups = \array_values((array) $input->getOption('group'));
 
+        $dryRun = (bool) $input->getOption('dry-run');
+
         if (null !== $taskId) {
             if ($requireSome && !$this->registry->has($taskId)) {
                 $io->error('No task matched the provided filter(s).');
@@ -111,7 +114,7 @@ final class DeployTasksRunCommand extends Command
                 return self::EX_USAGE;
             }
 
-            return $this->executeOne($io, $output, $taskId, $groups, $force);
+            return $this->executeOne($io, $output, $taskId, $groups, $force, $dryRun);
         }
 
         if ($requireSome && 0 === \count($this->registry->all(groups: $groups))) {
@@ -120,7 +123,6 @@ final class DeployTasksRunCommand extends Command
             return self::EX_USAGE;
         }
 
-        $dryRun = (bool) $input->getOption('dry-run');
         $result = $this->runner->runAll($output, dryRun: $dryRun, force: $force, groups: $groups);
 
         $this->writeSummary($io, $result, $dryRun, [] !== $groups);
@@ -135,7 +137,7 @@ final class DeployTasksRunCommand extends Command
     /**
      * @param list<string> $groups
      */
-    private function executeOne(SymfonyStyle $io, OutputInterface $output, string $taskId, array $groups, bool $force): int
+    private function executeOne(SymfonyStyle $io, OutputInterface $output, string $taskId, array $groups, bool $force, bool $dryRun): int
     {
         if (!$this->registry->has($taskId)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $taskId));
@@ -144,7 +146,7 @@ final class DeployTasksRunCommand extends Command
         }
 
         try {
-            $taskResult = $this->runner->runOne($taskId, $output, force: $force, groups: $groups);
+            $taskResult = $this->runner->runOne($taskId, $output, force: $force, groups: $groups, dryRun: $dryRun);
         } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
             $io->error($e->getMessage());
 
