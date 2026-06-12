@@ -37,6 +37,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ReturnsFailureTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
@@ -1938,6 +1939,58 @@ final class TaskRunnerTest extends TestCase
         // With the break mutant, the loop exits after predeploy and postdeploy is never counted.
         self::assertSame(1, $result->ran, 'Only the pending slot must be counted after a skipped one');
         self::assertSame(1, $result->skipped, 'The already-executed slot must be counted as skipped');
+    }
+
+    public function testReturnedFailureIsRecordedAsFailed(): void
+    {
+        $runner = $this->createRunner([new ReturnsFailureTask()]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->failed);
+        self::assertSame(0, $result->ran);
+
+        $execution = $this->storage->get('test.returns_failure');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Failed, $execution->status);
+        self::assertStringContainsString('returned TaskResult::FAILURE', (string) $execution->error);
+    }
+
+    public function testReturnedFailureIsRetriedOnNextRun(): void
+    {
+        $runner = $this->createRunner([new ReturnsFailureTask()]);
+
+        $runner->runAll($this->output);
+        $second = $runner->runAll($this->output);
+
+        self::assertSame(1, $second->failed, 'A Failed slot must be pending again on the next run');
+    }
+
+    public function testReturnedFailureDispatchesTaskFailedEventNotAfterTaskEvent(): void
+    {
+        $events = [];
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')
+            ->willReturnCallback(static function (object $event) use (&$events): object {
+                $events[] = $event::class;
+
+                return $event;
+            });
+
+        $runner = $this->createRunner([new ReturnsFailureTask()], dispatcher: $dispatcher);
+        $runner->runAll($this->output);
+
+        self::assertContains(TaskFailedEvent::class, $events);
+        self::assertNotContains(AfterTaskEvent::class, $events);
+    }
+
+    public function testReturnedFailureAbortsAllOrNothingRun(): void
+    {
+        $storage = new TransactionalInMemoryStorageFixture();
+        $runner = $this->createRunner([new ReturnsFailureTask()], storage: $storage, allOrNothing: true);
+
+        $this->expectException(AllOrNothingFailureException::class);
+        $runner->runAll($this->output);
     }
 
     // -------------------------------------------------------------------------
