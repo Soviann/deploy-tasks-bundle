@@ -666,6 +666,38 @@ final class ConfigurationTest extends TestCase
         self::assertSame(0, $config['default_timeout']);
     }
 
+    public function testDefaultTimeoutRejectsNegativeValue(): void
+    {
+        // min(0) on default_timeout: -1 must be rejected.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['default_timeout' => -1]);
+    }
+
+    public function testUnknownStorageTypeIsRejected(): void
+    {
+        // enumNode('type') only allows filesystem|database|custom.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['storage' => ['type' => 'redis']]);
+    }
+
+    public function testEmptyGenerateRootNamespaceIsRejected(): void
+    {
+        // cannotBeEmpty() on generate.root_namespace.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['generate' => ['root_namespace' => '']]);
+    }
+
+    public function testEmptyGenerateHostDirectoryIsRejected(): void
+    {
+        // cannotBeEmpty() on generate.host_directory.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['generate' => ['host_directory' => '']]);
+    }
+
     public function testFilesystemTransactionalFalseIsAccepted(): void
     {
         // Mutant 130: FalseValue changes `?? false` to `?? true`, which would make the

@@ -131,6 +131,8 @@ final class DeployRunCommandTest extends FunctionalTestCase
         // Re-run single task with primary option
         $this->tester->execute(['--rerun-all' => true, '--id' => 'test.simple']);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringNotContainsString('already been executed', $this->tester->getDisplay());
+        self::assertStringContainsString('ran', $this->tester->getDisplay());
     }
 
     public function testRunAllAlreadyExecuted(): void
@@ -339,6 +341,13 @@ final class DeployRunCommandTest extends FunctionalTestCase
 
         self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
         self::assertStringContainsString('No task matched', $this->tester->getDisplay());
+    }
+
+    public function testRequireSomeWithIdAndMismatchedGroupExitsInvalid(): void
+    {
+        $this->tester->execute(['--require-some' => true, '--id' => 'test.simple', '--group' => ['predeploy']]);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
     }
 
     public function testRequireSomeWithPendingTasksSucceeds(): void

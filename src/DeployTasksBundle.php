@@ -283,7 +283,12 @@ final class DeployTasksBundle extends AbstractBundle
         switch ($storageConfig['type']) {
             case 'database':
                 if (!\class_exists(\Doctrine\DBAL\Connection::class)) {
+                    // Unreachable in the test suite: doctrine/dbal is a dev dependency, so the
+                    // class always exists here. Guards real apps that enable database storage
+                    // without installing DBAL.
+                    // @codeCoverageIgnoreStart
                     throw new \LogicException('The "deploy_tasks.storage.database" type requires "doctrine/dbal". Run "composer require doctrine/dbal:^4.3".');
+                    // @codeCoverageIgnoreEnd
                 }
 
                 $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
