@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\StorageConfigNode;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -12,12 +13,14 @@ use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 /**
- * Verifies that impossible filesystem storage flag combinations are rejected at boot.
+ * Verifies that impossible storage configurations are rejected at boot.
  *
  * - `filesystem.transactional: true` → caught at config-tree validation (InvalidConfigurationException)
  * - `filesystem.all_or_nothing: true` → caught at compiler-pass validation (IncompatibleStorageException)
+ * - custom storage service not implementing TaskStorageInterface → caught at compiler-pass validation (IncompatibleStorageException)
  */
 #[CoversClass(StorageConfigNode::class)]
+#[CoversClass(RegisterTasksCompilerPass::class)]
 final class StorageConfigValidationTest extends KernelTestCase
 {
     public function testFilesystemTransactionalTrueIsRejectedAtConfigTree(): void
@@ -77,6 +80,16 @@ final class StorageConfigValidationTest extends KernelTestCase
         };
 
         $this->expectException(IncompatibleStorageException::class);
+
+        $kernel->boot();
+    }
+
+    public function testCustomStorageNotImplementingInterfaceFailsAtCompileTime(): void
+    {
+        $kernel = new CustomStorageWrongInterfaceTestKernel('test', true);
+
+        $this->expectException(IncompatibleStorageException::class);
+        $this->expectExceptionMessageMatches('/must implement/');
 
         $kernel->boot();
     }
