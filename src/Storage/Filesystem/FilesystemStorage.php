@@ -46,7 +46,7 @@ final class FilesystemStorage implements TaskStorageInterface
 
         $normalized = \str_replace('\\', '/', $storagePath);
 
-        if (1 === \preg_match('#(^|/)(public|public_html|web|htdocs)(/|$)#i', $normalized)) {
+        if (1 === \preg_match('#(^|/)(public|public_html|web|html|htdocs|wwwroot|httpdocs)(/|$)#i', $normalized)) {
             throw new StorageException(\sprintf('Refusing to store deploy-task records under a public web-root path: "%s". Move storage.filesystem.path outside the web-served directory.', $storagePath));
         }
     }
@@ -141,7 +141,8 @@ final class FilesystemStorage implements TaskStorageInterface
         }
 
         try {
-            $this->fs->remove($path);
+            // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
+            $this->fs->remove([$path, $path.'.lock']);
         } catch (IOException $e) {
             throw new StorageException(\sprintf('Failed to remove storage file "%s".', $path), 0, $e);
         }
@@ -175,7 +176,8 @@ final class FilesystemStorage implements TaskStorageInterface
 
         foreach ($finder as $file) {
             try {
-                $this->fs->remove($file->getPathname());
+                // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
+                $this->fs->remove([$file->getPathname(), $file->getPathname().'.lock']);
             } catch (IOException $e) {
                 throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file->getPathname()), 0, $e);
             }
@@ -276,7 +278,8 @@ final class FilesystemStorage implements TaskStorageInterface
 
         foreach ($finder as $file) {
             try {
-                $this->fs->remove($file->getPathname());
+                // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
+                $this->fs->remove([$file->getPathname(), $file->getPathname().'.lock']);
             } catch (IOException $e) {
                 throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file->getPathname()), 0, $e);
             }

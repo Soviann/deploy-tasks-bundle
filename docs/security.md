@@ -10,7 +10,7 @@ Only grant `deploytasks:run` access to trusted operators (deploy scripts, CI/CD 
 
 ## Filesystem Storage
 
-The default path (`var/deploy-tasks/`) must not be web-accessible. `FilesystemStorage` **throws** a `StorageException` if the configured path contains a `public`, `public_html`, `web`, or `htdocs` segment (case-insensitive). Add the storage directory to `.gitignore`.
+The default path (`var/deploy-tasks/`) must not be web-accessible. `FilesystemStorage` **throws** a `StorageException` if the configured path contains a `public`, `public_html`, `web`, `html`, `htdocs`, `wwwroot`, or `httpdocs` segment (case-insensitive). The check is lexical — it does not resolve symlinks, so a path that reaches a docroot only via symlink is not detected. Add the storage directory to `.gitignore`.
 
 ## Database Storage
 

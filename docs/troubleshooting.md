@@ -69,7 +69,7 @@ You combined `--id`, `--group`, or both, but no task in the registry matched the
 
 ## Filesystem storage refuses to write — `StorageException: Refusing to store deploy-task records under a public web-root path`
 
-The filesystem backend rejects any storage path whose normalised form contains a `public`, `public_html`, `web`, or `htdocs` segment (the regex lives in `FilesystemStorage::__construct()`). This is a defence-in-depth check: deploy task records embed timestamps and error messages, and writing them under a publicly served document root would expose them over HTTP. Move `storage.filesystem.path` outside the web-served directory — `%kernel.project_dir%/var/deploy-tasks` is the right place.
+The filesystem backend rejects any storage path whose normalised form contains a `public`, `public_html`, `web`, `html`, `htdocs`, `wwwroot`, or `httpdocs` segment (the regex lives in `FilesystemStorage::__construct()`). This is a defence-in-depth check: deploy task records embed timestamps and error messages, and writing them under a publicly served document root would expose them over HTTP. Move `storage.filesystem.path` outside the web-served directory — `%kernel.project_dir%/var/deploy-tasks` is the right place. The check is lexical — it does not resolve symlinks, so a path that reaches a docroot only via symlink is not detected.
 
 ## Group name validation — `\InvalidArgumentException` on `#[AsDeployTask(groups: ...)]`
 

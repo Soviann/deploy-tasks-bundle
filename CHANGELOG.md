@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The task runner's `Deploy task failed` / `Deploy tasks run failed — transaction rolled back.` log records no longer expose the full `Doctrine\DBAL\Exception` previous chain in the logger context. When a DBAL exception sits anywhere in `$e->getPrevious()`, the runner drops the raw throwable and replaces it with string-only fields (`exception_class`, `exception_message`, `previous_message`). Monolog's default normaliser would otherwise serialise `previous->trace`, and DBAL connection/authentication errors embed the full DSN (including credentials) into that trace. Non-DBAL failures still carry the `exception` key unchanged so handlers can continue rendering useful stack traces.
 
 - `DbalStorageConfiguration` now validates table/column names against the plain-identifier allowlist and rejects duplicate column names in its constructor, closing the gap where direct construction bypassed the config-tree validation and could feed hostile names into CREATE TABLE DDL.
+- Filesystem storage now also refuses `html`, `wwwroot`, and `httpdocs` path segments (covering `/var/www/html`, Apache's default docroot).
 
 ### Changed
 
@@ -126,5 +127,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--dry-run --rerun-all` now previews the forced re-run instead of reporting already-executed tasks as skipped.
 - Run summaries no longer under-count skipped slots when a multi-group task is only partially pending.
 - Database storage now creates its table before opening the `all_or_nothing` transaction (MySQL DDL implicitly commits, which voided the rollback guarantee on first run) and tolerates losing a concurrent table-create race.
+- Filesystem storage no longer leaves one orphaned `.lock` sidecar per record behind after `remove`/`removeAll`/`reset`.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/74d55c7...HEAD
