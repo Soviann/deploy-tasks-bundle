@@ -118,6 +118,10 @@ final class TaskRunner
     /**
      * Runs a single task by ID, recording one storage row per target slot.
      *
+     * When `all_or_nothing` is enabled and the storage backend is transactional,
+     * execution and persistence run inside a single transaction, mirroring runAll():
+     * a failure rolls back every side-effect before the exception escapes.
+     *
      * Slot resolution:
      * - `$groups === []` and task has no declared groups → single default slot.
      * - `$groups === []` and task declares groups → throws {@see TaskGroupRequiredException}.
@@ -132,7 +136,7 @@ final class TaskRunner
      * @throws TaskGroupMismatchException
      * @throws TaskNotFoundException            When no task is registered with the given id
      * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
-     * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws
+     * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception escapes after the transaction is rolled back
      */
     public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = []): TaskResult
     {
@@ -158,6 +162,18 @@ final class TaskRunner
                 $this->logger->info('Deploy task skipped (already executed)', ['task_id' => $taskId]);
 
                 return TaskResult::SKIPPED;
+            }
+
+            if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
+                try {
+                    return $this->storage->transactional(
+                        fn (): TaskResult => $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result,
+                    );
+                } catch (\Throwable $e) {
+                    $this->logger->error('Deploy tasks run failed — transaction rolled back.', $this->buildExceptionLogContext($e));
+
+                    throw $e;
+                }
             }
 
             $outcome = $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots);
