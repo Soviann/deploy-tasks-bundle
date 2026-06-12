@@ -15,7 +15,7 @@ Most common causes, in order:
 
 Two registered task services produced the same task ID. Detection happens at two layers:
 
-- **Compile time** — caught by the `RegisterTasksCompilerPass` whenever `TaskIdGeneratorInterface::generateStatic()` returns a string for both classes.
+- **Compile time** — caught by the `RegisterTasksCompilerPass` whenever `TaskIdGeneratorInterface::generateStatic()` returns a string for both classes. Tasks implementing `TaskIdProviderInterface` are skipped at compile time — their real ID only exists at runtime.
 - **Runtime** — caught by `TaskRegistry` on boot. This catches duplicates that escape compile-time detection (tasks implementing `TaskIdProviderInterface`, or generators that return `null` from `generateStatic()`).
 
 Fix it by setting an explicit `#[AsDeployTask(id: '...')]` on at least one of the two tasks. The recommended naming convention `task_YYYYMMDDHHMMSS_<snake_case>` makes accidental collisions almost impossible.
