@@ -12,6 +12,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'test.returns_failure')]
 final class ReturnsFailureTask implements DeployTaskInterface
 {
+    public function __construct(private readonly TaskResult $result = TaskResult::FAILURE)
+    {
+    }
+
     public function getDescription(): string
     {
         return 'Returns TaskResult::FAILURE without throwing';
@@ -19,6 +23,6 @@ final class ReturnsFailureTask implements DeployTaskInterface
 
     public function run(OutputInterface $output): TaskResult
     {
-        return TaskResult::FAILURE;
+        return $this->result;
     }
 }

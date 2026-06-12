@@ -1993,6 +1993,34 @@ final class TaskRunnerTest extends TestCase
         $runner->runAll($this->output);
     }
 
+    public function testReturnedLockedIsRecordedAsFailed(): void
+    {
+        $runner = $this->createRunner([new ReturnsFailureTask(TaskResult::LOCKED)]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->failed);
+
+        $execution = $this->storage->get('test.returns_failure');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Failed, $execution->status);
+        self::assertStringContainsString('returned TaskResult::LOCKED', (string) $execution->error);
+    }
+
+    public function testReturnedFailureUnderPerTaskTransactionIsRecordedAsFailed(): void
+    {
+        $storage = new TransactionalInMemoryStorageFixture();
+        $runner = $this->createRunner([new ReturnsFailureTask()], storage: $storage, transactional: true, allOrNothing: false);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->failed);
+
+        $execution = $storage->get('test.returns_failure');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Failed, $execution->status);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
