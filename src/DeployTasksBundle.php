@@ -47,7 +47,8 @@ final class DeployTasksBundle extends AbstractBundle
 {
     public function getPath(): string
     {
-        return __DIR__;
+        // Package root, so config/, templates/, translations/ resolve correctly if ever added.
+        return \dirname(__DIR__);
     }
 
     public function configure(DefinitionConfigurator $definition): void
@@ -246,7 +247,7 @@ final class DeployTasksBundle extends AbstractBundle
                 '$defaultDirectory' => $generateConfig['directory'],
                 '$rootNamespace' => $generateConfig['root_namespace'],
                 '$templatePath' => $generateConfig['template'],
-                '$projectDir' => '%kernel.project_dir%',
+                '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')
         ;
@@ -254,7 +255,7 @@ final class DeployTasksBundle extends AbstractBundle
         $services->set('deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
             ->args([
                 '$hostDirectory' => $generateConfig['host_directory'],
-                '$projectDir' => '%kernel.project_dir%',
+                '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')
         ;
@@ -282,7 +283,7 @@ final class DeployTasksBundle extends AbstractBundle
         switch ($storageConfig['type']) {
             case 'database':
                 if (!\class_exists(\Doctrine\DBAL\Connection::class)) {
-                    throw new \LogicException('The "deploy_tasks.storage.database" type requires "doctrine/dbal". Run "composer require doctrine/dbal:^3.6 || ^4.0".');
+                    throw new \LogicException('The "deploy_tasks.storage.database" type requires "doctrine/dbal". Run "composer require doctrine/dbal:^4.3".');
                 }
 
                 $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);

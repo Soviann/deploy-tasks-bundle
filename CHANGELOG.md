@@ -123,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The "requires doctrine/dbal" error now tells users to install `^4.3` — following the old `^3.6 || ^4.0` instruction produced an unsolvable dependency conflict.
 - The default ID generator no longer mangles class names that merely start with "Task" (`Tasking` → `tasking`, not `ing`).
 - The container no longer fails to build when two `TaskIdProviderInterface` tasks share a short class name across namespaces — compile-time duplicate/length checks now skip provider tasks (whose real ID only exists at runtime) and defer to the registry's boot-time check.
 - `deploytasks:run --id` on a task restricted to another environment now exits with a clean usage error instead of an unhandled exception.
