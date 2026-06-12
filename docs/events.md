@@ -3,7 +3,7 @@
 Requires `symfony/event-dispatcher`. Events are enabled by default when the dispatcher is available.
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     events:
         enabled: true  # default
 ```
@@ -43,7 +43,7 @@ If `symfony/event-dispatcher` is not installed or events are disabled, the runne
 To disable events even when the dispatcher is available:
 
 ```yaml
-deploy_tasks:
+soviann_deploy_tasks:
     events:
         enabled: false
 ```

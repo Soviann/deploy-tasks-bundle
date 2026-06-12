@@ -20,7 +20,7 @@ final class AutoCreateTableDisabledKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'database',
                 'database' => [
@@ -49,7 +49,7 @@ final class AutoCreateTableDisabledKernel extends AbstractTestKernel
 
         $services->set('auto_create_table.task.simple', SimpleTask::class)
             ->args(['auto_create_table.simple', 'Auto-create-table disabled fixture'])
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
     }
 }

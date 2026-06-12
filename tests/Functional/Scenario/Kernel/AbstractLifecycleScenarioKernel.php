@@ -15,7 +15,7 @@ abstract class AbstractLifecycleScenarioKernel extends AbstractTestKernel
     final protected function configureContainer(ContainerConfigurator $container): void
     {
         $container->extension('framework', $this->frameworkConfig());
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => $this->storageConfig(),
             'events' => ['enabled' => false],
             'lock' => ['enabled' => false],
@@ -26,7 +26,7 @@ abstract class AbstractLifecycleScenarioKernel extends AbstractTestKernel
         $container->services()
             ->set('scenario.task.simple', SimpleTask::class)
             ->args([self::FIXTURE_TASK_ID, 'Lifecycle scenario task'])
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
     }
 

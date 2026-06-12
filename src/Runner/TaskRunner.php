@@ -216,7 +216,7 @@ final class TaskRunner
             $this->logger->warning('Deploy tasks runner has no lock factory — concurrent execution is not protected');
         }
 
-        $lock = $this->lockFactory?->createLock('deploy_tasks_run', $this->lockTtl);
+        $lock = $this->lockFactory?->createLock('soviann_deploy_tasks_run', $this->lockTtl);
 
         if (null !== $lock && !$lock->acquire()) {
             $output->writeln('<error>Another deploytasks:run process is already running.</error>');

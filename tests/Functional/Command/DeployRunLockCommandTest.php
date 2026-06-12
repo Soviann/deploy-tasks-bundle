@@ -41,7 +41,7 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
         $lockFactory = self::getContainer()->get(LockFactory::class);
         \assert($lockFactory instanceof LockFactory);
 
-        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        $heldLock = $lockFactory->createLock('soviann_deploy_tasks_run', 3600);
         self::assertTrue($heldLock->acquire(), 'Pre-flight lock must be acquirable for the test to be meaningful.');
 
         try {
@@ -57,7 +57,7 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
         $lockFactory = self::getContainer()->get(LockFactory::class);
         \assert($lockFactory instanceof LockFactory);
 
-        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        $heldLock = $lockFactory->createLock('soviann_deploy_tasks_run', 3600);
         self::assertTrue($heldLock->acquire(), 'Pre-flight lock must be acquirable for the test to be meaningful.');
 
         try {

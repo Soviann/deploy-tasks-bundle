@@ -16,7 +16,7 @@ composer require soviann/deploy-tasks-bundle
 With Symfony Flex, the bundle is registered automatically. Otherwise, add it to `config/bundles.php`:
 
 ```php
-Soviann\DeployTasksBundle\DeployTasksBundle::class => ['all' => true],
+Soviann\DeployTasksBundle\SoviannDeployTasksBundle::class => ['all' => true],
 ```
 
 ## Optional packages
@@ -36,8 +36,8 @@ The bundle works with zero configuration. The default storage backend is filesys
 To customise the storage backend or other options, publish a configuration file:
 
 ```yaml
-# config/packages/deploy_tasks.yaml
-deploy_tasks:
+# config/packages/soviann_deploy_tasks.yaml
+soviann_deploy_tasks:
     default_timeout: 300          # seconds (>= 0). 0 disables the timeout check entirely (no warning emitted).
     storage:
         type: filesystem           # or: database, custom

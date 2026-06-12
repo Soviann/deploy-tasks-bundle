@@ -19,7 +19,7 @@ final class CustomGroupColumnKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'database',
                 'database' => [
@@ -44,7 +44,7 @@ final class CustomGroupColumnKernel extends AbstractTestKernel
 
         $services->set('test.task.simple', SimpleTask::class)
             ->args(['test.simple', 'A simple test task'])
-            ->tag('deploy_tasks.task')
+            ->tag('soviann_deploy_tasks.task')
         ;
     }
 }

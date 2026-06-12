@@ -18,7 +18,7 @@ final class CustomTransactionalStorageTestKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $container->extension('deploy_tasks', [
+        $container->extension('soviann_deploy_tasks', [
             'storage' => [
                 'type' => 'custom',
                 'custom' => [

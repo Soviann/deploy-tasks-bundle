@@ -9,9 +9,10 @@ namespace Soviann\DeployTasksBundle\Storage;
  * layer — typically a relational table, but anything the `deploytasks:create-schema`
  * console command can either execute or dump.
  *
- * Backends that have nothing to set up (e.g. filesystem storage) simply don't
- * implement it; the create-schema command is only registered when the active
- * backend advertises this contract.
+ * Implemented by backends that can provision their own schema. Backends that
+ * have nothing to set up (e.g. filesystem storage) simply don't implement it.
+ * Note: the create-schema command is currently wired only for the built-in
+ * database storage.
  */
 interface SchemaManageable
 {

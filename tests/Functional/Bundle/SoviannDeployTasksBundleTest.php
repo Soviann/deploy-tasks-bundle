@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
@@ -14,6 +13,7 @@ use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
 use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
+use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
@@ -36,8 +36,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Lock\LockFactory;
 
-#[CoversClass(DeployTasksBundle::class)]
-final class DeployTasksBundleTest extends FunctionalTestCase
+#[CoversClass(SoviannDeployTasksBundle::class)]
+final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 {
     public function testServicesAreRegistered(): void
     {
@@ -71,7 +71,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         self::bootKernel();
         $container = self::getContainer();
 
-        self::assertInstanceOf(TaskIdResolver::class, $container->get('deploy_tasks.id_resolver'));
+        self::assertInstanceOf(TaskIdResolver::class, $container->get('soviann_deploy_tasks.id_resolver'));
     }
 
     public function testRegistryContainsRegisteredTasks(): void
@@ -196,7 +196,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         static::$class = CustomStorageMissingServiceTestKernel::class;
 
         self::expectException(\InvalidArgumentException::class);
-        self::expectExceptionMessage('"deploy_tasks.storage.custom.service" must be set when "deploy_tasks.storage.type" is "custom".');
+        self::expectExceptionMessage('"soviann_deploy_tasks.storage.custom.service" must be set when "soviann_deploy_tasks.storage.type" is "custom".');
 
         self::bootKernel();
     }
@@ -228,7 +228,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         // Pins the `id_column_length` default literal (255) at line 102 — kills Increment/DecrementInteger mutants.
         static::$class = DbalTestKernel::class;
         self::bootKernel();
-        $config = self::getContainer()->get('deploy_tasks.storage.configuration');
+        $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
         \assert($config instanceof DbalStorageConfiguration);
 
         self::assertSame(255, $config->idColumnLength);
@@ -239,7 +239,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         // Pins the `group_column` default literal ('task_group') — kills constant mutation on DbalStorageConfiguration.
         static::$class = DbalTestKernel::class;
         self::bootKernel();
-        $config = self::getContainer()->get('deploy_tasks.storage.configuration');
+        $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
         \assert($config instanceof DbalStorageConfiguration);
 
         self::assertSame('task_group', $config->groupColumn);
@@ -252,13 +252,13 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         // and are reflected in the generated CREATE TABLE SQL.
         static::$class = CustomGroupColumnKernel::class;
         self::bootKernel();
-        $config = self::getContainer()->get('deploy_tasks.storage.configuration');
+        $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
         \assert($config instanceof DbalStorageConfiguration);
 
         self::assertSame('grp', $config->groupColumn);
         self::assertSame(64, $config->groupColumnLength);
 
-        $storage = self::getContainer()->get('deploy_tasks.storage');
+        $storage = self::getContainer()->get('soviann_deploy_tasks.storage');
         \assert($storage instanceof \Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage);
 
         self::assertStringContainsString('grp', $storage->getCreateTableSql());
@@ -292,7 +292,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testIdResolverReceivesIdGeneratorAsArgument(): void
     {
-        // Mutant 148: ArrayItemRemoval removes service('deploy_tasks.id_generator') from id_resolver args.
+        // Mutant 148: ArrayItemRemoval removes service('soviann_deploy_tasks.id_generator') from id_resolver args.
         // Without the generator arg, TaskIdResolver cannot delegate to the custom generator.
         // We verify that the id_resolver definition has the id_generator as its first argument.
         self::bootKernel();
@@ -300,18 +300,18 @@ final class DeployTasksBundleTest extends FunctionalTestCase
         // via the container would fail with a missing constructor argument.
         // getContainer() compiles the container, so if the arg is removed, boot or get() would fail.
         $container = self::getContainer();
-        $resolver = $container->get('deploy_tasks.id_resolver');
+        $resolver = $container->get('soviann_deploy_tasks.id_resolver');
         self::assertInstanceOf(TaskIdResolver::class, $resolver);
     }
 
     public function testShowCommandIsRegistered(): void
     {
-        // Mutant 150: MethodCallRemoval removes the entire deploy_tasks.command.show registration.
-        // Mutant 151: ArrayItemRemoval removes service('deploy_tasks.registry') from show command args.
+        // Mutant 150: MethodCallRemoval removes the entire soviann_deploy_tasks.command.show registration.
+        // Mutant 151: ArrayItemRemoval removes service('soviann_deploy_tasks.registry') from show command args.
         self::bootKernel();
         $container = self::getContainer();
 
-        $command = $container->get('deploy_tasks.command.show');
+        $command = $container->get('soviann_deploy_tasks.command.show');
         self::assertInstanceOf(\Symfony\Component\Console\Command\Command::class, $command);
 
         $loader = $container->get('console.command_loader');
@@ -321,7 +321,7 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testDatabaseStorageIsAliasedAsTransactionalStorageInterface(): void
     {
-        // Mutant 153: MethodCallRemoval removes the alias(TransactionalStorageInterface, 'deploy_tasks.storage')
+        // Mutant 153: MethodCallRemoval removes the alias(TransactionalStorageInterface, 'soviann_deploy_tasks.storage')
         // call in the database storage case.
         static::$class = DbalTestKernel::class;
         self::bootKernel();
@@ -339,13 +339,13 @@ final class DeployTasksBundleTest extends FunctionalTestCase
 
     public function testCreateSchemaCommandIsRegisteredForDatabaseStorage(): void
     {
-        // Mutant 154: MethodCallRemoval removes the deploy_tasks.command.create_schema registration.
-        // Mutant 155: ArrayItemRemoval removes service('deploy_tasks.storage') from create_schema args.
+        // Mutant 154: MethodCallRemoval removes the soviann_deploy_tasks.command.create_schema registration.
+        // Mutant 155: ArrayItemRemoval removes service('soviann_deploy_tasks.storage') from create_schema args.
         static::$class = DbalTestKernel::class;
         self::bootKernel();
         $container = self::getContainer();
 
-        $command = $container->get('deploy_tasks.command.create_schema');
+        $command = $container->get('soviann_deploy_tasks.command.create_schema');
         self::assertInstanceOf(\Symfony\Component\Console\Command\Command::class, $command);
 
         $loader = $container->get('console.command_loader');
@@ -358,13 +358,13 @@ final class DeployTasksBundleTest extends FunctionalTestCase
      */
     public static function commandProvider(): iterable
     {
-        yield 'run' => ['deploy_tasks.command.run', 'deploytasks:run'];
-        yield 'status' => ['deploy_tasks.command.status', 'deploytasks:status'];
-        yield 'skip' => ['deploy_tasks.command.skip', 'deploytasks:skip'];
-        yield 'reset' => ['deploy_tasks.command.reset', 'deploytasks:reset'];
-        yield 'rollup' => ['deploy_tasks.command.rollup', 'deploytasks:rollup'];
-        yield 'generate:container' => ['deploy_tasks.command.generate', 'deploytasks:generate:container'];
-        yield 'generate:host' => ['deploy_tasks.command.generate.host', 'deploytasks:generate:host'];
+        yield 'run' => ['soviann_deploy_tasks.command.run', 'deploytasks:run'];
+        yield 'status' => ['soviann_deploy_tasks.command.status', 'deploytasks:status'];
+        yield 'skip' => ['soviann_deploy_tasks.command.skip', 'deploytasks:skip'];
+        yield 'reset' => ['soviann_deploy_tasks.command.reset', 'deploytasks:reset'];
+        yield 'rollup' => ['soviann_deploy_tasks.command.rollup', 'deploytasks:rollup'];
+        yield 'generate:container' => ['soviann_deploy_tasks.command.generate', 'deploytasks:generate:container'];
+        yield 'generate:host' => ['soviann_deploy_tasks.command.generate.host', 'deploytasks:generate:host'];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('commandProvider')]

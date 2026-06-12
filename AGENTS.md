@@ -17,7 +17,7 @@ Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: rol
 
 ## Service Registration
 
-- Tasks tagged `deploy_tasks.task` via autoconfiguration on `DeployTaskInterface`
+- Tasks tagged `soviann_deploy_tasks.task` via autoconfiguration on `DeployTaskInterface`
 - `#[AsDeployTask(id, priority, env, timeout, transactional, description, groups)]` carries task metadata; `AsDeployTask::of()` is the **single attribute reader**, `AsDeployTask::groupsOf()` returns declared groups. `id` and `description` attributes are the fallback when the interface method returns an empty string
 - Autowirable aliases: `TaskStorageInterface`, `TransactionalStorageInterface`, `TaskIdGeneratorInterface`, `TaskSorterInterface`, `TaskRegistry`, `TaskRunner`
 

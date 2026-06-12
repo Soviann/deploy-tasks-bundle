@@ -471,7 +471,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
         $lockFactory = self::getContainer()->get(\Symfony\Component\Lock\LockFactory::class);
         \assert($lockFactory instanceof \Symfony\Component\Lock\LockFactory);
 
-        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        $heldLock = $lockFactory->createLock('soviann_deploy_tasks_run', 3600);
         self::assertTrue($heldLock->acquire());
 
         try {
@@ -496,7 +496,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
         $lockFactory = self::getContainer()->get(\Symfony\Component\Lock\LockFactory::class);
         \assert($lockFactory instanceof \Symfony\Component\Lock\LockFactory);
 
-        $heldLock = $lockFactory->createLock('deploy_tasks_run', 3600);
+        $heldLock = $lockFactory->createLock('soviann_deploy_tasks_run', 3600);
         self::assertTrue($heldLock->acquire());
 
         try {

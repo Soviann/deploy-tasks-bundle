@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
-use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -17,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  * Ensures every bundle wiring that references %kernel.project_dir% resolves
  * against the supplied project directory, with no literal placeholder leakage.
  */
-#[CoversClass(DeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksBundle::class)]
 final class ProjectDirTest extends TestCase
 {
     private string $projectDir;
@@ -36,7 +36,7 @@ final class ProjectDirTest extends TestCase
     {
         $container = $this->buildContainer();
 
-        $storage = $container->getDefinition('deploy_tasks.storage');
+        $storage = $container->getDefinition('soviann_deploy_tasks.storage');
         self::assertSame(FilesystemStorage::class, $storage->getClass());
 
         $resolvedPath = $container->getParameterBag()->resolveValue($storage->getArgument(0));
@@ -48,7 +48,7 @@ final class ProjectDirTest extends TestCase
     {
         $container = $this->buildContainer();
 
-        $generate = $container->getDefinition('deploy_tasks.command.generate');
+        $generate = $container->getDefinition('soviann_deploy_tasks.command.generate');
         self::assertSame(DeployTasksGenerateCommand::class, $generate->getClass());
 
         $resolved = $container->getParameterBag()->resolveValue($generate->getArgument('$projectDir'));
@@ -60,7 +60,7 @@ final class ProjectDirTest extends TestCase
     {
         $container = $this->buildContainer();
 
-        $generateHost = $container->getDefinition('deploy_tasks.command.generate.host');
+        $generateHost = $container->getDefinition('soviann_deploy_tasks.command.generate.host');
         self::assertSame(DeployTasksGenerateHostCommand::class, $generateHost->getClass());
 
         $resolved = $container->getParameterBag()->resolveValue($generateHost->getArgument('$projectDir'));
@@ -77,7 +77,7 @@ final class ProjectDirTest extends TestCase
         $container->setParameter('kernel.build_dir', $this->projectDir.'/build');
         $container->setParameter('kernel.cache_dir', $this->projectDir.'/cache');
 
-        $bundle = new DeployTasksBundle();
+        $bundle = new SoviannDeployTasksBundle();
         $extension = $bundle->getContainerExtension();
         self::assertNotNull($extension);
 

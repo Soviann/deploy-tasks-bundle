@@ -235,7 +235,7 @@ final class DeployTasksGenerateCommand extends Command
 
         // A target dir under src/ maps to the configured root namespace (default "App"),
         // mirroring Symfony's conventional "App\" => "src/" PSR-4 autoload mapping so the
-        // generated class is autoloadable. See the deploy_tasks.generate.root_namespace option.
+        // generated class is autoloadable. See the soviann_deploy_tasks.generate.root_namespace option.
         if ('Src' === $namespaceParts[0]) {
             $namespaceParts[0] = $this->rootNamespace;
         }

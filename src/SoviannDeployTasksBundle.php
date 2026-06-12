@@ -43,7 +43,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_iterator;
 
-final class DeployTasksBundle extends AbstractBundle
+final class SoviannDeployTasksBundle extends AbstractBundle
 {
     public function getPath(): string
     {
@@ -65,7 +65,7 @@ final class DeployTasksBundle extends AbstractBundle
                 ->end()
                 ->scalarNode('logger')
                     ->defaultNull()
-                    ->info('Service ID of a custom PSR-3 LoggerInterface, or null to auto-detect the application logger (with monolog channel "deploy_tasks" when monolog-bundle is installed).')
+                    ->info('Service ID of a custom PSR-3 LoggerInterface, or null to auto-detect the application logger (with monolog channel "soviann_deploy_tasks" when monolog-bundle is installed).')
                 ->end()
                 ->integerNode('default_timeout')
                     ->defaultValue(300)
@@ -110,28 +110,28 @@ final class DeployTasksBundle extends AbstractBundle
         $services = $container->services();
 
         $builder->registerForAutoconfiguration(DeployTaskInterface::class)
-            ->addTag('deploy_tasks.task')
+            ->addTag('soviann_deploy_tasks.task')
         ;
 
         // TaskRegistry
-        $services->set('deploy_tasks.registry', TaskRegistry::class)
+        $services->set('soviann_deploy_tasks.registry', TaskRegistry::class)
             ->args([
-                tagged_iterator('deploy_tasks.task'),
-                service('deploy_tasks.id_resolver'),
+                tagged_iterator('soviann_deploy_tasks.task'),
+                service('soviann_deploy_tasks.id_resolver'),
             ])
         ;
-        $services->alias(TaskRegistry::class, 'deploy_tasks.registry');
+        $services->alias(TaskRegistry::class, 'soviann_deploy_tasks.registry');
 
         // ID generator
         $this->registerIdGenerator($config, $services);
 
         // ID resolver (internal — not configurable)
-        $services->set('deploy_tasks.id_resolver', TaskIdResolver::class)
-            ->args([service('deploy_tasks.id_generator')])
+        $services->set('soviann_deploy_tasks.id_resolver', TaskIdResolver::class)
+            ->args([service('soviann_deploy_tasks.id_generator')])
         ;
 
         // Description resolver (internal — not configurable)
-        $services->set('deploy_tasks.description_resolver', TaskDescriptionResolver::class);
+        $services->set('soviann_deploy_tasks.description_resolver', TaskDescriptionResolver::class);
 
         // Storage
         $this->registerStorage($config, $services, $builder);
@@ -147,8 +147,8 @@ final class DeployTasksBundle extends AbstractBundle
         $eventsConfig = $config['events'];
         /** @var array{enabled: bool, ttl: int} $lockConfig */
         $lockConfig = $config['lock'];
-        $builder->setParameter('deploy_tasks.events.enabled', $eventsConfig['enabled']);
-        $builder->setParameter('deploy_tasks.lock.enabled', $lockConfig['enabled']);
+        $builder->setParameter('soviann_deploy_tasks.events.enabled', $eventsConfig['enabled']);
+        $builder->setParameter('soviann_deploy_tasks.lock.enabled', $lockConfig['enabled']);
 
         // TaskRunner — transactional/all_or_nothing come from the active storage sub-config
         /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
@@ -156,15 +156,15 @@ final class DeployTasksBundle extends AbstractBundle
         /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
         $activeStorage = $storageConfig[$storageConfig['type']];
 
-        $builder->setParameter('deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
+        $builder->setParameter('soviann_deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
 
-        $services->set('deploy_tasks.runner', TaskRunner::class)
+        $services->set('soviann_deploy_tasks.runner', TaskRunner::class)
             ->args([
-                '$registry' => service('deploy_tasks.registry'),
-                '$storage' => service('deploy_tasks.storage'),
-                '$sorter' => service('deploy_tasks.sorter'),
-                '$idResolver' => service('deploy_tasks.id_resolver'),
-                '$descriptionResolver' => service('deploy_tasks.description_resolver'),
+                '$registry' => service('soviann_deploy_tasks.registry'),
+                '$storage' => service('soviann_deploy_tasks.storage'),
+                '$sorter' => service('soviann_deploy_tasks.sorter'),
+                '$idResolver' => service('soviann_deploy_tasks.id_resolver'),
+                '$descriptionResolver' => service('soviann_deploy_tasks.description_resolver'),
                 '$dispatcher' => null, // set by compiler pass
                 '$lockFactory' => null, // set by compiler pass
                 '$defaultTimeout' => $config['default_timeout'],
@@ -176,11 +176,11 @@ final class DeployTasksBundle extends AbstractBundle
             ])
         ;
 
-        $runnerDefinition = $builder->getDefinition('deploy_tasks.runner');
+        $runnerDefinition = $builder->getDefinition('soviann_deploy_tasks.runner');
 
         if (null === $config['logger']) {
             // Bundle owns the logger — tag it for Monolog channel routing.
-            $runnerDefinition->addTag('monolog.logger', ['channel' => 'deploy_tasks']);
+            $runnerDefinition->addTag('monolog.logger', ['channel' => 'soviann_deploy_tasks']);
             $runnerDefinition->setArgument('$logger', new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE));
         } else {
             /** @var string $userLoggerId */
@@ -188,52 +188,52 @@ final class DeployTasksBundle extends AbstractBundle
             // User supplied a logger service — route as-is, no channel tag.
             $runnerDefinition->setArgument('$logger', new Reference($userLoggerId));
         }
-        $services->alias(TaskRunner::class, 'deploy_tasks.runner');
+        $services->alias(TaskRunner::class, 'soviann_deploy_tasks.runner');
 
         // Commands
-        $services->set('deploy_tasks.command.run', DeployTasksRunCommand::class)
-            ->args([service('deploy_tasks.registry'), service('deploy_tasks.runner')])
+        $services->set('soviann_deploy_tasks.command.run', DeployTasksRunCommand::class)
+            ->args([service('soviann_deploy_tasks.registry'), service('soviann_deploy_tasks.runner')])
             ->tag('console.command')
         ;
 
-        $services->set('deploy_tasks.command.status', DeployTasksStatusCommand::class)
+        $services->set('soviann_deploy_tasks.command.status', DeployTasksStatusCommand::class)
             ->args([
-                service('deploy_tasks.registry'),
-                service('deploy_tasks.storage'),
-                service('deploy_tasks.description_resolver'),
+                service('soviann_deploy_tasks.registry'),
+                service('soviann_deploy_tasks.storage'),
+                service('soviann_deploy_tasks.description_resolver'),
             ])
             ->tag('console.command')
         ;
 
-        $services->set('deploy_tasks.command.skip', DeployTasksSkipCommand::class)
+        $services->set('soviann_deploy_tasks.command.skip', DeployTasksSkipCommand::class)
             ->args([
-                service('deploy_tasks.registry'),
-                service('deploy_tasks.storage'),
+                service('soviann_deploy_tasks.registry'),
+                service('soviann_deploy_tasks.storage'),
             ])
             ->tag('console.command')
         ;
 
-        $services->set('deploy_tasks.command.reset', DeployTasksResetCommand::class)
+        $services->set('soviann_deploy_tasks.command.reset', DeployTasksResetCommand::class)
             ->args([
-                service('deploy_tasks.registry'),
-                service('deploy_tasks.storage'),
+                service('soviann_deploy_tasks.registry'),
+                service('soviann_deploy_tasks.storage'),
             ])
             ->tag('console.command')
         ;
 
-        $services->set('deploy_tasks.command.rollup', DeployTasksRollupCommand::class)
+        $services->set('soviann_deploy_tasks.command.rollup', DeployTasksRollupCommand::class)
             ->args([
-                service('deploy_tasks.registry'),
-                service('deploy_tasks.storage'),
+                service('soviann_deploy_tasks.registry'),
+                service('soviann_deploy_tasks.storage'),
             ])
             ->tag('console.command')
         ;
 
-        $services->set('deploy_tasks.command.show', DeployTasksShowCommand::class)
+        $services->set('soviann_deploy_tasks.command.show', DeployTasksShowCommand::class)
             ->args([
-                service('deploy_tasks.registry'),
-                service('deploy_tasks.storage'),
-                service('deploy_tasks.description_resolver'),
+                service('soviann_deploy_tasks.registry'),
+                service('soviann_deploy_tasks.storage'),
+                service('soviann_deploy_tasks.description_resolver'),
             ])
             ->tag('console.command')
         ;
@@ -241,9 +241,9 @@ final class DeployTasksBundle extends AbstractBundle
         /** @var array{directory: string, template: string|null, root_namespace: string, host_directory: string} $generateConfig */
         $generateConfig = $config['generate'];
 
-        $services->set('deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
+        $services->set('soviann_deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
             ->args([
-                '$idGenerator' => service('deploy_tasks.id_generator'),
+                '$idGenerator' => service('soviann_deploy_tasks.id_generator'),
                 '$defaultDirectory' => $generateConfig['directory'],
                 '$rootNamespace' => $generateConfig['root_namespace'],
                 '$templatePath' => $generateConfig['template'],
@@ -252,7 +252,7 @@ final class DeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        $services->set('deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
+        $services->set('soviann_deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
             ->args([
                 '$hostDirectory' => $generateConfig['host_directory'],
                 '$projectDir' => param('kernel.project_dir'),
@@ -287,14 +287,14 @@ final class DeployTasksBundle extends AbstractBundle
                     // class always exists here. Guards real apps that enable database storage
                     // without installing DBAL.
                     // @codeCoverageIgnoreStart
-                    throw new \LogicException('The "deploy_tasks.storage.database" type requires "doctrine/dbal". Run "composer require doctrine/dbal:^4.3".');
+                    throw new \LogicException('The "soviann_deploy_tasks.storage.database" type requires "doctrine/dbal". Run "composer require doctrine/dbal:^4.3".');
                     // @codeCoverageIgnoreEnd
                 }
 
                 $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
                 $dbConfig = $storageConfig['database'];
 
-                $services->set('deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
+                $services->set('soviann_deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
                     ->args([
                         '$autoCreateTable' => $dbConfig['auto_create_table'],
                         '$errorColumn' => $dbConfig['error_column'],
@@ -308,19 +308,19 @@ final class DeployTasksBundle extends AbstractBundle
                     ])
                 ;
 
-                $services->set('deploy_tasks.storage', DbalStorage::class)
+                $services->set('soviann_deploy_tasks.storage', DbalStorage::class)
                     ->args([
                         service($connectionServiceId),
-                        service('deploy_tasks.storage.configuration'),
+                        service('soviann_deploy_tasks.storage.configuration'),
                     ])
                 ;
 
-                $services->alias(TransactionalStorageInterface::class, 'deploy_tasks.storage');
+                $services->alias(TransactionalStorageInterface::class, 'soviann_deploy_tasks.storage');
 
-                $services->set('deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
+                $services->set('soviann_deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
                     ->args([
-                        service('deploy_tasks.storage'),
-                        service('deploy_tasks.storage.configuration'),
+                        service('soviann_deploy_tasks.storage'),
+                        service('soviann_deploy_tasks.storage.configuration'),
                         $storageConfig['database']['connection'],
                     ])
                     ->tag('console.command')
@@ -328,7 +328,7 @@ final class DeployTasksBundle extends AbstractBundle
 
                 break;
             case 'filesystem':
-                $services->set('deploy_tasks.storage', FilesystemStorage::class)
+                $services->set('soviann_deploy_tasks.storage', FilesystemStorage::class)
                     ->args([$storageConfig['filesystem']['path']])
                 ;
 
@@ -337,11 +337,11 @@ final class DeployTasksBundle extends AbstractBundle
                 $customServiceId = $storageConfig['custom']['service'];
 
                 if (null === $customServiceId) {
-                    throw new \InvalidArgumentException('"deploy_tasks.storage.custom.service" must be set when "deploy_tasks.storage.type" is "custom".');
+                    throw new \InvalidArgumentException('"soviann_deploy_tasks.storage.custom.service" must be set when "soviann_deploy_tasks.storage.type" is "custom".');
                 }
 
-                $services->alias('deploy_tasks.storage', $customServiceId);
-                $builder->setParameter('deploy_tasks.storage.custom_service_id', $customServiceId);
+                $services->alias('soviann_deploy_tasks.storage', $customServiceId);
+                $builder->setParameter('soviann_deploy_tasks.storage.custom_service_id', $customServiceId);
 
                 break;
             default:
@@ -354,7 +354,7 @@ final class DeployTasksBundle extends AbstractBundle
                 // @codeCoverageIgnoreEnd
         }
 
-        $services->alias(TaskStorageInterface::class, 'deploy_tasks.storage');
+        $services->alias(TaskStorageInterface::class, 'soviann_deploy_tasks.storage');
     }
 
     /**
@@ -365,15 +365,15 @@ final class DeployTasksBundle extends AbstractBundle
         /** @var string|null $generatorServiceId */
         $generatorServiceId = $config['id_generator'];
 
-        $services->set('deploy_tasks.default_id_generator', DefaultTaskIdGenerator::class);
+        $services->set('soviann_deploy_tasks.default_id_generator', DefaultTaskIdGenerator::class);
 
         if (null !== $generatorServiceId) {
-            $services->alias('deploy_tasks.id_generator', $generatorServiceId);
+            $services->alias('soviann_deploy_tasks.id_generator', $generatorServiceId);
         } else {
-            $services->alias('deploy_tasks.id_generator', 'deploy_tasks.default_id_generator');
+            $services->alias('soviann_deploy_tasks.id_generator', 'soviann_deploy_tasks.default_id_generator');
         }
 
-        $services->alias(TaskIdGeneratorInterface::class, 'deploy_tasks.id_generator');
+        $services->alias(TaskIdGeneratorInterface::class, 'soviann_deploy_tasks.id_generator');
     }
 
     /**
@@ -385,14 +385,14 @@ final class DeployTasksBundle extends AbstractBundle
         $sorterServiceId = $config['sorter'];
 
         if (null !== $sorterServiceId) {
-            $services->alias('deploy_tasks.sorter', $sorterServiceId);
+            $services->alias('soviann_deploy_tasks.sorter', $sorterServiceId);
         } else {
-            $services->set('deploy_tasks.sorter', DefaultTaskSorter::class)
-                ->args([service('deploy_tasks.id_resolver')])
+            $services->set('soviann_deploy_tasks.sorter', DefaultTaskSorter::class)
+                ->args([service('soviann_deploy_tasks.id_resolver')])
             ;
         }
 
-        $services->alias(TaskSorterInterface::class, 'deploy_tasks.sorter');
+        $services->alias(TaskSorterInterface::class, 'soviann_deploy_tasks.sorter');
     }
 
     /**
@@ -404,7 +404,7 @@ final class DeployTasksBundle extends AbstractBundle
         $userLoggerId = $config['logger'];
 
         if (null !== $userLoggerId) {
-            $services->alias('deploy_tasks.logger', $userLoggerId);
+            $services->alias('soviann_deploy_tasks.logger', $userLoggerId);
         }
         // When null, the runner argument is a NULL_ON_INVALID_REFERENCE to the `logger` service:
         // resolves to the app logger when present (monolog's LoggerChannelPass then rewrites the

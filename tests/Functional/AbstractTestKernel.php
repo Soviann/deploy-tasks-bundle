@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
-use Soviann\DeployTasksBundle\DeployTasksBundle;
+use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\Filesystem\Filesystem;
@@ -18,7 +18,7 @@ abstract class AbstractTestKernel extends Kernel
     final public function registerBundles(): iterable
     {
         yield new FrameworkBundle();
-        yield new DeployTasksBundle();
+        yield new SoviannDeployTasksBundle();
     }
 
     public function getProjectDir(): string
