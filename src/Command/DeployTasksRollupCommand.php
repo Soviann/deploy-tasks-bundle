@@ -125,7 +125,7 @@ final class DeployTasksRollupCommand extends Command
             ? \sprintf('This will clear all execution records and mark %d slot(s) as run. Continue?', \count($targets))
             : \sprintf('This will mark %d slot(s) as run for group(s) [%s], preserving other slots. Continue?', \count($targets), \implode(', ', $groupFilter));
 
-        if (!$force && !$io->confirm($prompt)) {
+        if (!$force && !$io->confirm($prompt, false)) {
             $io->note('Aborted.');
 
             return Command::FAILURE;
