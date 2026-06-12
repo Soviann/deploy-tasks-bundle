@@ -28,7 +28,8 @@ final class FilesystemStorage implements TaskStorageInterface
 {
     /**
      * Regex pattern for valid record filenames: `<task-id>.json` or `<task-id>@<group>.json`.
-     * Task IDs and group names must match `[a-zA-Z0-9._-]+`, so the `@` separator is unambiguous.
+     * Task IDs and group names must match `[a-zA-Z0-9._-]+` (AsDeployTask::TASK_ID_PATTERN /
+     * GROUP_NAME_PATTERN), so the `@` separator is unambiguous.
      */
     private const RECORD_NAME_PATTERN = '/^[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?\.json$/';
 
@@ -307,7 +308,7 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     private function validateTaskId(string $taskId): void
     {
-        if (1 !== \preg_match('/^[a-zA-Z0-9._-]+$/', $taskId)) {
+        if (1 !== \preg_match(AsDeployTask::TASK_ID_PATTERN, $taskId)) {
             throw new \InvalidArgumentException(\sprintf('Invalid task ID "%s": must contain only alphanumeric characters, dots, hyphens, and underscores.', $taskId));
         }
     }
