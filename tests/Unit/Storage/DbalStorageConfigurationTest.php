@@ -46,4 +46,22 @@ final class DbalStorageConfigurationTest extends TestCase
         self::assertSame('task_status', $config->statusColumn);
         self::assertSame('custom_tasks', $config->tableName);
     }
+
+    public function testRejectsNonIdentifierColumnName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new DbalStorageConfiguration(idColumn: 'id"; DROP TABLE x; --');
+    }
+
+    public function testRejectsNonIdentifierTableName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new DbalStorageConfiguration(tableName: 'my table');
+    }
+
+    public function testRejectsDuplicateColumnNames(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new DbalStorageConfiguration(idColumn: 'same', statusColumn: 'same');
+    }
 }

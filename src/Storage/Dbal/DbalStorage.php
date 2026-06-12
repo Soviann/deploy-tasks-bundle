@@ -444,10 +444,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
-     * Returns a comma-separated, unquoted column list for SELECT projections.
-     *
-     * Using unquoted names here is safe because these values come from
-     * DbalStorageConfiguration which enforces plain identifiers.
+     * Returns a comma-separated, platform-quoted column list for SELECT projections.
      */
     private function selectColumns(): string
     {

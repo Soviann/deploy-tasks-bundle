@@ -487,37 +487,6 @@ final class DbalStorageTest extends TestCase
         self::assertStringContainsString('"my_tasks"', $sql);
     }
 
-    /**
-     * Kills PregQuote removal (line 92): if preg_quote() is dropped, a column name that
-     * contains regex-special characters (e.g. a dot) would corrupt the substitution pattern
-     * and either match the wrong text or silently skip the replacement.
-     *
-     * Using "at.col" (dot is special in regex): without preg_quote, the pattern becomes
-     * /\bat.col\b/ which matches any char at the dot position; WITH preg_quote it becomes
-     * /\bat\.col\b/ which only matches the literal dot.
-     */
-    public function testGetCreateTableSqlHandlesRegexSpecialCharsInColumnName(): void
-    {
-        // Column name with a dot — a regex-special character.
-        $config = new DbalStorageConfiguration(
-            idColumn: 'id.col',
-            statusColumn: 'status',
-            executedAtColumn: 'executed_at',
-            errorColumn: 'error',
-            groupColumn: 'task_group',
-            tableName: 'deploy_task_executions',
-        );
-        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $storage = new DbalStorage($connection, $config);
-
-        // Must not throw and must contain the properly quoted identifier.
-        $sql = $storage->getCreateTableSql();
-        self::assertStringContainsString('"id.col"', $sql);
-        // Verify the replacement didn't corrupt surrounding text by also checking no raw dot
-        // appears in an identifier position (only the quoted form should remain).
-        self::assertStringNotContainsString(' id.col ', $sql);
-    }
-
     // -------------------------------------------------------------------------
     // Mutation-killing: get() wraps DbalException with code 0 (lines 145)
     // -------------------------------------------------------------------------
