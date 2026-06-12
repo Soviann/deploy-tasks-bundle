@@ -138,7 +138,7 @@ final class DynamicIdTask implements TaskIdProviderInterface
 
 Task IDs must be unique across the entire application. Duplication is detected at two layers:
 
-- **Compile time** — the compiler pass calls `TaskIdGeneratorInterface::generateStatic()` for every tagged task without an explicit attribute ID and throws `LogicException` on collision.
+- **Compile time** — the compiler pass calls `TaskIdGeneratorInterface::generateStatic()` for every tagged task without an explicit attribute ID and throws `LogicException` on collision. Tasks implementing `TaskIdProviderInterface` are skipped at compile time — their real ID only exists at runtime, so the registry catches them at boot.
 - **Runtime** — `TaskRegistry` re-checks resolved IDs on boot and throws `DuplicateTaskIdException`. This covers `TaskIdProviderInterface` tasks and any task whose generator returned `null` from `generateStatic()` to opt out of compile-time detection.
 
 Recommended naming convention: `task_YYYYMMDDHHMMSS_<description_in_snake_case>`.

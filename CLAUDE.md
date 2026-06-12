@@ -107,6 +107,7 @@ deploy_tasks:
         directory: src/DeployTasks/Task/    # default output directory for `deploytasks:generate:container`
         host_directory: '%kernel.project_dir%/deploy/host-tasks'  # default output directory for `deploytasks:generate:host`
         template: ~                         # path to a custom PHP template
+        root_namespace: App                 # root namespace for `src/`-rooted `--dir` (mirrors symfony/maker-bundle)
 ```
 
 **Scalar shorthand:** `storage: database` expands to `storage: { type: database }`; `events: false` and `lock: false` expand to `{ enabled: false }`. The long form keeps working unchanged.
@@ -140,7 +141,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `deploy_tas
 | `deploytasks:rollup [--group=<name>]*` | Clear execution history and mark all registered tasks as `Ran`. |
 | `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
 | `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
-| `deploytasks:create-schema [--dump-sql]` | Emit/execute the SQL to create the storage table. Registered only when the active storage backend implements `SchemaManageable`. |
+| `deploytasks:create-schema [--dump-sql]` | Emit/execute the SQL to create the storage table. Registered only when `storage.type` is `database`. |
 
 ## Development Commands
 
@@ -194,4 +195,4 @@ English commits. Format: `<type>: description` — types: `feat|fix|chore|refact
 
 ## Release
 
-Tagged releases follow semver + Keep a Changelog. See `CONTRIBUTING.md` § Releasing for the full process, or invoke the `release` skill which walks through pre-flight checks, changelog finalization, tagging, and publishing in order.
+Tagged releases follow semver + Keep a Changelog. See `CONTRIBUTING.md` § Releasing for the full process.

@@ -21,10 +21,14 @@ $runner = new TaskRunner(
     new DefaultTaskSorter($idResolver),
     $idResolver,
     new TaskDescriptionResolver(),
+    defaultTimeout: 300,
+    transactional: false,
+    allOrNothing: false,
+    lockTtl: 3600,
 );
 ```
 
-`TaskRunner`'s full constructor signature is `(TaskRegistry $registry, TaskStorageInterface $storage, TaskSorterInterface $sorter, TaskIdResolver $idResolver, TaskDescriptionResolver $descriptionResolver, ?EventDispatcherInterface $dispatcher = null, ?LockFactory $lockFactory = null, int $defaultTimeout = 300, ?string $environment = null, bool $transactional = true, bool $allOrNothing = false, LoggerInterface $logger = new NullLogger())`. The example above supplies only the required arguments; add optional ones as needed.
+`TaskRunner`'s constructor takes nine required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $defaultTimeout`, `bool $transactional`, `bool $allOrNothing`, `int $lockTtl` — followed by four optional ones that all default to `null`: `?EventDispatcherInterface $dispatcher`, `?LockFactory $lockFactory`, `?string $environment`, `?LoggerInterface $logger` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed.
 
 ## Functional Testing with a Test Kernel
 

@@ -12,11 +12,11 @@ deploy_tasks:
         type: filesystem
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
-            transactional: false    # default — filesystem has no transaction support
-            all_or_nothing: false   # default — ignored for filesystem
+            transactional: false    # must stay false — true is rejected at container build
+            all_or_nothing: false   # must stay false — true is rejected at container build
 ```
 
-Filesystem storage does not implement `TransactionalStorageInterface`, so `transactional` and `all_or_nothing` have no effect. The keys are accepted for config-tree uniformity across backends.
+Filesystem storage does not implement `TransactionalStorageInterface`. Setting `transactional: true` is rejected when the configuration is processed, and `all_or_nothing: true` fails the container build with `IncompatibleStorageException`. The keys exist for config-tree uniformity and must stay `false`.
 
 The directory is created automatically on the first write. Add it to `.gitignore`:
 
@@ -129,7 +129,7 @@ deploy_tasks:
 - **`transactional: true`** (database default): each task's `run()` and storage `save()` are wrapped in a database transaction. Individual tasks can override this via `#[AsDeployTask(transactional: false)]`. When `transactional` is `null` on the attribute, the storage setting applies.
 - **`all_or_nothing: true`** (database default): the entire run is wrapped in a single transaction — any failure rolls back all tasks. Per-task wrapping is skipped when this is enabled.
 
-Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). For `FilesystemStorage` these keys exist for uniformity but have no effect.
+Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). For `FilesystemStorage` they must stay `false` — `true` is rejected at container build.
 
 ## InMemoryStorage
 
@@ -320,9 +320,9 @@ That is enough. The bundle:
 
 - Aliases your service to `TaskStorageInterface` so the runner picks it up.
 - Detects the interface at compile time; if you also implement `TransactionalStorageInterface`, the runner uses transaction wrapping when `transactional` / `all_or_nothing` are enabled.
-- Detects the optional `SchemaManageable` interface and registers `deploytasks:create-schema` against your backend if you need DDL provisioning.
+- `deploytasks:create-schema` is only registered for the built-in database storage. It is not wired for custom backends, even those implementing `SchemaManageable` — provision custom schemas yourself.
 
-`transactional` and `all_or_nothing` have no effect unless the custom service implements `TransactionalStorageInterface`. If your backend has no transaction primitive (Redis, S3, plain HTTP API…), keep both `false`.
+`transactional` and `all_or_nothing` are rejected at container build (`IncompatibleStorageException`) unless the custom service implements `TransactionalStorageInterface`. If your backend has no transaction primitive (Redis, S3, plain HTTP API…), keep both `false`.
 
 ### Testing your custom storage
 
