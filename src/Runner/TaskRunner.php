@@ -141,7 +141,7 @@ final class TaskRunner
      * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
      * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception escapes after the transaction is rolled back
      */
-    public function runOne(string $taskId, OutputInterface $output, bool $force = false, array $groups = [], bool $dryRun = false): TaskResult
+    public function runOne(string $taskId, OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): TaskResult
     {
         $result = $this->withLock($output, function (?LockInterface $lock) use ($taskId, $output, $force, $groups, $dryRun): TaskResult {
             $task = $this->registry->get($taskId);
