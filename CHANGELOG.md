@@ -113,4 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Symfony bundle with full configuration tree, compiler pass for service validation (duplicate IDs, transactional custom storage aliasing, all-or-nothing compatibility check), and autoconfiguration
 - Support for PHP 8.2+ and Symfony 6.4+/7.0+
 
+### Fixed
+
+- A task returning `TaskResult::FAILURE` (instead of throwing) is now recorded as `failed`, dispatches `TaskFailedEvent`, aborts `all_or_nothing` runs, and is retried on the next run — previously it was silently stored as `ran` with no error and never retried, breaking every task built on `ProcessRunnerTrait`. Returning the runner-reserved `TaskResult::LOCKED` is treated the same way.
+
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/74d55c7...HEAD

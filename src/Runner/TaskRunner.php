@@ -17,6 +17,7 @@ use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Exception\TaskReturnedFailureException;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
@@ -363,7 +364,7 @@ final class TaskRunner
         $taskRanSuccessfully = false;
 
         try {
-            $result = $this->wrapInTransaction($task, $attribute, $output);
+            $result = $this->wrapInTransaction($task, $attribute, $output, $taskId);
             $taskRanSuccessfully = true;
             $duration = \microtime(true) - $start;
 
@@ -531,21 +532,37 @@ final class TaskRunner
     /**
      * Wraps task execution in a database transaction if the task is marked as transactional
      * and the storage backend supports it.
+     *
+     * A returned TaskResult::FAILURE (or the runner-reserved TaskResult::LOCKED) is converted
+     * into a TaskReturnedFailureException inside the wrapper, so it follows the same path as
+     * a thrown failure: rollback, TaskFailedEvent, Failed record, all_or_nothing abort.
      */
-    private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output): TaskResult
+    private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output, string $taskId): TaskResult
     {
+        $run = static function () use ($task, $output, $taskId): TaskResult {
+            $result = $task->run($output);
+
+            if (TaskResult::FAILURE === $result || TaskResult::LOCKED === $result) {
+                // Thrown inside any wrapping transaction so the task's side-effects
+                // roll back together with the failure.
+                throw TaskReturnedFailureException::create($taskId, $result);
+            }
+
+            return $result;
+        };
+
         // Skip per-task wrapping when allOrNothing already wraps the entire run
         if ($this->allOrNothing) {
-            return $task->run($output);
+            return $run();
         }
 
         $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
 
         if ($shouldWrap && $this->storage instanceof TransactionalStorageInterface) {
-            return $this->storage->transactional(static fn (): TaskResult => $task->run($output));
+            return $this->storage->transactional($run);
         }
 
-        return $task->run($output);
+        return $run();
     }
 
     /**
