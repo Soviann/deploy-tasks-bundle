@@ -596,6 +596,33 @@ final class DbalStorageTest extends TestCase
         self::assertSame('err', $all[0]->error);
     }
 
+    /**
+     * Pins the MySQL/MariaDB upsert SQL shape. CI runs SQLite only, so the
+     * ON DUPLICATE KEY UPDATE branch of save() never executes against a real
+     * server — this captures the generated statement and locks its dialect.
+     */
+    public function testSaveGeneratesOnDuplicateKeySqlForMysql(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')->willReturn(new \Doctrine\DBAL\Platforms\MySQLPlatform());
+
+        $captured = null;
+        $connection->method('executeStatement')
+            ->willReturnCallback(static function (string $sql) use (&$captured): int {
+                $captured = $sql;
+
+                return 1;
+            });
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+        $storage->save(new TaskExecution('task.my', TaskStatus::Ran, new \DateTimeImmutable('2026-01-01T00:00:00+00:00')));
+
+        self::assertIsString($captured);
+        self::assertStringContainsString('ON DUPLICATE KEY UPDATE', $captured);
+        self::assertStringContainsString('VALUES(', $captured);
+        self::assertStringNotContainsString('ON CONFLICT', $captured);
+    }
+
     // -------------------------------------------------------------------------
     // Mutation-killing: findByTaskId() ensureInitialized (line 284)
     // -------------------------------------------------------------------------
