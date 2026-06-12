@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- `bin/deploy-tasks-host.sh` now parses `.env` files as KEY=VALUE data instead of sourcing them as shell code — a dotenv value like `FOO=$(cmd)` is no longer executed. Task storage matching and recording also handle filenames starting with a dash safely.
 - Error messages are stripped of terminal control characters before console display, preventing ANSI escape-sequence injection from task exceptions or external process output, including process-failure messages.
 - `deploytasks:generate:container` and `deploytasks:generate:host` now reject `--dir` values outside an allowlist of letters, digits, slash, underscore, and dash. The guard runs before any path resolution or namespace derivation, blocking namespace-injection payloads (`<?php`, `;`, whitespace, dots) and path-traversal inputs that escape their starting point after canonicalisation (`../evil`). Rejected inputs surface as `Command::FAILURE` with an `Invalid --dir value` error.
 - `bin/deploy-tasks-host.sh` now validates the resolved `APP_ENV` (from positional argument, environment, or the `dev` default) against the allowlist `^[a-zA-Z0-9_-]+$` immediately after resolution. Path-traversal values like `../../tmp/foo` that previously let `_load_env ".env.$APP_ENV"` source arbitrary files are rejected with a non-zero exit and an `Invalid APP_ENV value` message on stderr before any env loading happens.
