@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional\Scenario;
 
-use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -30,7 +29,7 @@ final class CreateSchemaCommandRegistrationTest extends FunctionalTestCase
 
     public function testCommandIsAbsentWithCustomStorage(): void
     {
-        static::$class = CustomStorageTestKernel::class;
+        self::useConfigurableKernel(KernelConfig::customStorageExtension(), KernelConfig::customStorageServices());
         self::bootKernel();
 
         $app = new Application(self::kernel());
