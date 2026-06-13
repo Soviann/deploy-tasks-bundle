@@ -57,4 +57,57 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         // 4. Status exits 0 after a clean run
         self::assertSame(Command::SUCCESS, $status->execute([]));
     }
+
+    public function testGroupedSlotLifecycle(): void
+    {
+        $storage = $this->storage();
+        $taskId = AbstractLifecycleScenarioKernel::GROUPED_TASK_ID;
+        $groupA = AbstractLifecycleScenarioKernel::GROUPED_TASK_GROUP_A;
+        $groupB = AbstractLifecycleScenarioKernel::GROUPED_TASK_GROUP_B;
+
+        // 1. Run one group → exactly that slot is recorded
+        $run = $this->runCommand('deploytasks:run', ['--group' => [$groupA]]);
+        self::assertSame(Command::SUCCESS, $run->getStatusCode());
+        $exec = $storage->get($taskId, $groupA);
+        self::assertNotNull($exec);
+        self::assertSame(TaskStatus::Ran, $exec->status);
+        self::assertSame($groupA, $exec->group);
+        self::assertFalse($storage->has($taskId, $groupB));
+        self::assertFalse($storage->has($taskId));
+
+        // 2. Run the other group → second slot recorded, first preserved
+        $run = $this->runCommand('deploytasks:run', ['--group' => [$groupB]]);
+        self::assertSame(Command::SUCCESS, $run->getStatusCode());
+        self::assertTrue($storage->has($taskId, $groupB));
+        self::assertTrue($storage->has($taskId, $groupA));
+
+        // 3. Reset one slot only → it is cleared, the other survives
+        $reset = $this->runCommand('deploytasks:reset', ['id' => $taskId, '--group' => $groupA, '--force' => true], ['interactive' => false]);
+        self::assertSame(Command::SUCCESS, $reset->getStatusCode());
+        self::assertFalse($storage->has($taskId, $groupA));
+        self::assertTrue($storage->has($taskId, $groupB));
+    }
+
+    public function testFailureIsRecordedAndRetried(): void
+    {
+        $storage = $this->storage();
+        $taskId = AbstractLifecycleScenarioKernel::FAILING_TASK_ID;
+        $group = AbstractLifecycleScenarioKernel::FAILING_TASK_GROUP;
+
+        // 1. First run → command fails, slot records Failed with the error text
+        $run = $this->runCommand('deploytasks:run', ['--group' => [$group]]);
+        self::assertSame(Command::FAILURE, $run->getStatusCode());
+        $exec = $storage->get($taskId, $group);
+        self::assertNotNull($exec);
+        self::assertSame(TaskStatus::Failed, $exec->status);
+        self::assertSame('Task failed!', $exec->error);
+
+        // 2. Failed slot is pending again → second run re-executes and fails again
+        $retry = $this->runCommand('deploytasks:run', ['--group' => [$group]]);
+        self::assertSame(Command::FAILURE, $retry->getStatusCode());
+        self::assertStringContainsString('1 failed', $retry->getDisplay());
+        $exec = $storage->get($taskId, $group);
+        self::assertNotNull($exec);
+        self::assertSame(TaskStatus::Failed, $exec->status);
+    }
 }

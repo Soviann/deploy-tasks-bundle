@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional\Scenario\Kernel;
 
+use Soviann\DeployTasksBundle\Tests\Fixtures\GroupedFailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Functional\AbstractTestKernel;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -11,6 +13,15 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 abstract class AbstractLifecycleScenarioKernel extends AbstractTestKernel
 {
     public const FIXTURE_TASK_ID = 'scenario.simple';
+
+    /** Mirrors the #[AsDeployTask] metadata declared on {@see MultiGroupTask}. */
+    public const GROUPED_TASK_ID = 'test.multi_group';
+    public const GROUPED_TASK_GROUP_A = 'predeploy';
+    public const GROUPED_TASK_GROUP_B = 'postdeploy';
+
+    /** Mirrors the #[AsDeployTask] metadata declared on {@see GroupedFailingTask}. */
+    public const FAILING_TASK_ID = 'test.grouped_failing';
+    public const FAILING_TASK_GROUP = 'unstable';
 
     final protected function configureContainer(ContainerConfigurator $container): void
     {
@@ -23,10 +34,17 @@ abstract class AbstractLifecycleScenarioKernel extends AbstractTestKernel
 
         $this->registerAdditionalServices($container);
 
+        // The grouped fixtures never run in the ungrouped flow (deploytasks:run
+        // without --group only executes ungrouped tasks), so registering them
+        // unconditionally leaves the full-lifecycle scenario untouched.
         $container->services()
             ->set('scenario.task.simple', SimpleTask::class)
-            ->args([self::FIXTURE_TASK_ID, 'Lifecycle scenario task'])
-            ->tag('soviann_deploy_tasks.task')
+                ->args([self::FIXTURE_TASK_ID, 'Lifecycle scenario task'])
+                ->tag('soviann_deploy_tasks.task')
+            ->set('scenario.task.multi_group', MultiGroupTask::class)
+                ->tag('soviann_deploy_tasks.task')
+            ->set('scenario.task.grouped_failing', GroupedFailingTask::class)
+                ->tag('soviann_deploy_tasks.task')
         ;
     }
 
