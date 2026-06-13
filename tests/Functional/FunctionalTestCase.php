@@ -13,12 +13,20 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpKernel\KernelInterface;
 
+/**
+ * @phpstan-import-type ServiceSpec from ConfigurableTestKernel
+ */
 abstract class FunctionalTestCase extends KernelTestCase
 {
     /**
      * @var array{eventsEnabled?: bool, lockEnabled?: bool, extraTasks?: list<class-string<DeployTaskInterface>>}
      */
     protected static array $testKernelOptions = [];
+
+    /**
+     * @var array{extensionConfig: array<string, mixed>, services: array<string, ServiceSpec>}|null
+     */
+    private static ?array $configurableKernelConfig = null;
 
     protected function tearDown(): void
     {
@@ -33,7 +41,24 @@ abstract class FunctionalTestCase extends KernelTestCase
         parent::tearDown();
         static::$class = null;
         self::$testKernelOptions = [];
+        self::$configurableKernelConfig = null;
         \restore_exception_handler();
+    }
+
+    /**
+     * Routes the next kernel boot through {@see ConfigurableTestKernel} with the
+     * given extension config and extra service definitions.
+     *
+     * @param array<string, mixed>       $extensionConfig config for the `soviann_deploy_tasks` extension
+     * @param array<string, ServiceSpec> $services        extra service definitions, keyed by service id
+     */
+    protected static function useConfigurableKernel(array $extensionConfig, array $services = []): void
+    {
+        static::$class = ConfigurableTestKernel::class;
+        self::$configurableKernelConfig = [
+            'extensionConfig' => $extensionConfig,
+            'services' => $services,
+        ];
     }
 
     protected static function getKernelClass(): string
@@ -58,6 +83,19 @@ abstract class FunctionalTestCase extends KernelTestCase
 
         $environment = \is_string($options['environment'] ?? null) ? $options['environment'] : 'test';
         $debug = \is_bool($options['debug'] ?? null) ? $options['debug'] : true;
+
+        if (ConfigurableTestKernel::class === static::$class) {
+            if (null === self::$configurableKernelConfig) {
+                throw new \LogicException('ConfigurableTestKernel requires a config — call useConfigurableKernel() before booting.');
+            }
+
+            return new ConfigurableTestKernel(
+                $environment,
+                $debug,
+                extensionConfig: self::$configurableKernelConfig['extensionConfig'],
+                services: self::$configurableKernelConfig['services'],
+            );
+        }
 
         if (TestKernel::class === static::$class && [] !== self::$testKernelOptions) {
             return new TestKernel(
