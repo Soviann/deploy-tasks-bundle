@@ -8,8 +8,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
-use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -21,6 +21,7 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
 
     protected function setUp(): void
     {
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $application = new Application(self::kernel());
         $this->tester = new CommandTester($application->find('deploytasks:create-schema'));
@@ -112,10 +113,5 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
         self::assertNotNull($retrieved);
         self::assertSame('test.roundtrip', $retrieved->id);
         self::assertSame(TaskStatus::Ran, $retrieved->status);
-    }
-
-    protected static function getKernelClass(): string
-    {
-        return DbalTestKernel::class;
     }
 }
