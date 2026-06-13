@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 
 #[CoversClass(InMemoryStorage::class)]
-final class InMemoryStorageTest extends TestCase
+final class InMemoryStorageTest extends TaskStorageContractTestCase
 {
     private InMemoryStorage $storage;
 
@@ -20,27 +20,20 @@ final class InMemoryStorageTest extends TestCase
         $this->storage = new InMemoryStorage();
     }
 
-    public function testHasReturnsFalseForMissingTask(): void
-    {
-        self::assertFalse($this->storage->has('task.missing'));
-    }
-
-    public function testGetReturnsNullForMissingTask(): void
-    {
-        self::assertNull($this->storage->get('task.missing'));
-    }
-
-    public function testSaveAndRetrieve(): void
+    /**
+     * Unlike round-tripping backends, the in-memory store keeps the exact
+     * TaskExecution instances it was given — get() returns them by identity.
+     */
+    public function testGetReturnsTheExactSavedInstance(): void
     {
         $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
 
         $this->storage->save($execution);
 
-        self::assertTrue($this->storage->has('task.1'));
         self::assertSame($execution, $this->storage->get('task.1'));
     }
 
-    public function testSaveOverwrites(): void
+    public function testSaveOverwritesReturnsTheLatestInstance(): void
     {
         $first = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
         $second = new TaskExecution('task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'));
@@ -51,25 +44,16 @@ final class InMemoryStorageTest extends TestCase
         self::assertSame($second, $this->storage->get('task.1'));
     }
 
-    public function testRemove(): void
+    public function testGetWithGroupReturnsTheExactSavedInstance(): void
     {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
+        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy');
 
         $this->storage->save($execution);
-        $this->storage->remove('task.1');
 
-        self::assertFalse($this->storage->has('task.1'));
+        self::assertSame($execution, $this->storage->get('task.1', 'predeploy'));
     }
 
-    public function testRemoveNonExistent(): void
-    {
-        // Should not throw
-        $this->storage->remove('task.nonexistent');
-
-        self::assertFalse($this->storage->has('task.nonexistent'));
-    }
-
-    public function testAllReturnsFlatList(): void
+    public function testAllReturnsTheExactSavedInstances(): void
     {
         $first = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
         $second = new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'));
@@ -87,58 +71,7 @@ final class InMemoryStorageTest extends TestCase
         self::assertContains($third, $all);
     }
 
-    public function testSaveAndGetWithGroup(): void
-    {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy');
-
-        $this->storage->save($execution);
-
-        self::assertSame($execution, $this->storage->get('task.1', 'predeploy'));
-        self::assertNull($this->storage->get('task.1'));
-        self::assertNull($this->storage->get('task.1', 'postdeploy'));
-    }
-
-    public function testHasIsScopedByGroup(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-
-        self::assertTrue($this->storage->has('task.1', 'predeploy'));
-        self::assertFalse($this->storage->has('task.1'));
-        self::assertFalse($this->storage->has('task.1', 'postdeploy'));
-    }
-
-    public function testRemoveIsScopedByGroup(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
-
-        $this->storage->remove('task.1', 'predeploy');
-
-        self::assertFalse($this->storage->has('task.1', 'predeploy'));
-        self::assertTrue($this->storage->has('task.1', 'postdeploy'));
-    }
-
-    public function testRemoveAllDeletesEverySlot(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
-        $this->storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable()));
-
-        $this->storage->removeAll('task.1');
-
-        self::assertFalse($this->storage->has('task.1'));
-        self::assertFalse($this->storage->has('task.1', 'predeploy'));
-        self::assertFalse($this->storage->has('task.1', 'postdeploy'));
-        self::assertTrue($this->storage->has('task.2'));
-    }
-
-    public function testAllEmpty(): void
-    {
-        self::assertSame([], $this->storage->all());
-    }
-
-    public function testFindByTaskIdReturnsEverySlot(): void
+    public function testFindByTaskIdReturnsTheExactSavedInstances(): void
     {
         $default = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
         $pre = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy');
@@ -159,7 +92,7 @@ final class InMemoryStorageTest extends TestCase
         self::assertNotContains($other, $matches);
     }
 
-    public function testFindByTaskIdReturnsSingleSlotWhenOnlyDefaultStored(): void
+    public function testFindByTaskIdSingleSlotReturnsTheExactSavedInstance(): void
     {
         $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
 
@@ -169,30 +102,6 @@ final class InMemoryStorageTest extends TestCase
 
         self::assertCount(1, $matches);
         self::assertSame($execution, $matches[0]);
-    }
-
-    public function testFindByTaskIdUnknownIdReturnsEmpty(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
-
-        self::assertSame([], [...$this->storage->findByTaskId('task.missing')]);
-    }
-
-    public function testReset(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
-        $this->storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable()));
-
-        $this->storage->reset();
-
-        self::assertSame([], $this->storage->all());
-    }
-
-    public function testResetEmpty(): void
-    {
-        $this->storage->reset();
-
-        self::assertSame([], $this->storage->all());
     }
 
     /**
@@ -239,5 +148,10 @@ final class InMemoryStorageTest extends TestCase
         // the result is re-indexed: without array_values() the keys are the internal
         // task-id keys, not 0..n-1.
         self::assertSame([0, 1], \array_keys($all), 'all() must return a list with sequential integer keys from 0.');
+    }
+
+    protected function createStorage(): TaskStorageInterface
+    {
+        return $this->storage;
     }
 }
