@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Scenario;
 
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 
 final class CreateSchemaCommandRegistrationTest extends FunctionalTestCase
 {
     public function testCommandIsRegisteredWithDbalStorage(): void
     {
-        static::$class = DbalTestKernel::class;
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
 
         $app = new Application(self::kernel());

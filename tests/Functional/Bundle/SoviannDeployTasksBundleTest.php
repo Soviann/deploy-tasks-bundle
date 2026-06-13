@@ -20,16 +20,16 @@ use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\CustomSorterFixture;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Functional\AutoconfigTaskKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\CustomGroupColumnKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomSorterTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageMissingServiceTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomStorageTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\CustomTransactionalStorageTestKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\IncompatibleAllOrNothingTestKernel;
+use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -226,7 +226,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     public function testDbalIdColumnLengthDefaultIsTwoHundredFiftyFive(): void
     {
         // Pins the `id_column_length` default literal (255) at line 102 — kills Increment/DecrementInteger mutants.
-        static::$class = DbalTestKernel::class;
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
         \assert($config instanceof DbalStorageConfiguration);
@@ -237,7 +237,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     public function testDbalGroupColumnDefaultIsTaskGroup(): void
     {
         // Pins the `group_column` default literal ('task_group') — kills constant mutation on DbalStorageConfiguration.
-        static::$class = DbalTestKernel::class;
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
         \assert($config instanceof DbalStorageConfiguration);
@@ -250,7 +250,28 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     {
         // Verifies that group_column / group_column_length DI config keys flow through to DbalStorageConfiguration
         // and are reflected in the generated CREATE TABLE SQL.
-        static::$class = CustomGroupColumnKernel::class;
+        self::useConfigurableKernel([
+            'storage' => [
+                'type' => 'database',
+                'database' => [
+                    'connection' => 'default',
+                    'table' => 'deploy_task_executions',
+                    'group_column' => 'grp',
+                    'group_column_length' => 64,
+                    'transactional' => false,
+                    'all_or_nothing' => false,
+                ],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ], [
+            'doctrine.dbal.default_connection' => KernelConfig::sqliteConnection(),
+            'test.task.simple' => [
+                'class' => SimpleTask::class,
+                'args' => ['test.simple', 'A simple test task'],
+                'tags' => ['soviann_deploy_tasks.task'],
+            ],
+        ]);
         self::bootKernel();
         $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
         \assert($config instanceof DbalStorageConfiguration);
@@ -323,7 +344,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     {
         // Mutant 153: MethodCallRemoval removes the alias(TransactionalStorageInterface, 'soviann_deploy_tasks.storage')
         // call in the database storage case.
-        static::$class = DbalTestKernel::class;
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $container = self::getContainer();
 
@@ -341,7 +362,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     {
         // Mutant 154: MethodCallRemoval removes the soviann_deploy_tasks.command.create_schema registration.
         // Mutant 155: ArrayItemRemoval removes service('soviann_deploy_tasks.storage') from create_schema args.
-        static::$class = DbalTestKernel::class;
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $container = self::getContainer();
 

@@ -9,8 +9,8 @@ use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
-use Soviann\DeployTasksBundle\Tests\Functional\DbalTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -24,6 +24,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
 
     protected function setUp(): void
     {
+        self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $this->cleanStorage();
 
@@ -96,10 +97,5 @@ final class DeployRunDbalTest extends FunctionalTestCase
         $execution = $storage->get('test.simple');
         \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
-    }
-
-    protected static function getKernelClass(): string
-    {
-        return DbalTestKernel::class;
     }
 }
