@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Functional\Scenario\Kernel;
 
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Tests\Fixtures\GroupedFailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
@@ -33,6 +34,13 @@ abstract class AbstractLifecycleScenarioKernel extends AbstractTestKernel
         ]);
 
         $this->registerAdditionalServices($container);
+
+        // Silence Symfony's default Logger: the failure-path scenario
+        // (GroupedFailingTask) otherwise emits "[error] Deploy task failed" to
+        // stderr. Infection's InitialTestsRunner SIGTERMs PHPUnit on the first
+        // stderr byte, which kills the mutation job before coverage XML is
+        // written. Mirrors the same override in TestKernel.
+        $container->services()->set('logger', NullLogger::class)->public();
 
         // The grouped fixtures never run in the ungrouped flow (deploytasks:run
         // without --group only executes ungrouped tasks), so registering them
