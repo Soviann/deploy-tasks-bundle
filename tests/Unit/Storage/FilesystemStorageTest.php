@@ -6,15 +6,15 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
+use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 
 #[CoversClass(FilesystemStorage::class)]
-final class FilesystemStorageTest extends TestCase
+final class FilesystemStorageTest extends TaskStorageContractTestCase
 {
     private string $storagePath;
     private FilesystemStorage $storage;
@@ -66,196 +66,18 @@ final class FilesystemStorageTest extends TestCase
         self::assertDirectoryExists($this->storagePath);
     }
 
-    public function testSaveAndRetrieve(): void
-    {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-
-        $this->storage->save($execution);
-
-        self::assertTrue($this->storage->has('task.1'));
-
-        $retrieved = $this->storage->get('task.1');
-
-        self::assertNotNull($retrieved);
-        self::assertSame($execution->id, $retrieved->id);
-        self::assertSame($execution->status, $retrieved->status);
-        self::assertSame(
-            $execution->executedAt->format(\DateTimeInterface::ATOM),
-            $retrieved->executedAt->format(\DateTimeInterface::ATOM),
-        );
-        self::assertSame($execution->error, $retrieved->error);
-    }
-
-    public function testSaveOverwrites(): void
-    {
-        $first = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-        $second = new TaskExecution('task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'));
-
-        $this->storage->save($first);
-        $this->storage->save($second);
-
-        $retrieved = $this->storage->get('task.1');
-
-        self::assertNotNull($retrieved);
-        self::assertSame(TaskStatus::Failed, $retrieved->status);
-    }
-
-    public function testGetReturnsNullForMissingTask(): void
-    {
-        self::assertNull($this->storage->get('task.missing'));
-    }
-
-    public function testHasReturnsFalseForMissingTask(): void
-    {
-        self::assertFalse($this->storage->has('task.missing'));
-    }
-
-    public function testRemove(): void
-    {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-
-        $this->storage->save($execution);
-        $this->storage->remove('task.1');
-
-        self::assertFalse($this->storage->has('task.1'));
-    }
-
-    public function testRemoveNonExistent(): void
-    {
-        // Should not throw
-        $this->storage->remove('task.nonexistent');
-
-        self::assertFalse($this->storage->has('task.nonexistent'));
-    }
-
-    public function testAllReturnsFlatList(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
-        $this->storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00')));
-        $this->storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T15:30:00+00:00'), null, 'predeploy'));
-
-        $all = $this->storage->all();
-
-        self::assertCount(3, $all);
-
-        $ids = \array_map(static fn (TaskExecution $e): string => $e->id.'@'.($e->group ?? ''), $all);
-        \sort($ids);
-
-        self::assertSame(['task.1@', 'task.2@', 'task.2@predeploy'], $ids);
-    }
-
-    public function testSaveAndGetWithGroup(): void
-    {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy');
-
-        $this->storage->save($execution);
-
-        $retrieved = $this->storage->get('task.1', 'predeploy');
-
-        self::assertNotNull($retrieved);
-        self::assertSame('task.1', $retrieved->id);
-        self::assertSame('predeploy', $retrieved->group);
-        self::assertNull($this->storage->get('task.1'));
-        self::assertNull($this->storage->get('task.1', 'postdeploy'));
-    }
-
-    public function testHasIsScopedByGroup(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-
-        self::assertTrue($this->storage->has('task.1', 'predeploy'));
-        self::assertFalse($this->storage->has('task.1'));
-        self::assertFalse($this->storage->has('task.1', 'postdeploy'));
-    }
-
-    public function testRemoveIsScopedByGroup(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
-
-        $this->storage->remove('task.1', 'predeploy');
-
-        self::assertFalse($this->storage->has('task.1', 'predeploy'));
-        self::assertTrue($this->storage->has('task.1', 'postdeploy'));
-    }
-
-    public function testRemoveAllDeletesEverySlot(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
-        $this->storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable()));
-
-        $this->storage->removeAll('task.1');
-
-        self::assertFalse($this->storage->has('task.1'));
-        self::assertFalse($this->storage->has('task.1', 'predeploy'));
-        self::assertFalse($this->storage->has('task.1', 'postdeploy'));
-        self::assertTrue($this->storage->has('task.2'));
-    }
-
-    public function testAllEmptyWhenDirectoryDoesNotExist(): void
-    {
-        self::assertSame([], $this->storage->all());
-    }
-
-    public function testReset(): void
+    /**
+     * Backend-specific complement to the inherited testReset(): the storage
+     * directory itself must survive a reset — only the records are deleted.
+     */
+    public function testResetKeepsStorageDirectory(): void
     {
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
         $this->storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable()));
 
         $this->storage->reset();
 
-        self::assertSame([], $this->storage->all());
         self::assertDirectoryExists($this->storagePath);
-    }
-
-    public function testResetWhenDirectoryDoesNotExist(): void
-    {
-        $this->storage->reset();
-
-        self::assertSame([], $this->storage->all());
-    }
-
-    public function testFindByTaskIdReturnsEverySlot(): void
-    {
-        $default = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-        $pre = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy');
-        $post = new TaskExecution('task.1', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'), null, 'postdeploy');
-        $other = new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:50:00+00:00'));
-
-        $this->storage->save($default);
-        $this->storage->save($pre);
-        $this->storage->save($post);
-        $this->storage->save($other);
-
-        $matches = [...$this->storage->findByTaskId('task.1')];
-        $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $matches);
-        $groups = \array_map(static fn (TaskExecution $e): ?string => $e->group, $matches);
-
-        self::assertCount(3, $matches);
-        self::assertSame(['task.1', 'task.1', 'task.1'], $ids);
-        self::assertEqualsCanonicalizing([null, 'predeploy', 'postdeploy'], $groups);
-    }
-
-    public function testFindByTaskIdReturnsSingleSlotWhenOnlyDefaultStored(): void
-    {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-
-        $this->storage->save($execution);
-
-        $matches = [...$this->storage->findByTaskId('task.1')];
-
-        self::assertCount(1, $matches);
-        self::assertSame('task.1', $matches[0]->id);
-        self::assertNull($matches[0]->group);
-    }
-
-    public function testFindByTaskIdUnknownIdReturnsEmpty(): void
-    {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
-
-        self::assertSame([], [...$this->storage->findByTaskId('task.missing')]);
     }
 
     public function testFindByTaskIdValidatesTaskId(): void
@@ -813,5 +635,10 @@ final class FilesystemStorageTest extends TestCase
         $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $matches);
         self::assertNotContains('task.10', $ids, 'findByTaskId(task.1) must not return task.10 records.');
         self::assertContains('task.1', $ids);
+    }
+
+    protected function createStorage(): TaskStorageInterface
+    {
+        return $this->storage;
     }
 }
