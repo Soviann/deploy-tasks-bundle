@@ -19,13 +19,11 @@ use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
+use Soviann\DeployTasksBundle\Tests\Fixtures\AutoconfiguredTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\CustomSorterFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
-use Soviann\DeployTasksBundle\Tests\Functional\AutoconfigTaskKernel;
-use Soviann\DeployTasksBundle\Tests\Functional\CustomSorterTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
-use Soviann\DeployTasksBundle\Tests\Functional\IncompatibleAllOrNothingTestKernel;
 use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -152,7 +150,22 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 
     public function testCustomSorterIsUsed(): void
     {
-        static::$class = CustomSorterTestKernel::class;
+        self::useConfigurableKernel([
+            'sorter' => 'test.custom_sorter',
+            'storage' => [
+                'type' => 'filesystem',
+                'filesystem' => ['path' => \sys_get_temp_dir().'/deploy-tasks-custom-'.\getmypid().'-test'],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ], [
+            'test.custom_sorter' => ['class' => CustomSorterFixture::class, 'public' => true],
+            'test.task.simple' => [
+                'class' => SimpleTask::class,
+                'args' => ['test.simple', 'A simple test task'],
+                'tags' => ['soviann_deploy_tasks.task'],
+            ],
+        ]);
         self::bootKernel();
         $container = self::getContainer();
 
@@ -220,7 +233,14 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 
     public function testBootFailsWhenAllOrNothingWithNonTransactionalStorage(): void
     {
-        static::$class = IncompatibleAllOrNothingTestKernel::class;
+        self::useConfigurableKernel([
+            'storage' => [
+                'type' => 'filesystem',
+                'filesystem' => ['all_or_nothing' => true],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ]);
 
         self::expectException(IncompatibleStorageException::class);
         self::expectExceptionMessage(FilesystemStorage::class);
@@ -317,9 +337,18 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     public function testDeployTaskInterfaceIsAutoconfiguredWithTaskTag(): void
     {
         // Kills MethodCallRemoval on `registerForAutoconfiguration()` (line 292) and `->addTag()` (line 294).
-        // AutoconfigTaskKernel registers a DeployTaskInterface implementation without an explicit tag;
+        // Registers a DeployTaskInterface implementation without an explicit tag;
         // only autoconfiguration can pull it into the registry.
-        static::$class = AutoconfigTaskKernel::class;
+        self::useConfigurableKernel([
+            'storage' => [
+                'type' => 'filesystem',
+                'filesystem' => ['path' => \sys_get_temp_dir().'/deploy-tasks-autoconfig-'.\getmypid().'-test'],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ], [
+            'test.task.autoconfigured' => ['class' => AutoconfiguredTask::class, 'autoconfigure' => true],
+        ]);
         self::bootKernel();
 
         $registry = self::getContainer()->get(TaskRegistry::class);

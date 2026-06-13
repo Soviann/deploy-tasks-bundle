@@ -43,7 +43,8 @@ final class KernelConfig
     }
 
     /**
-     * Extension config of the former DbalTestKernel.
+     * Extension config of the canonical database-storage scenario
+     * (in-memory sqlite, non-transactional).
      *
      * @return array<string, mixed>
      */
@@ -65,7 +66,8 @@ final class KernelConfig
     }
 
     /**
-     * Services of the former DbalTestKernel.
+     * Services of the canonical database-storage scenario: the sqlite
+     * connection plus a simple and a transactional task.
      *
      * @return array<string, ServiceSpec>
      */
@@ -86,7 +88,8 @@ final class KernelConfig
     }
 
     /**
-     * Extension config of the former CustomStorageTestKernel.
+     * Extension config of the canonical custom-storage scenario, pointing at
+     * the in-memory storage service from {@see customStorageServices()}.
      *
      * @return array<string, mixed>
      */
@@ -103,7 +106,8 @@ final class KernelConfig
     }
 
     /**
-     * Services of the former CustomStorageTestKernel.
+     * Services of the canonical custom-storage scenario: a non-transactional
+     * in-memory storage.
      *
      * @return array<string, ServiceSpec>
      */
