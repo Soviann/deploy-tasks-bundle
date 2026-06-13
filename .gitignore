@@ -3,6 +3,7 @@
 .idea/
 .infection/
 /DeployTask*
+/deploy_task_*
 .php-cs-fixer.cache
 .phpstan.cache/
 .phpunit.cache/
