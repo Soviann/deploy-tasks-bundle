@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 
@@ -81,6 +82,35 @@ final class KernelConfig
                 'class' => TransactionalTask::class,
                 'tags' => ['soviann_deploy_tasks.task'],
             ],
+        ];
+    }
+
+    /**
+     * Extension config of the former CustomStorageTestKernel.
+     *
+     * @return array<string, mixed>
+     */
+    public static function customStorageExtension(): array
+    {
+        return [
+            'storage' => [
+                'type' => 'custom',
+                'custom' => ['service' => 'test.custom_storage'],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ];
+    }
+
+    /**
+     * Services of the former CustomStorageTestKernel.
+     *
+     * @return array<string, ServiceSpec>
+     */
+    public static function customStorageServices(): array
+    {
+        return [
+            'test.custom_storage' => ['class' => InMemoryStorage::class, 'public' => true],
         ];
     }
 }

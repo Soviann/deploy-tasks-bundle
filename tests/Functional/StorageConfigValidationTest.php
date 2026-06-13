@@ -86,7 +86,18 @@ final class StorageConfigValidationTest extends KernelTestCase
 
     public function testCustomStorageNotImplementingInterfaceFailsAtCompileTime(): void
     {
-        $kernel = new CustomStorageWrongInterfaceTestKernel('test', true);
+        // Points storage.custom.service at a class that does NOT implement
+        // TaskStorageInterface — the container build must refuse it.
+        $kernel = new ConfigurableTestKernel('test', true, [
+            'storage' => [
+                'type' => 'custom',
+                'custom' => ['service' => 'test.wrong_interface_storage'],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ], [
+            'test.wrong_interface_storage' => ['class' => \ArrayObject::class, 'public' => true],
+        ]);
 
         $this->expectException(IncompatibleStorageException::class);
         $this->expectExceptionMessageMatches('/must implement/');
