@@ -19,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ProcessRunnerTrait` no longer echoes the failed process's command line on the console when a task's sub-process times out or exits non-zero. Previously the full argv (including `--password=…`, `--token=…`, or DSNs such as `postgres://user:secret@host/db`) surfaced verbatim to the console, exporting credentials into deploy logs and CI captures. Messages now report only the outcome (`Process timed out after Ns.`, `Process exited with code N.`); operators inspecting the failure should use the captured stdout/stderr stream.
 - `FilesystemStorage` now persists its state directory at mode `0700` (was `0755`) and every per-slot JSON file at mode `0600` (previously created under the ambient umask, typically `0644`). Task payloads carry error messages, DSN fragments, and similar context; restricting them to the owning user prevents unrelated accounts on the host from reading deploy history. Per-file permissions are re-applied on every `save()`, so existing slot files tighten themselves on the next write. Directory mode is enforced on every operation (fresh creation and pre-existing directories), so even directories created before this change will have their permissions tightened to 0700 on the next save. Raises a clear error if the underlying filesystem cannot honor POSIX modes (e.g. NTFS, FAT32).
 - The task runner's `Deploy task failed` / `Deploy tasks run failed — transaction rolled back.` log records no longer expose the full `Doctrine\DBAL\Exception` previous chain in the logger context. When a DBAL exception sits anywhere in `$e->getPrevious()`, the runner drops the raw throwable and replaces it with string-only fields (`exception_class`, `exception_message`, `previous_message`). Monolog's default normaliser would otherwise serialise `previous->trace`, and DBAL connection/authentication errors embed the full DSN (including credentials) into that trace. Non-DBAL failures still carry the `exception` key unchanged so handlers can continue rendering useful stack traces.
-
 - `DbalStorageConfiguration` now validates table/column names against the plain-identifier allowlist and rejects duplicate column names in its constructor, closing the gap where direct construction bypassed the config-tree validation and could feed hostile names into CREATE TABLE DDL.
 - Filesystem storage now also refuses `html`, `wwwroot`, and `httpdocs` path segments (covering `/var/www/html`, Apache's default docroot).
 
@@ -88,11 +87,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FilesystemStorage` now wraps corrupted `status` values in a `StorageException` instead of letting the raw `\ValueError` from `TaskStatus::from()` escape, matching `DbalStorage`'s behaviour. The original `\ValueError` is preserved as `getPrevious()`.
 - `deploytasks:generate:container` and `deploytasks:generate:host` now raise a `Symfony\Component\Filesystem\Exception\IOException` (extends `\RuntimeException`) when writing the generated file fails (e.g. non-writable target directory) instead of reporting success with a missing file.
 - `deploytasks:generate:container` now resolves the target directory against the injected `projectDir` before checking for an existing file, creating the directory, and writing. Running the command from a working directory different from `projectDir` no longer misses pre-existing files, nor writes the generated class into the wrong location. The duplicate-file error now displays the absolute resolved path.
-
-### Removed
-
-- Unused `StorageException::readError()` and `StorageException::writeError()` factory methods. Both storage implementations build their own messages inline with richer context (DBAL exception text in `DbalStorage`, file path in `FilesystemStorage`); the factories were never called.
-
 - `deploytasks:run --require-some` — exits with code 64 (EX_USAGE) when no task matches the provided filters (`--id`, `--group`), distinguishing an empty selection from a successful noop.
 - `deploytasks:run` now emits a `[i/N] FQCN` progress line before each executed task and a `→ <status> (<ms>ms)` completion line after, giving real-time feedback on which task is running and how long it took.
 - `deploytasks:status --filter-status=<comma-list>` — restricts the table to the given statuses (`RAN`, `FAILED`, `SKIPPED`, `PENDING`, case-insensitive). Combining with `--no-state` is rejected (`Command::INVALID`). Unknown values also surface as `Command::INVALID` with an explanation.
@@ -119,6 +113,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exceptions: `DuplicateTaskIdException`, `TaskNotFoundException`, `StorageException`, `TaskGroupRequiredException`, `TaskGroupMismatchException`, `IncompatibleStorageException`
 - Symfony bundle with full configuration tree, compiler pass for service validation (duplicate IDs, transactional custom storage aliasing, all-or-nothing compatibility check), and autoconfiguration
 - Support for PHP 8.2+ and Symfony 6.4+/7.0+
+
+### Removed
+
+- Unused `StorageException::readError()` and `StorageException::writeError()` factory methods. Both storage implementations build their own messages inline with richer context (DBAL exception text in `DbalStorage`, file path in `FilesystemStorage`); the factories were never called.
 
 ### Fixed
 
