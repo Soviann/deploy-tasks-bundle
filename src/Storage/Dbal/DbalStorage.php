@@ -38,6 +38,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     private readonly string $quotedExecutedAtColumn;
     private readonly string $quotedErrorColumn;
 
+    /** Comma-separated, platform-quoted column list for SELECT projections. */
+    private readonly string $selectColumns;
+
     private bool $initialized = false;
 
     /**
@@ -55,6 +58,14 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $this->quotedStatusColumn = $platform->quoteSingleIdentifier($configuration->statusColumn);
         $this->quotedExecutedAtColumn = $platform->quoteSingleIdentifier($configuration->executedAtColumn);
         $this->quotedErrorColumn = $platform->quoteSingleIdentifier($configuration->errorColumn);
+
+        $this->selectColumns = \implode(', ', [
+            $this->quotedIdColumn,
+            $this->quotedGroupColumn,
+            $this->quotedStatusColumn,
+            $this->quotedExecutedAtColumn,
+            $this->quotedErrorColumn,
+        ]);
     }
 
     /**
@@ -135,7 +146,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $row = $this->connection->fetchAssociative(
                 \sprintf(
                     'SELECT %s FROM %s WHERE %s = ? AND %s = ?',
-                    $this->selectColumns(),
+                    $this->selectColumns,
                     $this->quotedTable,
                     $this->quotedIdColumn,
                     $this->quotedGroupColumn,
@@ -288,7 +299,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $rows = $this->connection->fetchAllAssociative(
                 \sprintf(
                     'SELECT %s FROM %s WHERE %s = ? ORDER BY %s',
-                    $this->selectColumns(),
+                    $this->selectColumns,
                     $this->quotedTable,
                     $this->quotedIdColumn,
                     $this->quotedExecutedAtColumn,
@@ -321,7 +332,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $rows = $this->connection->fetchAllAssociative(
                 \sprintf(
                     'SELECT %s FROM %s ORDER BY %s',
-                    $this->selectColumns(),
+                    $this->selectColumns,
                     $this->quotedTable,
                     $this->quotedExecutedAtColumn,
                 ),
@@ -441,20 +452,6 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         );
 
         return $schema->toSql($this->connection->getDatabasePlatform());
-    }
-
-    /**
-     * Returns a comma-separated, platform-quoted column list for SELECT projections.
-     */
-    private function selectColumns(): string
-    {
-        return \implode(', ', [
-            $this->quotedIdColumn,
-            $this->quotedGroupColumn,
-            $this->quotedStatusColumn,
-            $this->quotedExecutedAtColumn,
-            $this->quotedErrorColumn,
-        ]);
     }
 
     /**

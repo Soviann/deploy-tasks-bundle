@@ -22,6 +22,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:rollup', description: 'Clear execution history and mark all registered tasks as run.')]
 final class DeployTasksRollupCommand extends Command
 {
+    use DestructiveCommandTrait;
+
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
@@ -33,18 +35,6 @@ final class DeployTasksRollupCommand extends Command
     {
         $this
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only roll up these group slot(s) (repeatable); without this flag every slot is rolled up and the whole table is reset.')
-            ->addOption(
-                'force',
-                null,
-                InputOption::VALUE_NONE,
-                'Confirm destructive run when combined with --no-interaction. Alias: --yes.',
-            )
-            ->addOption(
-                'yes',
-                null,
-                InputOption::VALUE_NONE,
-                'Alias of --force.',
-            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command clears all execution records and marks every (task, group) slot as run, establishing the current codebase as the baseline:
 
@@ -65,18 +55,19 @@ final class DeployTasksRollupCommand extends Command
                 To see available task IDs and their current state, use <info>deploytasks:status</info>.
                 EOT)
         ;
+
+        $this->addForceOptions();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        $force = (bool) $input->getOption('force') || (bool) $input->getOption('yes');
-        if (!$input->isInteractive() && !$force) {
-            $output->writeln('<error>Refusing to run destructive command non-interactively without --force.</error>');
-
+        if ($this->refusesNonInteractive($input, $output)) {
             return Command::INVALID;
         }
+
+        $force = $this->isForced($input);
 
         /** @var list<string> $groupFilter */
         $groupFilter = \array_values((array) $input->getOption('group'));

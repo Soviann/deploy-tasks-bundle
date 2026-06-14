@@ -19,6 +19,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:reset', description: 'Reset a deploy task so it will be executed again on next run.')]
 final class DeployTasksResetCommand extends Command
 {
+    use DestructiveCommandTrait;
+
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
@@ -31,18 +33,6 @@ final class DeployTasksResetCommand extends Command
         $this
             ->addArgument('id', InputArgument::REQUIRED, 'The deploy task ID to reset (e.g. task_20260412143000_seed_categories).')
             ->addOption('group', null, InputOption::VALUE_REQUIRED, 'Reset only a specific group slot (default: every slot for this task).')
-            ->addOption(
-                'force',
-                null,
-                InputOption::VALUE_NONE,
-                'Confirm destructive run when combined with --no-interaction. Alias: --yes.',
-            )
-            ->addOption(
-                'yes',
-                null,
-                InputOption::VALUE_NONE,
-                'Alias of --force.',
-            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command removes the execution record for a deploy task, so it will be treated as pending and executed again on the next <info>deploytasks:run</info>:
 
@@ -61,6 +51,8 @@ final class DeployTasksResetCommand extends Command
                 To run only this task, use <info>deploytasks:run --id=<id></info>.
                 EOT)
         ;
+
+        $this->addForceOptions();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -73,12 +65,11 @@ final class DeployTasksResetCommand extends Command
         /** @var string|null $group */
         $group = $input->getOption('group');
 
-        $force = (bool) $input->getOption('force') || (bool) $input->getOption('yes');
-        if (!$input->isInteractive() && !$force) {
-            $output->writeln('<error>Refusing to run destructive command non-interactively without --force.</error>');
-
+        if ($this->refusesNonInteractive($input, $output)) {
             return Command::INVALID;
         }
+
+        $force = $this->isForced($input);
 
         if (!$this->registry->has($id)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));
@@ -114,7 +105,7 @@ final class DeployTasksResetCommand extends Command
             return Command::SUCCESS;
         }
 
-        if ([] === $this->findExecutedSlots($id)) {
+        if ([] === $this->storage->findByTaskId($id)) {
             $io->note(\sprintf('Task "%s" has no execution records — already pending.', $id));
 
             return Command::SUCCESS;
@@ -133,19 +124,5 @@ final class DeployTasksResetCommand extends Command
         $io->success(\sprintf('Task "%s" has been reset across all slots and will run again on next deploytasks:run.', $id));
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * @return list<?string>
-     */
-    private function findExecutedSlots(string $id): array
-    {
-        $slots = [];
-
-        foreach ($this->storage->findByTaskId($id) as $execution) {
-            $slots[] = $execution->group;
-        }
-
-        return $slots;
     }
 }

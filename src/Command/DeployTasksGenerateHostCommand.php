@@ -147,8 +147,7 @@ final class DeployTasksGenerateHostCommand extends Command
         $this->fs->dumpFile($filePath, $fileContent);
         $this->fs->chmod($filePath, 0750);
 
-        $resolvedPath = \realpath($filePath);
-        $displayPath = false !== $resolvedPath ? $resolvedPath : $filePath;
+        $displayPath = PathNormalizer::displayPath($filePath);
 
         $io->text([
             \sprintf('Generated new host deploy task to "<info>%s</info>"', $displayPath),
