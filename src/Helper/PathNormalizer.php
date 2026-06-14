@@ -36,4 +36,15 @@ final class PathNormalizer
 
         return $normalized;
     }
+
+    /**
+     * Resolves $path to its canonical absolute form for display, falling back to
+     * the original value when realpath() cannot resolve it (e.g. it no longer exists).
+     */
+    public static function displayPath(string $path): string
+    {
+        $resolved = \realpath($path);
+
+        return false !== $resolved ? $resolved : $path;
+    }
 }

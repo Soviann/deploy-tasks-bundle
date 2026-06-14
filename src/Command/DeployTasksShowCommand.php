@@ -9,7 +9,6 @@ use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
-use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -79,10 +78,7 @@ final class DeployTasksShowCommand extends Command
             ['Declared groups' => $groupsLabel],
         );
 
-        $executions = [];
-        foreach ($this->storage->findByTaskId($id) as $record) {
-            $executions[] = $record;
-        }
+        $executions = $this->storage->findByTaskId($id);
 
         if ([] === $executions) {
             $io->note('No execution records — task is pending on every declared slot.');
@@ -104,15 +100,9 @@ final class DeployTasksShowCommand extends Command
 
     private function renderExecution(SymfonyStyle $io, TaskExecution $execution): void
     {
-        $status = match ($execution->status) {
-            TaskStatus::Ran => '<info>ran</info>',
-            TaskStatus::Failed => '<error>failed</error>',
-            TaskStatus::Skipped => '<comment>skipped</comment>',
-        };
-
         $rows = [
             ['Group' => $execution->group ?? self::DEFAULT_SLOT_LABEL],
-            ['Status' => $status],
+            ['Status' => CommandMessages::statusTag($execution->status)],
             ['Executed at' => $execution->executedAt->format('Y-m-d H:i:s')],
         ];
 

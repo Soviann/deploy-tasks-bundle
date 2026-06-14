@@ -205,8 +205,7 @@ final class DeployTasksGenerateCommand extends Command
         $this->fs->dumpFile($filePath, $fileContent);
         $this->fs->chmod($filePath, 0640);
 
-        $resolvedPath = \realpath($filePath);
-        $displayPath = false !== $resolvedPath ? $resolvedPath : $filePath;
+        $displayPath = PathNormalizer::displayPath($filePath);
 
         $io->text([
             \sprintf('Generated new deploy task class to "<info>%s</info>"', $displayPath),

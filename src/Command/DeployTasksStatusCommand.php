@@ -154,11 +154,7 @@ final class DeployTasksStatusCommand extends Command
             return [$id, $groupLabel, $description, '<comment>pending</comment>', '', ''];
         }
 
-        $status = match ($execution->status) {
-            TaskStatus::Ran => '<info>ran</info>',
-            TaskStatus::Failed => '<error>failed</error>',
-            TaskStatus::Skipped => '<comment>skipped</comment>',
-        };
+        $status = CommandMessages::statusTag($execution->status);
 
         $errorCell = TaskStatus::Failed === $execution->status && null !== $execution->error
             ? u(ConsoleSanitizer::sanitize($execution->error))->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')->toString()
