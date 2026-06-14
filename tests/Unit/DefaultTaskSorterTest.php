@@ -79,7 +79,11 @@ final class DefaultTaskSorterTest extends TestCase
         // registered: [unattributed, attributed] → same priority → order preserved
         $sorted = $this->sorter->sort([$unattributed, $attributed]);
 
-        self::assertSame($unattributed, $sorted[0], 'Unattributed task registered first must stay first when priorities are equal.');
+        self::assertSame(
+            $unattributed,
+            $sorted[0],
+            'Unattributed task registered first must stay first when priorities are equal.',
+        );
         self::assertSame($attributed, $sorted[1]);
     }
 
@@ -93,7 +97,11 @@ final class DefaultTaskSorterTest extends TestCase
         // registered: [attributed (p=0), unattributed (p=0)] → order preserved
         $sorted = $this->sorter->sort([$attributed, $unattributed]);
 
-        self::assertSame($attributed, $sorted[0], 'Attributed task registered first must stay first when priorities are equal.');
+        self::assertSame(
+            $attributed,
+            $sorted[0],
+            'Attributed task registered first must stay first when priorities are equal.',
+        );
         self::assertSame($unattributed, $sorted[1]);
     }
 

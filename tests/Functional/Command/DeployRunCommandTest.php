@@ -160,9 +160,12 @@ final class DeployRunCommandTest extends FunctionalTestCase
         \assert($dispatcher instanceof EventDispatcherInterface);
 
         $executionOrder = [];
-        $dispatcher->addListener(AfterTaskEvent::class, static function (AfterTaskEvent $event) use (&$executionOrder): void {
-            $executionOrder[] = $event->taskId;
-        });
+        $dispatcher->addListener(
+            AfterTaskEvent::class,
+            static function (AfterTaskEvent $event) use (&$executionOrder): void {
+                $executionOrder[] = $event->taskId;
+            },
+        );
 
         $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
         $tester->execute([]);
@@ -172,7 +175,11 @@ final class DeployRunCommandTest extends FunctionalTestCase
         $simpleIndex = \array_search('test.simple', $executionOrder, true);
         self::assertIsInt($prioritizedIndex, 'test.prioritized must have fired AfterTaskEvent.');
         self::assertIsInt($simpleIndex, 'test.simple must have fired AfterTaskEvent.');
-        self::assertLessThan($simpleIndex, $prioritizedIndex, 'test.prioritized (priority=10) must execute before test.simple (priority=0).');
+        self::assertLessThan(
+            $simpleIndex,
+            $prioritizedIndex,
+            'test.prioritized (priority=10) must execute before test.simple (priority=0).',
+        );
     }
 
     public function testSkippingTaskIsStoredAsSkipped(): void

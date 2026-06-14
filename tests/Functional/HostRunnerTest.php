@@ -123,7 +123,10 @@ final class HostRunnerTest extends FunctionalTestCase
 
         self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         self::assertFileDoesNotExist($marker, 'Dotenv values must never be executed as shell code');
-        self::assertFileExists($this->workspace.'/$(touch pwned)', 'The dotenv value must be used verbatim as the storage path');
+        self::assertFileExists(
+            $this->workspace.'/$(touch pwned)',
+            'The dotenv value must be used verbatim as the storage path',
+        );
     }
 
     public function testDryRunDoesNotExecuteOrMarkTasks(): void

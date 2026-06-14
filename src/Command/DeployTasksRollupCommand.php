@@ -34,7 +34,12 @@ final class DeployTasksRollupCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only roll up these group slot(s) (repeatable); without this flag every slot is rolled up and the whole table is reset.')
+            ->addOption(
+                'group',
+                null,
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Only roll up these group slot(s) (repeatable); without this flag every slot is rolled up and the whole table is reset.',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command clears all execution records and marks every (task, group) slot as run, establishing the current codebase as the baseline:
 
@@ -99,7 +104,10 @@ final class DeployTasksRollupCommand extends Command
                 }
                 foreach ($groupFilter as $group) {
                     if (0 === ($declaredCountByGroup[$group] ?? 0)) {
-                        $output->writeln(\sprintf('<error>Group "%s" is declared on 0 tasks — typo?</error>', $group));
+                        $output->writeln(\sprintf(
+                            '<error>Group "%s" is declared on 0 tasks — typo?</error>',
+                            $group,
+                        ));
                     }
                 }
             }
@@ -110,11 +118,20 @@ final class DeployTasksRollupCommand extends Command
         }
 
         $existingRecords = $this->storage->all();
-        $io->text(\sprintf('%d task(s) registered, %d slot(s) targeted, %d execution record(s) in storage.', \count($tasks), \count($targets), \count($existingRecords)));
+        $io->text(\sprintf(
+            '%d task(s) registered, %d slot(s) targeted, %d execution record(s) in storage.',
+            \count($tasks),
+            \count($targets),
+            \count($existingRecords),
+        ));
 
         $prompt = [] === $groupFilter
             ? \sprintf('This will clear all execution records and mark %d slot(s) as run. Continue?', \count($targets))
-            : \sprintf('This will mark %d slot(s) as run for group(s) [%s], preserving other slots. Continue?', \count($targets), \implode(', ', $groupFilter));
+            : \sprintf(
+                'This will mark %d slot(s) as run for group(s) [%s], preserving other slots. Continue?',
+                \count($targets),
+                \implode(', ', $groupFilter),
+            );
 
         if (!$force && !$io->confirm($prompt, false)) {
             $io->note('Aborted.');
@@ -142,8 +159,17 @@ final class DeployTasksRollupCommand extends Command
         }
 
         $io->success($resetAll
-            ? \sprintf('Rolled up: cleared %d record(s), marked %d slot(s) as run across %d task(s).', \count($existingRecords), \count($targets), \count($tasks))
-            : \sprintf('Rolled up: marked %d slot(s) as run for group(s) [%s].', \count($targets), \implode(', ', $groupFilter)));
+            ? \sprintf(
+                'Rolled up: cleared %d record(s), marked %d slot(s) as run across %d task(s).',
+                \count($existingRecords),
+                \count($targets),
+                \count($tasks),
+            )
+            : \sprintf(
+                'Rolled up: marked %d slot(s) as run for group(s) [%s].',
+                \count($targets),
+                \implode(', ', $groupFilter),
+            ));
 
         return Command::SUCCESS;
     }

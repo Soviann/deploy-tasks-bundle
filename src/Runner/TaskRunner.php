@@ -68,39 +68,51 @@ final class TaskRunner
      * @param list<string> $groups
      *
      * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a registered task
-     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws — the exception escapes after the transaction is rolled back
+     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws — the exception escapes after
+     *                              the transaction is rolled back
      */
-    public function runAll(OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): RunResult
-    {
-        $result = $this->withLock($output, function (?LockInterface $lock) use ($output, $dryRun, $force, $groups): RunResult {
-            $this->logger->info('Deploy tasks run starting', [
-                'environment' => $this->environment,
-                'dry_run' => $dryRun,
-                'force' => $force,
-                'groups' => $groups,
-            ]);
+    public function runAll(
+        OutputInterface $output,
+        bool $dryRun = false,
+        bool $force = false,
+        array $groups = [],
+    ): RunResult {
+        $result = $this->withLock(
+            $output,
+            function (?LockInterface $lock) use ($output, $dryRun, $force, $groups): RunResult {
+                $this->logger->info('Deploy tasks run starting', [
+                    'environment' => $this->environment,
+                    'dry_run' => $dryRun,
+                    'force' => $force,
+                    'groups' => $groups,
+                ]);
 
-            $tasks = \array_values($this->registry->all($this->environment, $groups));
-            $sorted = $this->sorter->sort($tasks);
-            /** @var list<?string> $effectiveGroups */
-            $effectiveGroups = [] === $groups ? [null] : $groups;
+                $tasks = \array_values($this->registry->all($this->environment, $groups));
+                $sorted = $this->sorter->sort($tasks);
+                /** @var list<?string> $effectiveGroups */
+                $effectiveGroups = [] === $groups ? [null] : $groups;
 
-            if ($dryRun) {
-                return $this->dryRun($sorted, $output, $effectiveGroups, $force);
-            }
-
-            if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
-                try {
-                    return $this->storage->transactional(fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock));
-                } catch (\Throwable $e) {
-                    $this->logger->error('Deploy tasks run failed — transaction rolled back.', $this->buildExceptionLogContext($e));
-
-                    throw $e;
+                if ($dryRun) {
+                    return $this->dryRun($sorted, $output, $effectiveGroups, $force);
                 }
-            }
 
-            return $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock);
-        });
+                if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
+                    try {
+                        return $this->storage->transactional(
+                            fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock),
+                        );
+                    } catch (\Throwable $e) {
+                        $this->logger->error(
+                            'Deploy tasks run failed — transaction rolled back.',
+                            $this->buildExceptionLogContext($e),
+                        );
+
+                        throw $e;
+                    }
+                }
+
+                return $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock);
+            });
 
         $final = $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
 
@@ -133,64 +145,80 @@ final class TaskRunner
      *
      * @param list<string> $groups
      *
-     * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the runner's environment
+     * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the
+     *                                          runner's environment
      * @throws TaskGroupRequiredException
      * @throws TaskGroupMismatchException
      * @throws TaskNotFoundException            When no task is registered with the given id
      * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
-     * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception escapes after the transaction is rolled back
+     * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception
+     *                                          escapes after the transaction is rolled back
      */
-    public function runOne(string $taskId, OutputInterface $output, bool $dryRun = false, bool $force = false, array $groups = []): TaskResult
-    {
-        $result = $this->withLock($output, function (?LockInterface $lock) use ($taskId, $output, $force, $groups, $dryRun): TaskResult {
-            $task = $this->registry->get($taskId);
+    public function runOne(
+        string $taskId,
+        OutputInterface $output,
+        bool $dryRun = false,
+        bool $force = false,
+        array $groups = [],
+    ): TaskResult {
+        $result = $this->withLock(
+            $output,
+            function (?LockInterface $lock) use ($taskId, $output, $force, $groups, $dryRun): TaskResult {
+                $task = $this->registry->get($taskId);
 
-            $attribute = AsDeployTask::of($task);
-            $taskEnv = $attribute?->env;
+                $attribute = AsDeployTask::of($task);
+                $taskEnv = $attribute?->env;
 
-            if (null !== $taskEnv && null !== $this->environment) {
-                $envs = \is_array($taskEnv) ? $taskEnv : [$taskEnv];
+                if (null !== $taskEnv && null !== $this->environment) {
+                    $envs = \is_array($taskEnv) ? $taskEnv : [$taskEnv];
 
-                if (!\in_array($this->environment, $envs, true)) {
-                    throw new TaskEnvironmentMismatchException($taskId, \is_array($taskEnv) ? \implode('|', $taskEnv) : $taskEnv, $this->environment);
-                }
-            }
-
-            $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
-            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
-
-            if ([] === $pendingSlots) {
-                $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
-                $this->logger->info('Deploy task skipped (already executed)', ['task_id' => $taskId]);
-
-                return TaskResult::SKIPPED;
-            }
-
-            if ($dryRun) {
-                foreach ($pendingSlots as $slot) {
-                    $label = null === $slot ? $taskId : $taskId.'@'.$slot;
-                    $output->writeln(\sprintf('  [would run] %s - %s', $label, $this->descriptionResolver->resolve($task)));
+                    if (!\in_array($this->environment, $envs, true)) {
+                        throw new TaskEnvironmentMismatchException($taskId, \is_array($taskEnv) ? \implode('|', $taskEnv) : $taskEnv, $this->environment);
+                    }
                 }
 
-                return TaskResult::SUCCESS;
-            }
+                $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
+                $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
 
-            if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
-                try {
-                    return $this->storage->transactional(
-                        fn (): TaskResult => $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result,
-                    );
-                } catch (\Throwable $e) {
-                    $this->logger->error('Deploy tasks run failed — transaction rolled back.', $this->buildExceptionLogContext($e));
+                if ([] === $pendingSlots) {
+                    $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
+                    $this->logger->info('Deploy task skipped (already executed)', ['task_id' => $taskId]);
 
-                    throw $e;
+                    return TaskResult::SKIPPED;
                 }
-            }
 
-            $outcome = $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots);
+                if ($dryRun) {
+                    foreach ($pendingSlots as $slot) {
+                        $label = null === $slot ? $taskId : $taskId.'@'.$slot;
+                        $output->writeln(\sprintf(
+                            '  [would run] %s - %s',
+                            $label,
+                            $this->descriptionResolver->resolve($task),
+                        ));
+                    }
 
-            return $outcome->result;
-        });
+                    return TaskResult::SUCCESS;
+                }
+
+                if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
+                    try {
+                        return $this->storage->transactional(
+                            fn (): TaskResult => $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result,
+                        );
+                    } catch (\Throwable $e) {
+                        $this->logger->error(
+                            'Deploy tasks run failed — transaction rolled back.',
+                            $this->buildExceptionLogContext($e),
+                        );
+
+                        throw $e;
+                    }
+                }
+
+                $outcome = $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots);
+
+                return $outcome->result;
+            });
 
         return $result ?? TaskResult::LOCKED;
     }
@@ -283,8 +311,13 @@ final class TaskRunner
      * @throws \ReflectionException
      * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
      */
-    private function executeAll(array $tasks, OutputInterface $output, bool $force, array $effectiveGroups, ?LockInterface $lock = null): RunResult
-    {
+    private function executeAll(
+        array $tasks,
+        OutputInterface $output,
+        bool $force,
+        array $effectiveGroups,
+        ?LockInterface $lock = null,
+    ): RunResult {
         $ran = 0;
         $skipped = 0;
         $failed = 0;
@@ -318,7 +351,14 @@ final class TaskRunner
             ++$current;
 
             try {
-                $outcome = $this->executeTask($item['task'], $output, $current, $total, $item['taskId'], $item['pendingSlots']);
+                $outcome = $this->executeTask(
+                    $item['task'],
+                    $output,
+                    $current,
+                    $total,
+                    $item['taskId'],
+                    $item['pendingSlots'],
+                );
             } catch (\Throwable $taskError) {
                 if ($this->allOrNothing) {
                     $partial = new RunResult(
@@ -368,8 +408,14 @@ final class TaskRunner
      * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
      * @throws \Throwable           When storage throws inside the transactional closure
      */
-    private function executeTask(DeployTaskInterface $task, OutputInterface $output, int $current, int $total, string $taskId, array $pendingSlots): TaskOutcome
-    {
+    private function executeTask(
+        DeployTaskInterface $task,
+        OutputInterface $output,
+        int $current,
+        int $total,
+        string $taskId,
+        array $pendingSlots,
+    ): TaskOutcome {
         $attribute = AsDeployTask::of($task);
         $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
 
@@ -394,7 +440,11 @@ final class TaskRunner
             $outcome = $this->buildSuccessOutcome($taskId, $result, $duration, $timeout, $output);
 
             if (!$output->isQuiet()) {
-                $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+                $output->writeln(\sprintf(
+                    '   → %s (%dms)',
+                    $outcome->status->value,
+                    (int) \round($outcome->durationSeconds * 1000),
+                ));
             }
 
             $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
@@ -416,7 +466,11 @@ final class TaskRunner
             $outcome = $this->buildFailureOutcome($taskId, $e, $duration, $output);
 
             if (!$output->isQuiet()) {
-                $output->writeln(\sprintf('   → %s (%dms)', $outcome->status->value, (int) \round($outcome->durationSeconds * 1000)));
+                $output->writeln(\sprintf(
+                    '   → %s (%dms)',
+                    $outcome->status->value,
+                    (int) \round($outcome->durationSeconds * 1000),
+                ));
             }
 
             $this->persistOutcome($taskId, $outcome, $pendingSlots);
@@ -475,7 +529,11 @@ final class TaskRunner
         float $duration,
         OutputInterface $output,
     ): TaskOutcome {
-        $output->writeln(\sprintf('<error>Task "%s" failed: %s</error>', $taskId, ConsoleSanitizer::sanitize($e->getMessage())));
+        $output->writeln(\sprintf(
+            '<error>Task "%s" failed: %s</error>',
+            $taskId,
+            ConsoleSanitizer::sanitize($e->getMessage()),
+        ));
         $this->logger->error('Deploy task failed', [
             'task_id' => $taskId,
             'duration_ms' => (int) \round($duration * 1000),
@@ -557,8 +615,12 @@ final class TaskRunner
      * into a TaskReturnedFailureException inside the wrapper, so it follows the same path as
      * a thrown failure: rollback, TaskFailedEvent, Failed record, all_or_nothing abort.
      */
-    private function wrapInTransaction(DeployTaskInterface $task, ?AsDeployTask $attribute, OutputInterface $output, string $taskId): TaskResult
-    {
+    private function wrapInTransaction(
+        DeployTaskInterface $task,
+        ?AsDeployTask $attribute,
+        OutputInterface $output,
+        string $taskId,
+    ): TaskResult {
         $run = static function () use ($task, $output, $taskId): TaskResult {
             $result = $task->run($output);
 

@@ -80,7 +80,11 @@ final class CustomTransactionalStorageValidationTest extends KernelTestCase
                 ]);
 
                 $container->services()
-                    ->set('test.transactional_storage', \Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture::class)->public()
+                    ->set(
+                        'test.transactional_storage',
+                        \Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture::class,
+                    )
+                    ->public()
                 ;
             }
         };

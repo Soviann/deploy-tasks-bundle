@@ -31,8 +31,17 @@ final class DeployTasksResetCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('id', InputArgument::REQUIRED, 'The deploy task ID to reset (e.g. task_20260412143000_seed_categories).')
-            ->addOption('group', null, InputOption::VALUE_REQUIRED, 'Reset only a specific group slot (default: every slot for this task).')
+            ->addArgument(
+                'id',
+                InputArgument::REQUIRED,
+                'The deploy task ID to reset (e.g. task_20260412143000_seed_categories).',
+            )
+            ->addOption(
+                'group',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Reset only a specific group slot (default: every slot for this task).',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command removes the execution record for a deploy task, so it will be treated as pending and executed again on the next <info>deploytasks:run</info>:
 
@@ -81,17 +90,30 @@ final class DeployTasksResetCommand extends Command
             $declared = AsDeployTask::groupsOf($this->registry->get($id));
 
             if (null !== $declared && !\in_array($group, $declared, true)) {
-                $io->warning(\sprintf('Group "%s" is not declared on task "%s" (declared: %s). Proceeding to clean any stale row anyway.', $group, $id, \implode(', ', $declared)));
+                $io->warning(\sprintf(
+                    'Group "%s" is not declared on task "%s" (declared: %s). Proceeding to clean any stale row anyway.',
+                    $group,
+                    $id,
+                    \implode(', ', $declared),
+                ));
             }
 
             if (!$this->storage->has($id, $group)) {
-                $io->note(\sprintf('Task "%s" has no execution record for group "%s" — already pending.', $id, $group));
+                $io->note(\sprintf(
+                    'Task "%s" has no execution record for group "%s" — already pending.',
+                    $id,
+                    $group,
+                ));
 
                 return Command::SUCCESS;
             }
 
             if (!$force
-                && !$io->confirm(\sprintf('Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.', $id, $group), false)
+                && !$io->confirm(\sprintf(
+                    'Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.',
+                    $id,
+                    $group,
+                ), false)
             ) {
                 $io->note('Aborted.');
 
@@ -100,7 +122,12 @@ final class DeployTasksResetCommand extends Command
 
             $this->storage->remove($id, $group);
 
-            $io->success(\sprintf('Task "%s" has been reset in group "%s" and will run again on next deploytasks:run --group=%s.', $id, $group, $group));
+            $io->success(\sprintf(
+                'Task "%s" has been reset in group "%s" and will run again on next deploytasks:run --group=%s.',
+                $id,
+                $group,
+                $group,
+            ));
 
             return Command::SUCCESS;
         }
@@ -112,7 +139,10 @@ final class DeployTasksResetCommand extends Command
         }
 
         if (!$force
-            && !$io->confirm(\sprintf('Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.', $id), false)
+            && !$io->confirm(\sprintf(
+                'Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.',
+                $id,
+            ), false)
         ) {
             $io->note('Aborted.');
 
@@ -121,7 +151,10 @@ final class DeployTasksResetCommand extends Command
 
         $this->storage->removeAll($id);
 
-        $io->success(\sprintf('Task "%s" has been reset across all slots and will run again on next deploytasks:run.', $id));
+        $io->success(\sprintf(
+            'Task "%s" has been reset across all slots and will run again on next deploytasks:run.',
+            $id,
+        ));
 
         return Command::SUCCESS;
     }

@@ -191,7 +191,10 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         // Relative path with internal traversal that stays within the project root.
         // --namespace is required because the dir segment "generate-test-XXXX" contains a hyphen,
         // which is not a valid PHP namespace character and would be rejected by dirToNamespace().
-        $this->tester->execute(['--dir' => 'var/nested/deep/../generate-test-'.$uniqueId.'/', '--namespace' => 'App\\Nested\\Test']);
+        $this->tester->execute([
+            '--dir' => 'var/nested/deep/../generate-test-'.$uniqueId.'/',
+            '--namespace' => 'App\\Nested\\Test',
+        ]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
@@ -289,8 +292,10 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     public function testGenerateNormalisesTrailingSlashInDirOption(): void
     {
         // Pass the dir with an extra trailing slash — the file path must still have exactly one.
-        // Kills UnwrapRtrim on line 70: if rtrim is removed, the path becomes `…//DeployTask…` and glob below misses it.
-        // --namespace is required because the dir name contains hyphens (from uniqid()), which dirToNamespace() rejects.
+        // Kills UnwrapRtrim on line 70: if rtrim is removed, the path becomes `…//DeployTask…` and glob below
+        // misses it.
+        // --namespace is required because the dir name contains hyphens (from uniqid()), which dirToNamespace()
+        // rejects.
         $this->tester->execute(['--dir' => $this->relativeOutputDir.'/', '--namespace' => 'App\\Test']);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
@@ -304,7 +309,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     {
         // Kills Identical mutation on `'Src' === $namespaceParts[0]` (line 182): when mutated to `'Src' !== ...`,
         // the namespace would stay `Src\*` instead of being rewritten to `App\*`.
-        // Also kills UnwrapArrayMap / UnwrapUcFirst / UnwrapRtrim in `dirToNamespace` via the namespace assertions below.
+        // Also kills UnwrapArrayMap / UnwrapUcFirst / UnwrapRtrim in `dirToNamespace` via the namespace
+        // assertions below.
         $subdir = 'src/DeployTasks/Task_'.\uniqid().'/';
         $tmpProject = \sys_get_temp_dir().'/generate-ns-'.\uniqid();
         \mkdir($tmpProject, 0o755, true);
@@ -442,8 +448,11 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
      * @param non-empty-string $expectedMessageFragment
      */
     #[DataProvider('pathTraversalPayloadsProvider')]
-    public function testGenerateRejectsDirPathTraversal(string $dir, string $expectedMessageFragment, ?string $projectDir): void
-    {
+    public function testGenerateRejectsDirPathTraversal(
+        string $dir,
+        string $expectedMessageFragment,
+        ?string $projectDir,
+    ): void {
         $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
         self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
 
@@ -530,7 +539,11 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             // Assert the rendered file is syntactically valid PHP.
             $process = new \Symfony\Component\Process\Process(['php', '-l', $renderedFile]);
             $process->run();
-            self::assertSame(0, $process->getExitCode(), 'php -l must exit 0: '.$process->getOutput().$process->getErrorOutput());
+            self::assertSame(
+                0,
+                $process->getExitCode(),
+                'php -l must exit 0: '.$process->getOutput().$process->getErrorOutput(),
+            );
 
             // Assert the hostile string survives byte-for-byte: var_export escapes it, so
             // the file must contain the escaped literal form rather than the raw string.
@@ -629,7 +642,10 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         try {
             $tester->execute(['--dir' => '/tmp/outside/']);
             self::assertSame(Command::FAILURE, $tester->getStatusCode());
-            self::assertStringContainsString('must be a relative path', \preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '');
+            self::assertStringContainsString(
+                'must be a relative path',
+                \preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '',
+            );
             // No files should have been written inside $projectDir
             $glob = \glob($projectDir.'/**/*.php');
             self::assertSame([], false === $glob ? [] : $glob, 'Absolute path rejection must not write any file.');
@@ -689,7 +705,10 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         // Kills UnwrapArrayMerge (#14-15, line 150): mutations remove $replacements from the merge
         // so custom __TASK_ID__ / __DESCRIPTION__ tokens survive raw.
         $template = \sys_get_temp_dir().'/generate-ns-tpl-'.\uniqid().'.tpl';
-        \file_put_contents($template, "namespace {{ namespace }};\n// id={{ taskId }}\n// desc={{ description }}\n// class={{ className }}\n");
+        \file_put_contents(
+            $template,
+            "namespace {{ namespace }};\n// id={{ taskId }}\n// desc={{ description }}\n// class={{ className }}\n",
+        );
 
         $projectDir = \sys_get_temp_dir().'/generate-ns-tpl-project-'.\uniqid();
         \mkdir($projectDir, 0o755, true);

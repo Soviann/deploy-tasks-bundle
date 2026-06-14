@@ -434,8 +434,16 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $schema = new Schema();
         $table = $schema->createTable($this->configuration->tableName);
 
-        $table->addColumn($this->configuration->idColumn, Types::STRING, ['length' => $this->configuration->idColumnLength]);
-        $table->addColumn($this->configuration->groupColumn, Types::STRING, ['length' => $this->configuration->groupColumnLength, 'default' => '']);
+        $table->addColumn(
+            $this->configuration->idColumn,
+            Types::STRING,
+            ['length' => $this->configuration->idColumnLength],
+        );
+        $table->addColumn(
+            $this->configuration->groupColumn,
+            Types::STRING,
+            ['length' => $this->configuration->groupColumnLength, 'default' => ''],
+        );
         $table->addColumn($this->configuration->statusColumn, Types::STRING, ['length' => 16]);
         $table->addColumn($this->configuration->executedAtColumn, Types::DATETIME_IMMUTABLE);
         $table->addColumn($this->configuration->errorColumn, Types::TEXT, ['notnull' => false]);

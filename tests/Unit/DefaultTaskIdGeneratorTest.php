@@ -33,7 +33,10 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         yield 'no suffix — converts CamelCase as-is' => ['SeedCategories', 'seed_categories'];
         yield 'uses short class name (FQCN)' => ['App\Tasks\SeedCategories', 'seed_categories'];
         yield 'uses short class name with Task suffix (FQCN)' => ['App\Tasks\SeedCategoriesTask', 'seed_categories'];
-        yield 'uses short class name with DeployTask prefix (FQCN)' => ['App\Tasks\DeployTask20260416205300', 'task_20260416205300'];
+        yield 'uses short class name with DeployTask prefix (FQCN)' => [
+            'App\Tasks\DeployTask20260416205300',
+            'task_20260416205300',
+        ];
     }
 
     #[DataProvider('provideClassNames')]
@@ -97,7 +100,9 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         }
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cannot derive task id from class name "Task"; supply #[AsDeployTask(id: ...)] explicitly.');
+        $this->expectExceptionMessage(
+            'Cannot derive task id from class name "Task"; supply #[AsDeployTask(id: ...)] explicitly.',
+        );
 
         /* @phpstan-ignore argument.type */
         $this->generator->generate('Task');
@@ -110,7 +115,9 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         }
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cannot derive task id from class name "DeployTask"; supply #[AsDeployTask(id: ...)] explicitly.');
+        $this->expectExceptionMessage(
+            'Cannot derive task id from class name "DeployTask"; supply #[AsDeployTask(id: ...)] explicitly.',
+        );
 
         /* @phpstan-ignore argument.type */
         $this->generator->generate('DeployTask');

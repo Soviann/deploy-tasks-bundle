@@ -89,9 +89,15 @@ abstract class TaskStorageContractTestCase extends TestCase
     public function testAllReturnsFlatList(): void
     {
         $storage = $this->createStorage();
-        $storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
-        $storage->save(new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00')));
-        $storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T15:30:00+00:00'), null, 'predeploy'));
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+        ));
+        $storage->save(new TaskExecution(
+            'task.2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'),
+        ));
+        $storage->save(new TaskExecution(
+            'task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T15:30:00+00:00'), null, 'predeploy',
+        ));
 
         $all = $storage->all();
 
@@ -111,7 +117,9 @@ abstract class TaskStorageContractTestCase extends TestCase
     public function testSaveAndGetWithGroup(): void
     {
         $storage = $this->createStorage();
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy');
+        $execution = new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy',
+        );
 
         $storage->save($execution);
 
@@ -165,10 +173,18 @@ abstract class TaskStorageContractTestCase extends TestCase
     public function testFindByTaskIdReturnsEverySlot(): void
     {
         $storage = $this->createStorage();
-        $storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
-        $storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy'));
-        $storage->save(new TaskExecution('task.1', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'), null, 'postdeploy'));
-        $storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:50:00+00:00')));
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+        ));
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy',
+        ));
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'), null, 'postdeploy',
+        ));
+        $storage->save(new TaskExecution(
+            'task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:50:00+00:00'),
+        ));
 
         $matches = [...$storage->findByTaskId('task.1')];
         $ids = \array_map(static fn (TaskExecution $e): string => $e->id, $matches);
@@ -182,7 +198,9 @@ abstract class TaskStorageContractTestCase extends TestCase
     public function testFindByTaskIdReturnsSingleSlotWhenOnlyDefaultStored(): void
     {
         $storage = $this->createStorage();
-        $storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+        ));
 
         $matches = [...$storage->findByTaskId('task.1')];
 

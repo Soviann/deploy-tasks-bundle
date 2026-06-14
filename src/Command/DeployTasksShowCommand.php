@@ -18,7 +18,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /** @internal */
-#[AsCommand(name: 'deploytasks:show', description: 'Show metadata and stored execution records for a single deploy task.')]
+#[AsCommand(
+    name: 'deploytasks:show',
+    description: 'Show metadata and stored execution records for a single deploy task.',
+)]
 final class DeployTasksShowCommand extends Command
 {
     private const DEFAULT_SLOT_LABEL = '(default slot)';
@@ -34,7 +37,11 @@ final class DeployTasksShowCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('id', InputArgument::REQUIRED, 'The deploy task ID to inspect (e.g. task_20260412143000_seed_categories).')
+            ->addArgument(
+                'id',
+                InputArgument::REQUIRED,
+                'The deploy task ID to inspect (e.g. task_20260412143000_seed_categories).',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command displays the full metadata and stored execution records for a single deploy task:
 

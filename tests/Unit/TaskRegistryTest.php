@@ -326,7 +326,11 @@ final class TaskRegistryTest extends TestCase
         $filtered = $registry->all(null, ['postdeploy']);
 
         self::assertArrayHasKey('test.multi_group', $filtered, 'Multi-group task with postdeploy must be included.');
-        self::assertArrayNotHasKey('test.predeploy', $filtered, 'Predeploy-only task must NOT be included when requesting postdeploy.');
+        self::assertArrayNotHasKey(
+            'test.predeploy',
+            $filtered,
+            'Predeploy-only task must NOT be included when requesting postdeploy.',
+        );
     }
 
     public function testGroupFilterRequiresIntersectionNotSuperset(): void
@@ -342,6 +346,10 @@ final class TaskRegistryTest extends TestCase
         $filtered = $registry->all(null, ['predeploy']);
 
         self::assertArrayHasKey('test.predeploy', $filtered);
-        self::assertArrayHasKey('test.multi_group', $filtered, 'Task whose groups intersect the requested set must be included.');
+        self::assertArrayHasKey(
+            'test.multi_group',
+            $filtered,
+            'Task whose groups intersect the requested set must be included.',
+        );
     }
 }

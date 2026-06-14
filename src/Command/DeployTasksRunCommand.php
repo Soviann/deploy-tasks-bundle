@@ -44,11 +44,36 @@ final class DeployTasksRunCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview which tasks would run without executing them. Combines with `--id` to preview a single task.')
-            ->addOption('rerun-all', null, InputOption::VALUE_NONE, 'Re-execute all tasks regardless of their current state.')
-            ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.')
-            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Target a single task by its ID. Combine with `--rerun-all` to re-execute even if already ran.')
-            ->addOption('require-some', null, InputOption::VALUE_NONE, 'Exit 64 if no task matched the provided filters.')
+            ->addOption(
+                'dry-run',
+                null,
+                InputOption::VALUE_NONE,
+                'Preview which tasks would run without executing them. Combines with `--id` to preview a single task.',
+            )
+            ->addOption(
+                'rerun-all',
+                null,
+                InputOption::VALUE_NONE,
+                'Re-execute all tasks regardless of their current state.',
+            )
+            ->addOption(
+                'group',
+                null,
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.',
+            )
+            ->addOption(
+                'id',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Target a single task by its ID. Combine with `--rerun-all` to re-execute even if already ran.',
+            )
+            ->addOption(
+                'require-some',
+                null,
+                InputOption::VALUE_NONE,
+                'Exit 64 if no task matched the provided filters.',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command executes pending deploy tasks:
 
@@ -138,8 +163,14 @@ final class DeployTasksRunCommand extends Command
     /**
      * @param list<string> $groups
      */
-    private function executeOne(SymfonyStyle $io, OutputInterface $output, string $taskId, array $groups, bool $force, bool $dryRun): int
-    {
+    private function executeOne(
+        SymfonyStyle $io,
+        OutputInterface $output,
+        string $taskId,
+        array $groups,
+        bool $force,
+        bool $dryRun,
+    ): int {
         if (!$this->registry->has($taskId)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $taskId));
 

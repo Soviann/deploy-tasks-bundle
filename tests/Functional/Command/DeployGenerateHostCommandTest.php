@@ -335,8 +335,11 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
      * @param non-empty-string $expectedMessageFragment
      */
     #[DataProvider('pathTraversalPayloadsProvider')]
-    public function testGenerateRejectsDirPathTraversal(string $dir, string $expectedMessageFragment, ?string $projectDir): void
-    {
+    public function testGenerateRejectsDirPathTraversal(
+        string $dir,
+        string $expectedMessageFragment,
+        ?string $projectDir,
+    ): void {
         $command = $this->makeCommand(projectDir: $projectDir);
         $tester = new CommandTester($command);
 
@@ -371,7 +374,8 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $siblingProject = \sys_get_temp_dir().'/myproject-'.\uniqid();
         yield 'sibling directory escape' => ['../myprojectX', 'Invalid --dir value', $siblingProject];
 
-        // Valid relative path inside the project → no failure expected (handled by testGenerateCreatesExecutableBashStubWithTimestampedName).
+        // Valid relative path inside the project → no failure expected (handled by
+        // testGenerateCreatesExecutableBashStubWithTimestampedName).
     }
 
     public function testDefaultAbsoluteHostDirIsAcceptedWithoutUserFlag(): void
@@ -404,7 +408,10 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $this->tester->execute(['--dir' => '/tmp/user-provided-abs/']);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
-        self::assertStringContainsString('must be a relative path', \preg_replace('/\s+/', ' ', $this->tester->getDisplay()) ?? '');
+        self::assertStringContainsString(
+            'must be a relative path',
+            \preg_replace('/\s+/', ' ', $this->tester->getDisplay()) ?? '',
+        );
     }
 
     public function testAbsoluteDefaultDirBoundaryCheckThrowsWhenOutsideProject(): void

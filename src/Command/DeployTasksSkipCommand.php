@@ -31,8 +31,17 @@ final class DeployTasksSkipCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('id', InputArgument::REQUIRED, 'The deploy task ID to skip (e.g. task_20260412143000_seed_categories).')
-            ->addOption('group', null, InputOption::VALUE_REQUIRED, 'Target a specific group slot (required when the task declares groups).')
+            ->addArgument(
+                'id',
+                InputArgument::REQUIRED,
+                'The deploy task ID to skip (e.g. task_20260412143000_seed_categories).',
+            )
+            ->addOption(
+                'group',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Target a specific group slot (required when the task declares groups).',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command marks a deploy task as skipped so it will not be executed on future runs:
 
@@ -85,13 +94,22 @@ final class DeployTasksSkipCommand extends Command
             $slot = null;
         } else {
             if (null === $group) {
-                $io->error(\sprintf('Task "%s" has groups declared (%s); specify --group=… to select a slot.', $id, \implode(', ', $declared)));
+                $io->error(\sprintf(
+                    'Task "%s" has groups declared (%s); specify --group=… to select a slot.',
+                    $id,
+                    \implode(', ', $declared),
+                ));
 
                 return Command::INVALID;
             }
 
             if (!\in_array($group, $declared, true)) {
-                $io->error(\sprintf('Group "%s" is not declared on task "%s" (declared: %s).', $group, $id, \implode(', ', $declared)));
+                $io->error(\sprintf(
+                    'Group "%s" is not declared on task "%s" (declared: %s).',
+                    $group,
+                    $id,
+                    \implode(', ', $declared),
+                ));
 
                 return Command::INVALID;
             }

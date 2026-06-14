@@ -134,7 +134,9 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
     {
         if ($shouldThrow) {
             $this->expectException(StorageException::class);
-            $this->expectExceptionMessageMatches('/Refusing to store deploy-task records under a public web-root path/');
+            $this->expectExceptionMessageMatches(
+                '/Refusing to store deploy-task records under a public web-root path/',
+            );
         } else {
             $this->expectNotToPerformAssertions();
         }
@@ -262,8 +264,12 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
 
     public function testGroupSlugCollisionDetected(): void
     {
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'a-b'));
-        $this->storage->save(new TaskExecution('task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'), null, 'a_b'));
+        $this->storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'a-b',
+        ));
+        $this->storage->save(new TaskExecution(
+            'task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'), null, 'a_b',
+        ));
 
         $first = $this->storage->get('task.1', 'a-b');
         $second = $this->storage->get('task.1', 'a_b');
@@ -429,7 +435,9 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
     public function testForeignFilesAreSkippedByAll(): void
     {
         // Write a valid record
-        $this->storage->save(new TaskExecution('task-a', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+        $this->storage->save(new TaskExecution(
+            'task-a', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+        ));
 
         // Create foreign files that don't match the record pattern (wrong filename format)
         // Files without the task-id@group.json or task-id.json format should be skipped
@@ -447,7 +455,9 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
     public function testResetLeavesForeignFilesAlone(): void
     {
         // Write a valid record
-        $this->storage->save(new TaskExecution('task-a', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+        $this->storage->save(new TaskExecution(
+            'task-a', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+        ));
 
         // Create foreign files that don't match the record pattern
         \file_put_contents($this->storagePath.'/notes.txt', '{"note": "handwritten"}');
@@ -471,8 +481,12 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         $bracketStorage = new FilesystemStorage($bracketPath);
 
         // Save two records
-        $bracketStorage->save(new TaskExecution('deploy-1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
-        $bracketStorage->save(new TaskExecution('deploy-2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00')));
+        $bracketStorage->save(new TaskExecution(
+            'deploy-1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+        ));
+        $bracketStorage->save(new TaskExecution(
+            'deploy-2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'),
+        ));
 
         // all() should return both records (glob() would silently return empty due to bracket matching)
         $all = $bracketStorage->all();
@@ -506,11 +520,17 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         $expectedLockPath = $expectedJsonPath.'.lock';
 
         // The lock sidecar is left on disk after save.
-        self::assertFileExists($expectedLockPath, 'Lock file must be co-located with the JSON record at "<json>.lock".');
+        self::assertFileExists(
+            $expectedLockPath,
+            'Lock file must be co-located with the JSON record at "<json>.lock".',
+        );
 
         // Mutant A creates a bare ".lock" file in CWD; assert no stray lock exists at the
         // storage-dir level (which is distinct from the per-record sidecar).
-        self::assertFileDoesNotExist($this->storagePath.'/.lock', 'A stray bare ".lock" inside storagePath must not exist; the sidecar must include the full record filename.');
+        self::assertFileDoesNotExist(
+            $this->storagePath.'/.lock',
+            'A stray bare ".lock" inside storagePath must not exist; the sidecar must include the full record filename.',
+        );
     }
 
     public function testRemoveDeletesLockSidecar(): void
@@ -528,7 +548,9 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
     {
         $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
         $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
-        $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy'));
+        $this->storage->save(new TaskExecution(
+            'task.a', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy',
+        ));
 
         $this->storage->removeAll('task.a');
 
@@ -599,14 +621,22 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
         $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable()));
-        $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution(
+            'task.10', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
 
         $this->storage->removeAll('task.1');
 
         self::assertFalse($this->storage->has('task.1'), 'task.1 default slot must be removed.');
         self::assertFalse($this->storage->has('task.1', 'predeploy'), 'task.1 predeploy slot must be removed.');
-        self::assertTrue($this->storage->has('task.10'), 'task.10 default slot must NOT be removed by removeAll(task.1).');
-        self::assertTrue($this->storage->has('task.10', 'predeploy'), 'task.10 predeploy slot must NOT be removed by removeAll(task.1).');
+        self::assertTrue(
+            $this->storage->has('task.10'),
+            'task.10 default slot must NOT be removed by removeAll(task.1).',
+        );
+        self::assertTrue(
+            $this->storage->has('task.10', 'predeploy'),
+            'task.10 predeploy slot must NOT be removed by removeAll(task.1).',
+        );
     }
 
     /**
@@ -619,9 +649,13 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
     public function testFindByTaskIdDoesNotMatchTaskIdPrefixOfAnother(): void
     {
         $e1 = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-        $e1pre = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy');
+        $e1pre = new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy',
+        );
         $e10 = new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'));
-        $e10pre = new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:45:00+00:00'), null, 'predeploy');
+        $e10pre = new TaskExecution(
+            'task.10', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:45:00+00:00'), null, 'predeploy',
+        );
 
         $this->storage->save($e1);
         $this->storage->save($e1pre);

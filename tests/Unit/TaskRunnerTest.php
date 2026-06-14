@@ -176,8 +176,12 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output, dryRun: true, groups: ['predeploy']);
 
         self::assertSame(1, $result->ran);
-        // Group slot → label is `{taskId}@{slot}`; kills Concat/Ternary/Identical/Operand-removal mutants on line 178.
-        self::assertStringContainsString('  [would run] test.predeploy@predeploy - Predeploy-only task', $this->output->fetch());
+        // Group slot → label is `{taskId}@{slot}`; kills Concat/Ternary/Identical/Operand-removal mutants
+        // on line 178.
+        self::assertStringContainsString(
+            '  [would run] test.predeploy@predeploy - Predeploy-only task',
+            $this->output->fetch(),
+        );
     }
 
     public function testRunAllDryRunSkipsAlreadyRan(): void
@@ -398,10 +402,16 @@ final class TaskRunnerTest extends TestCase
             // Even though an EventListenerException propagated, the storage must NOT have
             // recorded a FAILED execution — the task itself succeeded (or was never reached).
             $execution = $this->storage->get('task.1');
-            self::assertNull($execution, 'A throwing BeforeTaskEvent listener must not create a FAILED storage record.');
+            self::assertNull(
+                $execution,
+                'A throwing BeforeTaskEvent listener must not create a FAILED storage record.',
+            );
 
             // The listener failure must reach the logger.
-            self::assertTrue($logger->has('error', 'Deploy task listener failed'), 'Listener exception must be logged at error level.');
+            self::assertTrue(
+                $logger->has('error', 'Deploy task listener failed'),
+                'Listener exception must be logged at error level.',
+            );
         }
     }
 
@@ -463,7 +473,11 @@ final class TaskRunnerTest extends TestCase
         // Persistence happens before AfterTaskEvent: when the save throws, only
         // BeforeTaskEvent has fired and no After event is dispatched for an
         // execution that was never recorded.
-        self::assertCount(1, $dispatched, 'Only BeforeTaskEvent fires when persistOutcome throws — AfterTaskEvent is dispatched after a successful persist');
+        self::assertCount(
+            1,
+            $dispatched,
+            'Only BeforeTaskEvent fires when persistOutcome throws — AfterTaskEvent is dispatched after a successful persist',
+        );
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
     }
 
@@ -486,7 +500,11 @@ final class TaskRunnerTest extends TestCase
         $storage->method('has')->willReturn(false);
         $storage->method('get')->willReturn(null);
         $storage->method('save')->willThrowException(
-            new StorageException('Failed to save task "test.failing": disk full', 0, new \RuntimeException('disk full')),
+            new StorageException(
+                'Failed to save task "test.failing": disk full',
+                0,
+                new \RuntimeException('disk full'),
+            ),
         );
 
         $runner = $this->createRunner(
@@ -502,7 +520,11 @@ final class TaskRunnerTest extends TestCase
             self::assertStringContainsString('test.failing', $e->getMessage());
         }
 
-        self::assertCount(1, $dispatched, 'Only BeforeTaskEvent fires when the failure-path persist throws — TaskFailedEvent is dispatched after a successful persist');
+        self::assertCount(
+            1,
+            $dispatched,
+            'Only BeforeTaskEvent fires when the failure-path persist throws — TaskFailedEvent is dispatched after a successful persist',
+        );
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
     }
 
@@ -526,7 +548,10 @@ final class TaskRunnerTest extends TestCase
 
         $runner->runAll($this->output);
 
-        self::assertTrue($storage->has('test.transactional'), 'Transactional task must persist through the transactional() wrapper.');
+        self::assertTrue(
+            $storage->has('test.transactional'),
+            'Transactional task must persist through the transactional() wrapper.',
+        );
         self::assertSame(TaskStatus::Ran, $storage->get('test.transactional')?->status);
     }
 
@@ -578,7 +603,8 @@ final class TaskRunnerTest extends TestCase
 
             public function save(TaskExecution $execution): void
             {
-                $this->saveHappenedInsideTransaction = $this->saveHappenedInsideTransaction || $this->transactionDepth > 0;
+                $this->saveHappenedInsideTransaction =
+                    $this->saveHappenedInsideTransaction || $this->transactionDepth > 0;
                 $this->inner->save($execution);
             }
 
@@ -646,8 +672,14 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::SUCCESS, $result);
-        self::assertTrue($task->ranInsideTransaction, 'runOne with all_or_nothing must wrap task execution in storage->transactional()');
-        self::assertTrue($spy->saveHappenedInsideTransaction, 'runOne with all_or_nothing must persist the execution record inside storage->transactional()');
+        self::assertTrue(
+            $task->ranInsideTransaction,
+            'runOne with all_or_nothing must wrap task execution in storage->transactional()',
+        );
+        self::assertTrue(
+            $spy->saveHappenedInsideTransaction,
+            'runOne with all_or_nothing must persist the execution record inside storage->transactional()',
+        );
     }
 
     public function testAllOrNothingRollsBackOnFailure(): void
@@ -720,7 +752,8 @@ final class TaskRunnerTest extends TestCase
 
     public function testAllOrNothingWithNonTransactionalStorageRunsUnwrapped(): void
     {
-        // Non-transactional storage bypasses the transactional wrap on line 69 (`storage instanceof TransactionalStorageInterface`).
+        // Non-transactional storage bypasses the transactional wrap on line 69
+        // (`storage instanceof TransactionalStorageInterface`).
         // A mutant that inverts the instanceof check would call `transactional()` on InMemoryStorage and crash.
         $runner = $this->createAllOrNothingRunner(
             [new SimpleTask('task.1', 'First')],
@@ -897,13 +930,19 @@ final class TaskRunnerTest extends TestCase
     public function testPartiallyPendingMultiSlotTaskCountsDoneSlotsAsSkipped(): void
     {
         $task = new MultiGroupTask();
-        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(
+            new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'),
+        );
 
         $runner = $this->createRunner([$task]);
         $result = $runner->runAll($this->output, groups: ['predeploy', 'postdeploy']);
 
         self::assertSame(1, $result->ran);
-        self::assertSame(1, $result->skipped, 'Already-done slots of a partially-pending task must be counted as skipped');
+        self::assertSame(
+            1,
+            $result->skipped,
+            'Already-done slots of a partially-pending task must be counted as skipped',
+        );
     }
 
     public function testRunOneThrowsWhenTaskDeclaresGroupsAndNoneRequested(): void
@@ -1005,7 +1044,10 @@ final class TaskRunnerTest extends TestCase
         }
 
         // Task must NOT have been invoked — no storage record written.
-        self::assertFalse($this->storage->has('test.prod_only'), 'Task run() must not be invoked when env constraint is refused.');
+        self::assertFalse(
+            $this->storage->has('test.prod_only'),
+            'Task run() must not be invoked when env constraint is refused.',
+        );
     }
 
     public function testRunOneAllowsEnvMatchAndNullConstraint(): void
@@ -1112,7 +1154,8 @@ final class TaskRunnerTest extends TestCase
 
     public function testSkippingTaskCountAccumulatesAcrossMultipleTasks(): void
     {
-        // Two tasks that self-report SKIPPED → skipped=2; kills Assignment mutator on `$skipped += $count` (line 221).
+        // Two tasks that self-report SKIPPED → skipped=2; kills Assignment mutator on `$skipped += $count`
+        // (line 221).
         $runner = $this->createRunner([
             new SkippingTask(),
             $this->makeSkippingTask('test.skipping.second'),
@@ -1126,7 +1169,8 @@ final class TaskRunnerTest extends TestCase
 
     public function testTimeoutWarningMessageIncludesExactValues(): void
     {
-        // Pins the exact warning format — kills Minus/CastInt mutants on the `(int) $duration` and `$duration - $start` lines.
+        // Pins the exact warning format — kills Minus/CastInt mutants on the `(int) $duration` and
+        // `$duration - $start` lines.
         $runner = $this->createRunner(
             [new SleepingTask('task.1', 1_100_000)],
             defaultTimeout: 1,
@@ -1482,7 +1526,10 @@ final class TaskRunnerTest extends TestCase
         self::assertTrue($task->ran, 'Task must have run before save() threw');
         // The critical assertion: transactional() must have caught the save() exception
         // (rollback triggered), proving save() was called INSIDE the closure.
-        self::assertTrue($storage->rollbackTriggered, 'transactional() must have caught the save() failure — save() must be called inside the closure, not after it returns');
+        self::assertTrue(
+            $storage->rollbackTriggered,
+            'transactional() must have caught the save() failure — save() must be called inside the closure, not after it returns',
+        );
     }
 
     public function testRefreshesLockBetweenTasks(): void
@@ -1509,7 +1556,11 @@ final class TaskRunnerTest extends TestCase
 
         $runner->runAll($this->output);
 
-        self::assertGreaterThanOrEqual(2, $refreshCount, 'refresh() must be called between each task (at least 2 times for 3 tasks)');
+        self::assertGreaterThanOrEqual(
+            2,
+            $refreshCount,
+            'refresh() must be called between each task (at least 2 times for 3 tasks)',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -1749,7 +1800,11 @@ final class TaskRunnerTest extends TestCase
             $caught = $e;
         }
 
-        self::assertSame('after listener boom', $caught->getPrevious()?->getMessage(), 'the original listener error is chained as the previous exception');
+        self::assertSame(
+            'after listener boom',
+            $caught->getPrevious()?->getMessage(),
+            'the original listener error is chained as the previous exception',
+        );
 
         // The record must be persisted BEFORE the After listener runs, so a throwing
         // listener cannot lose a successful execution.
@@ -1781,7 +1836,11 @@ final class TaskRunnerTest extends TestCase
             $caught = $e;
         }
 
-        self::assertSame('failed listener boom', $caught->getPrevious()?->getMessage(), 'the original listener error is chained as the previous exception');
+        self::assertSame(
+            'failed listener boom',
+            $caught->getPrevious()?->getMessage(),
+            'the original listener error is chained as the previous exception',
+        );
 
         $execution = $this->storage->get('test.failing');
         self::assertNotNull($execution, 'Failed record must be persisted before TaskFailedEvent listeners run');
@@ -1805,7 +1864,11 @@ final class TaskRunnerTest extends TestCase
         $display = $this->output->fetch();
         self::assertMatchesRegularExpression('/→ ran \(\d+ms\)/', $display);
         \preg_match('/→ ran \((\d+)ms\)/', $display, $m);
-        self::assertGreaterThanOrEqual(50, (int) ($m[1] ?? 0), 'Completion ms must reflect actual duration (not duration/1000)');
+        self::assertGreaterThanOrEqual(
+            50,
+            (int) ($m[1] ?? 0),
+            'Completion ms must reflect actual duration (not duration/1000)',
+        );
     }
 
     public function testFailureCompletionLineShowsMilliseconds(): void
@@ -1818,7 +1881,11 @@ final class TaskRunnerTest extends TestCase
         $display = $this->output->fetch();
         self::assertMatchesRegularExpression('/→ failed \(\d+ms\)/', $display);
         \preg_match('/→ failed \((\d+)ms\)/', $display, $m);
-        self::assertGreaterThanOrEqual(50, (int) ($m[1] ?? 0), 'Failure completion ms must reflect actual duration (not duration/1000)');
+        self::assertGreaterThanOrEqual(
+            50,
+            (int) ($m[1] ?? 0),
+            'Failure completion ms must reflect actual duration (not duration/1000)',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -1953,7 +2020,11 @@ final class TaskRunnerTest extends TestCase
         self::assertCount(1, $records);
         $ctx = $records[0]['context'];
         self::assertArrayNotHasKey('exception', $ctx);
-        self::assertArrayHasKey('previous_message', $ctx, 'previous_message key must be present even when getPrevious() is null');
+        self::assertArrayHasKey(
+            'previous_message',
+            $ctx,
+            'previous_message key must be present even when getPrevious() is null',
+        );
         self::assertNull($ctx['previous_message'], 'previous_message must be null when getPrevious() is null');
     }
 
@@ -2026,7 +2097,11 @@ final class TaskRunnerTest extends TestCase
 
         // TransactionalTask has transactional: true; that must override global=false.
         // wrapInTransaction calls transactional() once; persistOutcomeTransactional adds another.
-        self::assertGreaterThanOrEqual(2, $transactionalCallCount, 'Attribute transactional:true must override global transactional:false');
+        self::assertGreaterThanOrEqual(
+            2,
+            $transactionalCallCount,
+            'Attribute transactional:true must override global transactional:false',
+        );
     }
 
     public function testGlobalTransactionalFalseSkipsWrapWhenAttributeIsNull(): void
@@ -2049,7 +2124,11 @@ final class TaskRunnerTest extends TestCase
         // With correct code: wrapInTransaction must NOT call transactional() when shouldWrap=false.
         // persistOutcomeTransactional always adds exactly 1 call on TransactionalStorage.
         // So exactly 1 call expected (from persistOutcomeTransactional only).
-        self::assertSame(1, $transactionalCallCount, 'wrapInTransaction must not call transactional() when shouldWrap=false');
+        self::assertSame(
+            1,
+            $transactionalCallCount,
+            'wrapInTransaction must not call transactional() when shouldWrap=false',
+        );
     }
 
     public function testTransactionalStoragePathReturnsResult(): void
@@ -2105,7 +2184,11 @@ final class TaskRunnerTest extends TestCase
 
         $runner->runAll($this->output);
 
-        self::assertSame(1, $saveCount, 'save() must be called exactly once per slot — ReturnRemoval would double-save');
+        self::assertSame(
+            1,
+            $saveCount,
+            'save() must be called exactly once per slot — ReturnRemoval would double-save',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -2142,8 +2225,12 @@ final class TaskRunnerTest extends TestCase
         $runner = $this->createRunner([new MultiGroupTask()]);
 
         // Pre-seed both slots as already executed.
-        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'predeploy'));
-        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'postdeploy'));
+        $this->storage->save(
+            new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'predeploy'),
+        );
+        $this->storage->save(
+            new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'postdeploy'),
+        );
 
         $result = $runner->runAll($this->output, force: true, groups: ['predeploy', 'postdeploy']);
 
@@ -2195,7 +2282,10 @@ final class TaskRunnerTest extends TestCase
             $runner->runAll($this->output);
             self::fail('Expected AllOrNothingFailureException');
         } catch (AllOrNothingFailureException $e) {
-            self::assertFalse($e->partialResult->locked, 'Partial result locked must be false — task failed, lock was not contended');
+            self::assertFalse(
+                $e->partialResult->locked,
+                'Partial result locked must be false — task failed, lock was not contended',
+            );
         }
     }
 
@@ -2209,7 +2299,9 @@ final class TaskRunnerTest extends TestCase
         // with `break`, after the first skipped slot the loop exits and subsequent
         // slots (and tasks) are never counted as pending.
         // Use a multi-slot task where one slot is already executed.
-        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'predeploy'));
+        $this->storage->save(
+            new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'predeploy'),
+        );
 
         $runner = $this->createRunner([new MultiGroupTask()]);
 
@@ -2290,7 +2382,12 @@ final class TaskRunnerTest extends TestCase
     public function testReturnedFailureUnderPerTaskTransactionIsRecordedAsFailed(): void
     {
         $storage = new TransactionalInMemoryStorageFixture();
-        $runner = $this->createRunner([new ReturnsFailureTask()], storage: $storage, transactional: true, allOrNothing: false);
+        $runner = $this->createRunner(
+            [new ReturnsFailureTask()],
+            storage: $storage,
+            transactional: true,
+            allOrNothing: false,
+        );
 
         $result = $runner->runAll($this->output);
 
@@ -2424,8 +2521,10 @@ final class TaskRunnerTest extends TestCase
         };
     }
 
-    private function makeSleepingFailingTask(string $taskId, int $sleepMicroseconds): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
-    {
+    private function makeSleepingFailingTask(
+        string $taskId,
+        int $sleepMicroseconds,
+    ): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
         return new class($taskId, $sleepMicroseconds) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
             public function __construct(private readonly string $id, private readonly int $sleep)
             {
@@ -2481,8 +2580,10 @@ final class TaskRunnerTest extends TestCase
         };
     }
 
-    private function makeFailingTaskWithError(string $taskId, \Throwable $error): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
-    {
+    private function makeFailingTaskWithError(
+        string $taskId,
+        \Throwable $error,
+    ): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
         return new class($taskId, $error) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
             public function __construct(private readonly string $id, private readonly \Throwable $error)
             {

@@ -28,7 +28,8 @@ abstract class AbstractTestKernel extends Kernel
 
     public function getCacheDir(): string
     {
-        $cacheDir = \sys_get_temp_dir().'/deploy-tasks-'.static::kernelName().'-cache-'.\getmypid().'/'.$this->environment;
+        $cacheDir = \sys_get_temp_dir()
+            .'/deploy-tasks-'.static::kernelName().'-cache-'.\getmypid().'/'.$this->environment;
 
         // Pre-create the directory: on Symfony 6.4 the annotations cache warmer
         // writes <cache_dir>/annotations.map during boot before Symfony creates

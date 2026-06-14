@@ -383,7 +383,9 @@ final class FilesystemStorage implements TaskStorageInterface
 
         $this->assertRecordShape($data, $sourceFile);
 
-        /** @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data */
+        /**
+         * @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data
+         */
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['executed_at']);
 
         if (false === $executedAt) {

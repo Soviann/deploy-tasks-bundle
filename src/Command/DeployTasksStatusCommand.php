@@ -40,9 +40,24 @@ final class DeployTasksStatusCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only display rows for these group slot(s) (repeatable).')
-            ->addOption('no-state', null, InputOption::VALUE_NONE, 'Only show task IDs and descriptions, omitting execution state.')
-            ->addOption('filter-status', null, InputOption::VALUE_REQUIRED, 'Comma-separated list of statuses to display (RAN, FAILED, SKIPPED, PENDING — case-insensitive). Incompatible with --no-state.')
+            ->addOption(
+                'group',
+                null,
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Only display rows for these group slot(s) (repeatable).',
+            )
+            ->addOption(
+                'no-state',
+                null,
+                InputOption::VALUE_NONE,
+                'Only show task IDs and descriptions, omitting execution state.',
+            )
+            ->addOption(
+                'filter-status',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Comma-separated list of statuses to display (RAN, FAILED, SKIPPED, PENDING — case-insensitive). Incompatible with --no-state.',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command displays a table of all registered deploy tasks and their current execution state:
 
@@ -88,7 +103,9 @@ final class DeployTasksStatusCommand extends Command
         $tasks = $this->registry->allRegistered();
         $executions = $this->indexExecutions();
 
-        $headers = $noState ? ['ID', 'Group', 'Description'] : ['ID', 'Group', 'Description', 'Status', 'Error', 'Executed At'];
+        $headers = $noState
+            ? ['ID', 'Group', 'Description']
+            : ['ID', 'Group', 'Description', 'Status', 'Error', 'Executed At'];
         $rows = [];
         $slotCount = 0;
 
@@ -142,8 +159,13 @@ final class DeployTasksStatusCommand extends Command
     /**
      * @return list<string>
      */
-    private function buildRow(string $id, ?string $slot, string $description, ?TaskExecution $execution, bool $noState): array
-    {
+    private function buildRow(
+        string $id,
+        ?string $slot,
+        string $description,
+        ?TaskExecution $execution,
+        bool $noState,
+    ): array {
         $groupLabel = $slot ?? self::DEFAULT_SLOT_LABEL;
 
         if ($noState) {
@@ -157,7 +179,9 @@ final class DeployTasksStatusCommand extends Command
         $status = CommandMessages::statusTag($execution->status);
 
         $errorCell = TaskStatus::Failed === $execution->status && null !== $execution->error
-            ? u(ConsoleSanitizer::sanitize($execution->error))->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')->toString()
+            ? u(ConsoleSanitizer::sanitize($execution->error))
+                ->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')
+                ->toString()
             : '';
 
         return [$id, $groupLabel, $description, $status, $errorCell, $execution->executedAt->format('Y-m-d H:i:s')];
@@ -187,7 +211,11 @@ final class DeployTasksStatusCommand extends Command
             }
 
             if (!\in_array($normalized, self::FILTER_STATUS_ALLOWED, true)) {
-                $io->error(\sprintf('Invalid --filter-status value "%s". Allowed: %s.', $normalized, \implode(', ', self::FILTER_STATUS_ALLOWED)));
+                $io->error(\sprintf(
+                    'Invalid --filter-status value "%s". Allowed: %s.',
+                    $normalized,
+                    \implode(', ', self::FILTER_STATUS_ALLOWED),
+                ));
 
                 return false;
             }

@@ -182,7 +182,8 @@ final class DbalStorageTest extends TaskStorageContractTestCase
                 'id' => 'task.badstatus',
                 'task_group' => '',
                 'status' => 'unknown',
-                'executed_at' => (new \DateTimeImmutable('2026-04-16T10:00:00+00:00'))->format(\DateTimeInterface::ATOM),
+                'executed_at' => (new \DateTimeImmutable('2026-04-16T10:00:00+00:00'))
+                    ->format(\DateTimeInterface::ATOM),
                 'error' => null,
             ],
         );
@@ -199,7 +200,9 @@ final class DbalStorageTest extends TaskStorageContractTestCase
     public static function autoCreateEntryPointProvider(): iterable
     {
         yield 'get' => [static function (DbalStorage $s): void { $s->get('task.missing'); }];
-        yield 'save' => [static fn (DbalStorage $s) => $s->save(new TaskExecution('task.autocreate', TaskStatus::Ran, new \DateTimeImmutable()))];
+        yield 'save' => [static fn (DbalStorage $s) => $s->save(
+            new TaskExecution('task.autocreate', TaskStatus::Ran, new \DateTimeImmutable()),
+        )];
         yield 'remove' => [static fn (DbalStorage $s) => $s->remove('task.missing')];
         yield 'removeAll' => [static fn (DbalStorage $s) => $s->removeAll('task.missing')];
         yield 'all' => [static function (DbalStorage $s): void { $s->all(); }];
@@ -266,7 +269,9 @@ final class DbalStorageTest extends TaskStorageContractTestCase
     public function testConcurrentSaveOverwritesAtomically(): void
     {
         $first = new TaskExecution('task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-16T10:00:00+00:00'));
-        $second = new TaskExecution('task.race', TaskStatus::Failed, new \DateTimeImmutable('2026-04-16T10:00:01+00:00'), 'second-write');
+        $second = new TaskExecution(
+            'task.race', TaskStatus::Failed, new \DateTimeImmutable('2026-04-16T10:00:01+00:00'), 'second-write',
+        );
         $third = new TaskExecution('task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-16T10:00:02+00:00'));
 
         $this->storage->save($first);
@@ -276,9 +281,17 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         $retrieved = $this->storage->get('task.race');
 
         self::assertNotNull($retrieved);
-        self::assertSame(TaskStatus::Ran, $retrieved->status, 'Last write must win — DELETE+INSERT in transaction makes the sequence atomic.');
+        self::assertSame(
+            TaskStatus::Ran,
+            $retrieved->status,
+            'Last write must win — DELETE+INSERT in transaction makes the sequence atomic.',
+        );
         self::assertNull($retrieved->error);
-        self::assertCount(1, $this->storage->all(), 'No PK conflict — exactly one row remains for the (id, group) pair.');
+        self::assertCount(
+            1,
+            $this->storage->all(),
+            'No PK conflict — exactly one row remains for the (id, group) pair.',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -401,8 +414,12 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         // Capture what is actually sent to SQLite via EXPLAIN QUERY PLAN or just check that
         // ON CONFLICT syntax was used (SQLite would reject ON DUPLICATE KEY at the driver level).
         // Saving twice for the same key proves the upsert ran on the SQLite path (not MySQL path).
-        $storage->save(new TaskExecution('task.sq', TaskStatus::Ran, new \DateTimeImmutable('2026-01-01T00:00:00+00:00')));
-        $storage->save(new TaskExecution('task.sq', TaskStatus::Failed, new \DateTimeImmutable('2026-01-01T00:01:00+00:00'), 'err'));
+        $storage->save(new TaskExecution(
+            'task.sq', TaskStatus::Ran, new \DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        ));
+        $storage->save(new TaskExecution(
+            'task.sq', TaskStatus::Failed, new \DateTimeImmutable('2026-01-01T00:01:00+00:00'), 'err',
+        ));
 
         // If the wrong SQL path were chosen, SQLite would throw on ON DUPLICATE KEY.
         // The absence of an exception + correct row count confirms the right path was taken.
@@ -431,7 +448,9 @@ final class DbalStorageTest extends TaskStorageContractTestCase
             });
 
         $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
-        $storage->save(new TaskExecution('task.my', TaskStatus::Ran, new \DateTimeImmutable('2026-01-01T00:00:00+00:00')));
+        $storage->save(new TaskExecution(
+            'task.my', TaskStatus::Ran, new \DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        ));
 
         self::assertIsString($captured);
         self::assertStringContainsString('ON DUPLICATE KEY UPDATE', $captured);
@@ -533,7 +552,11 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         // Second call: early-return must prevent another createSchema() invocation.
         $storage->has('task.y');
 
-        self::assertSame($countAfterFirst, $callCount, 'createSchemaManager() must not be called again after initialization.');
+        self::assertSame(
+            $countAfterFirst,
+            $callCount,
+            'createSchemaManager() must not be called again after initialization.',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -563,7 +586,11 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         // id column: length 200 (not default 255).
         self::assertMatchesRegularExpression('/\bid\b[^(]*\(200\)/', $sql, 'id column must use idColumnLength=200');
         // group column: length 64 (not default 128).
-        self::assertMatchesRegularExpression('/\btask_group\b[^(]*\(64\)/', $sql, 'task_group column must use groupColumnLength=64');
+        self::assertMatchesRegularExpression(
+            '/\btask_group\b[^(]*\(64\)/',
+            $sql,
+            'task_group column must use groupColumnLength=64',
+        );
     }
 
     /**

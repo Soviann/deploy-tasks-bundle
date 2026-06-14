@@ -123,8 +123,12 @@ final class DeployRunEnvTest extends FunctionalTestCase
     }
 
     /**
-     * @param array{eventsEnabled?: bool, lockEnabled?: bool, extraTasks?: list<class-string<\Soviann\DeployTasksBundle\DeployTaskInterface>>} $kernelOptions
-     * @param array<string, mixed>                                                                                                             $bootOptions
+     * @param array{
+     *     eventsEnabled?: bool,
+     *     lockEnabled?: bool,
+     *     extraTasks?: list<class-string<\Soviann\DeployTasksBundle\DeployTaskInterface>>,
+     * } $kernelOptions
+     * @param array<string, mixed> $bootOptions
      */
     private function bootAndBuildTester(array $kernelOptions = [], array $bootOptions = []): void
     {

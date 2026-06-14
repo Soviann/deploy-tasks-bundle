@@ -121,8 +121,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      *
      * @throws IncompatibleStorageException
      */
-    private function validateCustomTransactionalStorage(ContainerBuilder $container, string $customServiceId, ?string $customStorageClass): void
-    {
+    private function validateCustomTransactionalStorage(
+        ContainerBuilder $container,
+        string $customServiceId,
+        ?string $customStorageClass,
+    ): void {
         if (!$container->hasDefinition('soviann_deploy_tasks.runner')) {
             return;
         }
@@ -308,7 +311,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         if ($eventsEnabled && $container->has('event_dispatcher')) {
             $runnerDefinition->setArgument('$dispatcher', new Reference('event_dispatcher'));
         } elseif ($eventsEnabled) {
-            $container->log($this, 'Events enabled but symfony/event-dispatcher not available — event dispatching disabled.');
+            $container->log(
+                $this,
+                'Events enabled but symfony/event-dispatcher not available — event dispatching disabled.',
+            );
         }
 
         // Lock factory (argument index 6)
@@ -318,7 +324,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         if ($lockEnabled && $container->has('lock.factory')) {
             $runnerDefinition->setArgument('$lockFactory', new Reference('lock.factory'));
         } elseif ($lockEnabled) {
-            $container->log($this, 'Lock enabled but symfony/lock not available — concurrent execution protection disabled.');
+            $container->log(
+                $this,
+                'Lock enabled but symfony/lock not available — concurrent execution protection disabled.',
+            );
         }
 
         // Clean up internal parameters

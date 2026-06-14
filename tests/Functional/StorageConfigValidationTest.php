@@ -17,7 +17,8 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
  *
  * - `filesystem.transactional: true` → caught at config-tree validation (InvalidConfigurationException)
  * - `filesystem.all_or_nothing: true` → caught at compiler-pass validation (IncompatibleStorageException)
- * - custom storage service not implementing TaskStorageInterface → caught at compiler-pass validation (IncompatibleStorageException)
+ * - custom storage service not implementing TaskStorageInterface → caught at compiler-pass validation
+ *   (IncompatibleStorageException)
  */
 #[CoversClass(StorageConfigNode::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
