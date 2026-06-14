@@ -213,8 +213,14 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         self::bootKernel();
         $container = self::getContainer();
 
-        self::assertInstanceOf(TransactionalInMemoryStorageFixture::class, $container->get(TaskStorageInterface::class));
-        self::assertInstanceOf(TransactionalInMemoryStorageFixture::class, $container->get(TransactionalStorageInterface::class));
+        self::assertInstanceOf(
+            TransactionalInMemoryStorageFixture::class,
+            $container->get(TaskStorageInterface::class),
+        );
+        self::assertInstanceOf(
+            TransactionalInMemoryStorageFixture::class,
+            $container->get(TransactionalStorageInterface::class),
+        );
     }
 
     public function testCustomStorageWithoutServiceThrows(): void
@@ -226,7 +232,9 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         ]);
 
         self::expectException(\InvalidArgumentException::class);
-        self::expectExceptionMessage('"soviann_deploy_tasks.storage.custom.service" must be set when "soviann_deploy_tasks.storage.type" is "custom".');
+        self::expectExceptionMessage(
+            '"soviann_deploy_tasks.storage.custom.service" must be set when "soviann_deploy_tasks.storage.type" is "custom".',
+        );
 
         self::bootKernel();
     }
@@ -273,7 +281,8 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 
     public function testDbalGroupColumnDefaultIsTaskGroup(): void
     {
-        // Pins the `group_column` default literal ('task_group') — kills constant mutation on DbalStorageConfiguration.
+        // Pins the `group_column` default literal ('task_group') — kills constant mutation on
+        // DbalStorageConfiguration.
         self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $config = self::getContainer()->get('soviann_deploy_tasks.storage.configuration');
@@ -388,8 +397,8 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 
     public function testDatabaseStorageIsAliasedAsTransactionalStorageInterface(): void
     {
-        // Mutant 153: MethodCallRemoval removes the alias(TransactionalStorageInterface, 'soviann_deploy_tasks.storage')
-        // call in the database storage case.
+        // Mutant 153: MethodCallRemoval removes the alias(TransactionalStorageInterface,
+        // 'soviann_deploy_tasks.storage') call in the database storage case.
         self::useConfigurableKernel(KernelConfig::dbalExtension(), KernelConfig::dbalServices());
         self::bootKernel();
         $container = self::getContainer();
@@ -437,8 +446,10 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     #[\PHPUnit\Framework\Attributes\DataProvider('commandProvider')]
     public function testConsoleCommandsAreInstantiableAndRoutable(string $serviceId, string $commandName): void
     {
-        // Instantiating via container validates the args-array (kills ArrayItemRemoval on lines 240/245/253/261/269/280).
-        // Looking up via command_loader validates the `console.command` tag (kills MethodCallRemoval on lines 239/244/252/260/268/279).
+        // Instantiating via container validates the args-array (kills ArrayItemRemoval on lines
+        // 240/245/253/261/269/280).
+        // Looking up via command_loader validates the `console.command` tag (kills MethodCallRemoval on lines
+        // 239/244/252/260/268/279).
         self::bootKernel();
         $container = self::getContainer();
 
@@ -447,7 +458,10 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 
         $loader = $container->get('console.command_loader');
         \assert($loader instanceof \Symfony\Component\Console\CommandLoader\CommandLoaderInterface);
-        self::assertTrue($loader->has($commandName), \sprintf('Command "%s" must be registered in the command loader.', $commandName));
+        self::assertTrue(
+            $loader->has($commandName),
+            \sprintf('Command "%s" must be registered in the command loader.', $commandName),
+        );
     }
 
     protected static function getKernelClass(): string

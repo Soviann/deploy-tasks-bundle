@@ -58,7 +58,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
     public function testExecutedTaskRendersEveryStoredField(): void
     {
         $error = 'Long failure explanation with database DSN and stack trace context';
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable('2026-04-23 10:00:00'), $error));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Failed, new \DateTimeImmutable('2026-04-23 10:00:00'), $error,
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -71,7 +73,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
 
     public function testErrorRowStripsAnsiEscapeSequences(): void
     {
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable(), "boom\x1b[2J"));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Failed, new \DateTimeImmutable(), "boom\x1b[2J",
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -149,7 +153,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
     // Mutant 74 (MethodCallRemoval:89) — "Execution records" section heading appears when records exist
     public function testExecutionRecordsSectionHeadingAppears(): void
     {
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00')));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00'),
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -169,7 +175,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
     // Mutant 76+77 (MatchArmRemoval:106) — all three TaskStatus enum arms produce correct label
     public function testRanStatusRendersInfoTag(): void
     {
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00')));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00'),
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -182,7 +190,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
 
     public function testSkippedStatusRendersCommentTag(): void
     {
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Skipped, new \DateTimeImmutable('2026-05-01 12:00:00')));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Skipped, new \DateTimeImmutable('2026-05-01 12:00:00'),
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -193,7 +203,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
 
     public function testFailedStatusRendersErrorTag(): void
     {
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Failed, new \DateTimeImmutable('2026-05-01 12:00:00'), 'boom'));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Failed, new \DateTimeImmutable('2026-05-01 12:00:00'), 'boom',
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -205,7 +217,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
     // Mutant 78 (ArrayItemRemoval:112) — 'Group' row present in execution record definition list
     public function testExecutionRecordContainsGroupRow(): void
     {
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00')));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00'),
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -219,7 +233,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
     public function testNullGroupUsesDefaultSlotLabel(): void
     {
         // test.simple has no group (null) → should display "(default slot)", not the null itself
-        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00')));
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00'),
+        ));
 
         $this->tester->execute(['id' => 'test.simple']);
 
@@ -230,7 +246,9 @@ final class DeployShowCommandTest extends FunctionalTestCase
     // Mutant 79 inverse — when group is set, the actual group name appears (not the default label)
     public function testNonNullGroupDisplaysActualGroupName(): void
     {
-        $this->storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00'), null, 'predeploy'));
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable('2026-05-01 12:00:00'), null, 'predeploy',
+        ));
 
         $this->tester->execute(['id' => 'test.multi_group']);
 

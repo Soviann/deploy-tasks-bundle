@@ -40,7 +40,10 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         self::assertSame(TaskStatus::Ran, $exec->status);
 
         // 2. Reset → record gone → run → back to Ran
-        self::assertSame(Command::SUCCESS, $reset->execute(['id' => $taskId, '--force' => true], ['interactive' => false]));
+        self::assertSame(
+            Command::SUCCESS,
+            $reset->execute(['id' => $taskId, '--force' => true], ['interactive' => false]),
+        );
         self::assertFalse($storage->has($taskId));
         self::assertSame(Command::SUCCESS, $run->execute([]));
         $exec = $storage->get($taskId);
@@ -82,7 +85,11 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         self::assertTrue($storage->has($taskId, $groupA));
 
         // 3. Reset one slot only → it is cleared, the other survives
-        $reset = $this->runCommand('deploytasks:reset', ['id' => $taskId, '--group' => $groupA, '--force' => true], ['interactive' => false]);
+        $reset = $this->runCommand(
+            'deploytasks:reset',
+            ['id' => $taskId, '--group' => $groupA, '--force' => true],
+            ['interactive' => false],
+        );
         self::assertSame(Command::SUCCESS, $reset->getStatusCode());
         self::assertFalse($storage->has($taskId, $groupA));
         self::assertTrue($storage->has($taskId, $groupB));

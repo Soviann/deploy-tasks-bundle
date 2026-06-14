@@ -21,7 +21,12 @@ trait DestructiveCommandTrait
     private function addForceOptions(): void
     {
         $this
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Confirm destructive run when combined with --no-interaction. Alias: --yes.')
+            ->addOption(
+                'force',
+                null,
+                InputOption::VALUE_NONE,
+                'Confirm destructive run when combined with --no-interaction. Alias: --yes.',
+            )
             ->addOption('yes', null, InputOption::VALUE_NONE, 'Alias of --force.')
         ;
     }

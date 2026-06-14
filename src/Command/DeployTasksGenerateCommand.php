@@ -24,7 +24,8 @@ final class DeployTasksGenerateCommand extends Command
     private readonly Filesystem $fs;
 
     /**
-     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic timestamps in tests
+     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic
+     *                                                           timestamps in tests
      */
     public function __construct(
         private readonly TaskIdGeneratorInterface $idGenerator,
@@ -41,7 +42,13 @@ final class DeployTasksGenerateCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated file.', $this->defaultDirectory)
+            ->addOption(
+                'dir',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Target directory for the generated file.',
+                $this->defaultDirectory,
+            )
             ->addOption('namespace', null, InputOption::VALUE_REQUIRED, 'Override the namespace derived from --dir.')
             ->setHelp(
                 \sprintf(
@@ -210,7 +217,10 @@ final class DeployTasksGenerateCommand extends Command
         $io->text([
             \sprintf('Generated new deploy task class to "<info>%s</info>"', $displayPath),
             '',
-            \sprintf('To run just this task for testing purposes, you can use <info>deploytasks:run --rerun-all --id=%s</info>', $taskId),
+            \sprintf(
+                'To run just this task for testing purposes, you can use <info>deploytasks:run --rerun-all --id=%s</info>',
+                $taskId,
+            ),
             '',
             'To see all registered tasks, use <info>deploytasks:status</info>.',
             '',

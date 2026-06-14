@@ -63,7 +63,10 @@ final class LoggerWiringTest extends TestCase
 
         self::assertInstanceOf(Reference::class, $loggerArg);
         self::assertSame('my_logger', (string) $loggerArg);
-        self::assertEmpty($runner->getTag('monolog.logger'), 'runner must NOT carry a monolog.logger tag when user supplies a logger');
+        self::assertEmpty(
+            $runner->getTag('monolog.logger'),
+            'runner must NOT carry a monolog.logger tag when user supplies a logger',
+        );
     }
 
     public function testCompilerPassDoesNotTouchLoggerArgument(): void

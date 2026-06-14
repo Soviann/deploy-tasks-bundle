@@ -109,7 +109,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $pass = new RegisterTasksCompilerPass();
         $pass->process($container);
 
-        self::assertTrue($container->hasDefinition('service.exact_id'), 'the exact-length task survived the pass without rejection');
+        self::assertTrue(
+            $container->hasDefinition('service.exact_id'),
+            'the exact-length task survived the pass without rejection',
+        );
     }
 
     public function testTaskGroupExactlyAtColumnLengthDoesNotThrow(): void
@@ -125,7 +128,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $pass = new RegisterTasksCompilerPass();
         $pass->process($container);
 
-        self::assertTrue($container->hasDefinition('service.exact_group'), 'the exact-length group survived the pass without rejection');
+        self::assertTrue(
+            $container->hasDefinition('service.exact_group'),
+            'the exact-length group survived the pass without rejection',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -235,7 +241,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
 
         // Parameters are NOT cleaned up when the runner is absent (early return path).
         // The observable outcome is simply that the pass completes without throwing.
-        self::assertTrue($container->hasParameter('soviann_deploy_tasks.events.enabled'), 'Params remain untouched when runner is absent.');
+        self::assertTrue(
+            $container->hasParameter('soviann_deploy_tasks.events.enabled'),
+            'Params remain untouched when runner is absent.',
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -247,7 +256,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
         // Mutants 116–119: various logic corruption of `$eventsEnabled && has('event_dispatcher')`.
         $container = $this->baseContainer();
         $container->setParameter('soviann_deploy_tasks.events.enabled', true);
-        $container->setDefinition('event_dispatcher', new Definition(\Symfony\Component\EventDispatcher\EventDispatcher::class));
+        $container->setDefinition(
+            'event_dispatcher',
+            new Definition(\Symfony\Component\EventDispatcher\EventDispatcher::class),
+        );
 
         $pass = new RegisterTasksCompilerPass();
         $pass->process($container);
@@ -264,7 +276,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
         // Mutant 120: `$eventsEnabled && !$container->has('event_dispatcher')` — must NOT wire dispatcher.
         $container = $this->baseContainer();
         // events.enabled is false in baseContainer.
-        $container->setDefinition('event_dispatcher', new Definition(\Symfony\Component\EventDispatcher\EventDispatcher::class));
+        $container->setDefinition(
+            'event_dispatcher',
+            new Definition(\Symfony\Component\EventDispatcher\EventDispatcher::class),
+        );
 
         // Set runner dispatcher to a known sentinel so we can check it was not changed.
         $runnerDef = $container->getDefinition('soviann_deploy_tasks.runner');
@@ -482,7 +497,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
 
         $container->setDefinition('soviann_deploy_tasks.id_resolver', new Definition(TaskIdResolver::class));
         $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(DefaultTaskIdGenerator::class));
-        $container->setDefinition('soviann_deploy_tasks.runner', new Definition('Soviann\DeployTasksBundle\Runner\TaskRunner'));
+        $container->setDefinition(
+            'soviann_deploy_tasks.runner',
+            new Definition('Soviann\DeployTasksBundle\Runner\TaskRunner'),
+        );
         $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$dispatcher', null);
         $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$lockFactory', null);
         $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$transactional', false);
@@ -496,8 +514,11 @@ final class RegisterTasksCompilerPassTest extends TestCase
      * Registers the database storage configuration so the pass treats storage as
      * database-backed and reads the column lengths from it.
      */
-    private function withDbalColumnLengths(ContainerBuilder $container, int $idColumnLength, int $groupColumnLength): void
-    {
+    private function withDbalColumnLengths(
+        ContainerBuilder $container,
+        int $idColumnLength,
+        int $groupColumnLength,
+    ): void {
         $definition = new Definition(DbalStorageConfiguration::class);
         $definition->setArgument('$idColumnLength', $idColumnLength);
         $definition->setArgument('$groupColumnLength', $groupColumnLength);

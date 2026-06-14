@@ -15,7 +15,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * behavior, description, and group membership.
  *
  * @see TaskIdProviderInterface  Optional interface to provide a dynamic task ID
- * @see Attribute\AsDeployTask   Attribute for static configuration (id, priority, env, timeout, transactional, description, groups)
+ * @see Attribute\AsDeployTask   Attribute for static configuration (id, priority, env, timeout, transactional,
+ *                               description, groups)
  */
 interface DeployTaskInterface
 {

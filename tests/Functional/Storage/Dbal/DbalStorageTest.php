@@ -111,11 +111,16 @@ final class DbalStorageTest extends TestCase
             $oldPatternWouldFail = true;
         }
 
-        self::assertTrue($oldPatternWouldFail, 'DELETE+INSERT race IS real: raw INSERT after a concurrent write collides on UNIQUE constraint.');
+        self::assertTrue(
+            $oldPatternWouldFail,
+            'DELETE+INSERT race IS real: raw INSERT after a concurrent write collides on UNIQUE constraint.',
+        );
 
         // Step 4: storage-level save() uses the platform-native upsert and must
         // succeed even after the interleaved writes, leaving exactly one row.
-        $recovery = new TaskExecution('task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-28T10:00:03+00:00'));
+        $recovery = new TaskExecution(
+            'task.race', TaskStatus::Ran, new \DateTimeImmutable('2026-04-28T10:00:03+00:00'),
+        );
         $storage->save($recovery);
 
         $all = $storage->all();
@@ -182,7 +187,9 @@ final class DbalStorageTest extends TestCase
         ));
 
         $first = new TaskExecution('task.upsert', TaskStatus::Ran, new \DateTimeImmutable('2026-04-28T10:00:00+00:00'));
-        $second = new TaskExecution('task.upsert', TaskStatus::Failed, new \DateTimeImmutable('2026-04-28T10:01:00+00:00'), 'replaced');
+        $second = new TaskExecution(
+            'task.upsert', TaskStatus::Failed, new \DateTimeImmutable('2026-04-28T10:01:00+00:00'), 'replaced',
+        );
 
         $storage->save($first);
         $storage->save($second);

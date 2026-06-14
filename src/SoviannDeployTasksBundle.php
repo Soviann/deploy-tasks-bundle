@@ -43,6 +43,33 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_iterator;
 
+/**
+ * @phpstan-type StorageConfig array{
+ *     type: string,
+ *     filesystem: array{path: string, transactional: bool, all_or_nothing: bool},
+ *     database: array{
+ *         connection: string,
+ *         table: string,
+ *         auto_create_table: bool,
+ *         id_column: string,
+ *         id_column_length: int,
+ *         status_column: string,
+ *         executed_at_column: string,
+ *         error_column: string,
+ *         group_column: string,
+ *         group_column_length: int,
+ *         transactional: bool,
+ *         all_or_nothing: bool,
+ *     },
+ *     custom: array{service: string|null, transactional: bool, all_or_nothing: bool},
+ * }
+ * @phpstan-type GenerateConfig array{
+ *     directory: string,
+ *     template: string|null,
+ *     root_namespace: string,
+ *     host_directory: string,
+ * }
+ */
 final class SoviannDeployTasksBundle extends AbstractBundle
 {
     public function getPath(): string
@@ -151,7 +178,14 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         $builder->setParameter('soviann_deploy_tasks.lock.enabled', $lockConfig['enabled']);
 
         // TaskRunner — transactional/all_or_nothing come from the active storage sub-config
-        /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
+        /**
+         * @var array{
+         *     type: string,
+         *     filesystem: array{path: string, transactional: bool, all_or_nothing: bool},
+         *     database: array{transactional: bool, all_or_nothing: bool},
+         *     custom: array{service: string|null, transactional: bool, all_or_nothing: bool},
+         * } $storageConfig
+         */
         $storageConfig = $config['storage'];
         /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
         $activeStorage = $storageConfig[$storageConfig['type']];
@@ -181,7 +215,10 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         if (null === $config['logger']) {
             // Bundle owns the logger — tag it for Monolog channel routing.
             $runnerDefinition->addTag('monolog.logger', ['channel' => 'soviann_deploy_tasks']);
-            $runnerDefinition->setArgument('$logger', new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE));
+            $runnerDefinition->setArgument(
+                '$logger',
+                new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+            );
         } else {
             /** @var string $userLoggerId */
             $userLoggerId = $config['logger'];
@@ -238,7 +275,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        /** @var array{directory: string, template: string|null, root_namespace: string, host_directory: string} $generateConfig */
+        /** @var GenerateConfig $generateConfig */
         $generateConfig = $config['generate'];
 
         $services->set('soviann_deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
@@ -277,7 +314,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
      */
     private function registerStorage(array $config, ServicesConfigurator $services, ContainerBuilder $builder): void
     {
-        /** @var array{type: string, filesystem: array{path: string, transactional: bool, all_or_nothing: bool}, database: array{connection: string, table: string, auto_create_table: bool, id_column: string, id_column_length: int, status_column: string, executed_at_column: string, error_column: string, group_column: string, group_column_length: int, transactional: bool, all_or_nothing: bool}, custom: array{service: string|null, transactional: bool, all_or_nothing: bool}} $storageConfig */
+        /** @var StorageConfig $storageConfig */
         $storageConfig = $config['storage'];
 
         switch ($storageConfig['type']) {
@@ -291,7 +328,10 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                     // @codeCoverageIgnoreEnd
                 }
 
-                $connectionServiceId = \sprintf('doctrine.dbal.%s_connection', $storageConfig['database']['connection']);
+                $connectionServiceId = \sprintf(
+                    'doctrine.dbal.%s_connection',
+                    $storageConfig['database']['connection'],
+                );
                 $dbConfig = $storageConfig['database'];
 
                 $services->set('soviann_deploy_tasks.storage.configuration', DbalStorageConfiguration::class)

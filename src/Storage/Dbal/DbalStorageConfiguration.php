@@ -44,7 +44,13 @@ final readonly class DbalStorageConfiguration
             }
         }
 
-        $columns = [$this->idColumn, $this->groupColumn, $this->statusColumn, $this->executedAtColumn, $this->errorColumn];
+        $columns = [
+            $this->idColumn,
+            $this->groupColumn,
+            $this->statusColumn,
+            $this->executedAtColumn,
+            $this->errorColumn,
+        ];
 
         if (\count($columns) !== \count(\array_unique($columns))) {
             throw new \InvalidArgumentException('Storage column names must be unique.');

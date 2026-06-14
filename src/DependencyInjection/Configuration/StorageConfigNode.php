@@ -51,7 +51,9 @@ final class StorageConfigNode
                         ->scalarNode('table')
                             ->defaultValue('deploy_task_executions')
                             ->validate()
-                                ->ifTrue(static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v))
+                                ->ifTrue(
+                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
+                                )
                                 ->thenInvalid('Identifier %s is not a valid SQL identifier.')
                             ->end()
                         ->end()
@@ -62,7 +64,9 @@ final class StorageConfigNode
                         ->scalarNode('id_column')
                             ->defaultValue('id')
                             ->validate()
-                                ->ifTrue(static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v))
+                                ->ifTrue(
+                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
+                                )
                                 ->thenInvalid('Identifier %s is not a valid SQL identifier.')
                             ->end()
                         ->end()
@@ -73,21 +77,27 @@ final class StorageConfigNode
                         ->scalarNode('status_column')
                             ->defaultValue('status')
                             ->validate()
-                                ->ifTrue(static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v))
+                                ->ifTrue(
+                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
+                                )
                                 ->thenInvalid('Identifier %s is not a valid SQL identifier.')
                             ->end()
                         ->end()
                         ->scalarNode('executed_at_column')
                             ->defaultValue('executed_at')
                             ->validate()
-                                ->ifTrue(static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v))
+                                ->ifTrue(
+                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
+                                )
                                 ->thenInvalid('Identifier %s is not a valid SQL identifier.')
                             ->end()
                         ->end()
                         ->scalarNode('error_column')
                             ->defaultValue('error')
                             ->validate()
-                                ->ifTrue(static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v))
+                                ->ifTrue(
+                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
+                                )
                                 ->thenInvalid('Identifier %s is not a valid SQL identifier.')
                             ->end()
                         ->end()
@@ -95,7 +105,9 @@ final class StorageConfigNode
                             ->defaultValue('task_group')
                             ->info('Column name for the task group slot. Override to reuse an existing table with a different column name.')
                             ->validate()
-                                ->ifTrue(static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v))
+                                ->ifTrue(
+                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
+                                )
                                 ->thenInvalid('Identifier %s is not a valid SQL identifier.')
                             ->end()
                         ->end()

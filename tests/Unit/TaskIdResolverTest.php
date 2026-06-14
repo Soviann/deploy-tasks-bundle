@@ -101,6 +101,9 @@ final class TaskIdResolverTest extends TestCase
     public function testResolveFromClassFallsBackToFqcn(): void
     {
         // NoAttributeSeedCategoriesTask has no attribute → deduce from FQCN
-        self::assertSame('no_attribute_seed_categories', $this->resolver->resolveFromClass(NoAttributeSeedCategoriesTask::class));
+        self::assertSame(
+            'no_attribute_seed_categories',
+            $this->resolver->resolveFromClass(NoAttributeSeedCategoriesTask::class),
+        );
     }
 }

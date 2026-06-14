@@ -204,7 +204,11 @@ final class HostDirectoryConfigTest extends KernelTestCase
         $expectedDir = $projectDir.'/deploy/host-tasks';
         $files = \glob($expectedDir.'/deploy_task_*.sh');
         self::assertNotFalse($files);
-        self::assertCount(1, $files, 'Expected exactly one stub in the default deploy/host-tasks directory under project dir.');
+        self::assertCount(
+            1,
+            $files,
+            'Expected exactly one stub in the default deploy/host-tasks directory under project dir.',
+        );
 
         $kernel->shutdown();
     }

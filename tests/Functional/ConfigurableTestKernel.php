@@ -42,7 +42,8 @@ final class ConfigurableTestKernel extends AbstractTestKernel
 
     public function getCacheDir(): string
     {
-        $cacheDir = \sys_get_temp_dir().'/deploy-tasks-'.$this->configHash().'-cache-'.\getmypid().'/'.$this->environment;
+        $cacheDir = \sys_get_temp_dir()
+            .'/deploy-tasks-'.$this->configHash().'-cache-'.\getmypid().'/'.$this->environment;
 
         // Same pre-create rationale as AbstractTestKernel::getCacheDir().
         if (!\is_dir($cacheDir)) {

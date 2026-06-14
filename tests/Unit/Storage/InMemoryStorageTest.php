@@ -46,7 +46,9 @@ final class InMemoryStorageTest extends TaskStorageContractTestCase
 
     public function testGetWithGroupReturnsTheExactSavedInstance(): void
     {
-        $execution = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy');
+        $execution = new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, 'predeploy',
+        );
 
         $this->storage->save($execution);
 
@@ -57,7 +59,9 @@ final class InMemoryStorageTest extends TaskStorageContractTestCase
     {
         $first = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
         $second = new TaskExecution('task.2', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'));
-        $third = new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T15:30:00+00:00'), null, 'predeploy');
+        $third = new TaskExecution(
+            'task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T15:30:00+00:00'), null, 'predeploy',
+        );
 
         $this->storage->save($first);
         $this->storage->save($second);
@@ -74,8 +78,12 @@ final class InMemoryStorageTest extends TaskStorageContractTestCase
     public function testFindByTaskIdReturnsTheExactSavedInstances(): void
     {
         $default = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'));
-        $pre = new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy');
-        $post = new TaskExecution('task.1', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'), null, 'postdeploy');
+        $pre = new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:35:00+00:00'), null, 'predeploy',
+        );
+        $post = new TaskExecution(
+            'task.1', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-12T14:40:00+00:00'), null, 'postdeploy',
+        );
         $other = new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:50:00+00:00'));
 
         $this->storage->save($default);
@@ -117,14 +125,19 @@ final class InMemoryStorageTest extends TaskStorageContractTestCase
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
         $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable()));
-        $this->storage->save(new TaskExecution('task.10', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $this->storage->save(new TaskExecution(
+            'task.10', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
 
         $this->storage->removeAll('task.1');
 
         self::assertFalse($this->storage->has('task.1'), 'task.1 default slot must be removed.');
         self::assertFalse($this->storage->has('task.1', 'predeploy'), 'task.1 predeploy slot must be removed.');
         self::assertTrue($this->storage->has('task.10'), 'task.10 must NOT be removed by removeAll(task.1).');
-        self::assertTrue($this->storage->has('task.10', 'predeploy'), 'task.10 predeploy must NOT be removed by removeAll(task.1).');
+        self::assertTrue(
+            $this->storage->has('task.10', 'predeploy'),
+            'task.10 predeploy must NOT be removed by removeAll(task.1).',
+        );
     }
 
     /**

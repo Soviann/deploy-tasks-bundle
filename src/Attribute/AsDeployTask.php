@@ -33,13 +33,19 @@ final class AsDeployTask
     private static array $cache = [];
 
     /**
-     * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or FQCN auto-deduction). Non-empty values must match AsDeployTask::TASK_ID_PATTERN.
+     * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or
+     *                                            FQCN auto-deduction). Non-empty values must match
+     *                                            AsDeployTask::TASK_ID_PATTERN.
      * @param int                  $priority      Execution priority (higher runs first, default 0)
      * @param string|string[]|null $env           Restrict to specific environment(s), null for all
      * @param int|null             $timeout       Max execution time in seconds, null for default
-     * @param bool|null            $transactional Wrap execution in a database transaction. Null = use global config default.
-     * @param string|null          $description   Human-readable description (overrides DeployTaskInterface::getDescription())
-     * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when deploytasks:run is called without --group). Names must match AsDeployTask::GROUP_NAME_PATTERN.
+     * @param bool|null            $transactional Wrap execution in a database transaction. Null = use global config
+     *                                            default.
+     * @param string|null          $description   Human-readable description (overrides
+     *                                            DeployTaskInterface::getDescription())
+     * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when
+     *                                            deploytasks:run is called without --group). Names must match
+     *                                            AsDeployTask::GROUP_NAME_PATTERN.
      *
      * @throws \InvalidArgumentException When a non-empty id does not match TASK_ID_PATTERN
      * @throws \InvalidArgumentException When groups is an empty array

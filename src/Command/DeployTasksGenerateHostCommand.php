@@ -23,7 +23,8 @@ final class DeployTasksGenerateHostCommand extends Command
     private readonly Filesystem $fs;
 
     /**
-     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic timestamps in tests
+     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic
+     *                                                           timestamps in tests
      */
     public function __construct(
         private readonly string $hostDirectory,
@@ -37,7 +38,13 @@ final class DeployTasksGenerateHostCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('dir', null, InputOption::VALUE_REQUIRED, 'Target directory for the generated shell script.', $this->hostDirectory)
+            ->addOption(
+                'dir',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Target directory for the generated shell script.',
+                $this->hostDirectory,
+            )
             ->setHelp(
                 <<<'EOT'
                     The <info>%command.name%</info> command generates a blank host-scope deploy task shell script:
