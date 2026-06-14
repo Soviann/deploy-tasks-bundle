@@ -255,7 +255,7 @@ final class TaskRunner
             foreach ($slots as $slot) {
                 $execution = $force ? null : $this->storage->get($taskId, $slot);
 
-                if (null !== $execution && TaskStatus::Failed !== $execution->status) {
+                if (!$this->isPendingSlot($execution)) {
                     ++$skipped;
 
                     continue;
@@ -658,14 +658,21 @@ final class TaskRunner
         $pending = [];
 
         foreach ($slots as $slot) {
-            $existing = $this->storage->get($taskId, $slot);
-
-            if (null === $existing || TaskStatus::Failed === $existing->status) {
+            if ($this->isPendingSlot($this->storage->get($taskId, $slot))) {
                 $pending[] = $slot;
             }
         }
 
         return $pending;
+    }
+
+    /**
+     * A slot is pending when it has no stored execution yet, or its last execution
+     * failed — failed slots are retried on the next run.
+     */
+    private function isPendingSlot(?TaskExecution $execution): bool
+    {
+        return null === $execution || TaskStatus::Failed === $execution->status;
     }
 
     /**
