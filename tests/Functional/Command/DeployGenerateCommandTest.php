@@ -13,11 +13,11 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Exception\IOException;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[CoversClass(DeployTasksGenerateCommand::class)]
 final class DeployGenerateCommandTest extends FunctionalTestCase
@@ -31,22 +31,39 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     private CommandTester $tester;
     private string $outputDir;
     private string $relativeOutputDir;
+    private string $projectDir;
+
+    /** @var list<string> */
+    private array $pathsToCleanup = [];
 
     protected function setUp(): void
     {
         self::bootKernel();
-        $application = new Application(self::kernel());
-        $this->tester = new CommandTester($application->find('deploytasks:generate:container'));
-        $unique = \uniqid();
-        $this->relativeOutputDir = 'var/generate-test-'.$unique.'/';
-        $this->outputDir = self::projectDir().'/'.$this->relativeOutputDir;
+
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        // Throwaway project dir: keeps generated stubs out of the real bundle tree entirely,
+        // instead of writing into and cleaning up after self::projectDir() (the bundle root).
+        $this->projectDir = \sys_get_temp_dir().'/generate-test-project-'.\uniqid();
+        \mkdir($this->projectDir, 0o755, true);
+        $this->pathsToCleanup[] = $this->projectDir;
+
+        $this->tester = new CommandTester($this->makeCommand($idGenerator, projectDir: $this->projectDir));
+
+        $this->relativeOutputDir = 'generate-test-'.\uniqid().'/';
+        $this->outputDir = $this->projectDir.'/'.$this->relativeOutputDir;
     }
 
     protected function tearDown(): void
     {
-        parent::tearDown();
+        $fs = new Filesystem();
+        foreach ($this->pathsToCleanup as $path) {
+            $fs->remove($path);
+        }
+        $this->pathsToCleanup = [];
 
-        FilesystemTestHelper::cleanup($this->outputDir);
+        parent::tearDown();
     }
 
     public function testGenerate(): void
@@ -190,7 +207,6 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
     public function testGenerateAllowsTraversalWithinProjectRoot(): void
     {
         $uniqueId = \uniqid();
-        $projectDir = self::projectDir();
         // Relative path with internal traversal that stays within the project root.
         // --namespace is required because the dir segment "generate-test-XXXX" contains a hyphen,
         // which is not a valid PHP namespace character and would be rejected by dirToNamespace().
@@ -202,12 +218,10 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('Generated new deploy task class', $this->tester->getDisplay());
 
-        // The command normalizes the path, so clean up at the resolved location.
-        $resolvedDir = $projectDir.'/var/nested/generate-test-'.$uniqueId.'/';
+        // The command normalizes the path; $this->projectDir (whole tree) is removed in tearDown()
+        // regardless of whether the assertion below passes, so no leak can survive a failure here.
+        $resolvedDir = $this->projectDir.'/var/nested/generate-test-'.$uniqueId.'/';
         self::assertDirectoryExists($resolvedDir);
-
-        FilesystemTestHelper::cleanup($resolvedDir);
-        @\rmdir(\dirname($resolvedDir));
     }
 
     public function testGenerateRejectsTraversalEscapingStartingPoint(): void
