@@ -11,6 +11,8 @@ use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\NoAttributeSeedCategoriesTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\NullStaticTaskIdGenerator;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\A\ClashTask as ClashTaskA;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\B\ClashTask as ClashTaskB;
@@ -180,6 +182,35 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $pass->process($container);
 
         self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.all_or_nothing'));
+    }
+
+    public function testAllOrNothingWithClasslessStorageDefinitionBuilds(): void
+    {
+        // Storage class unresolvable at compile time (factory-built) → the
+        // transactional-capability check is skipped rather than rejecting the build.
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.all_or_nothing', true);
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition()); // class is null
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.all_or_nothing'));
+    }
+
+    public function testCustomTransactionalStorageErrorFallsBackToServiceIdWhenClassUnknown(): void
+    {
+        // With a class-less custom storage definition, the rejection message cannot
+        // name the class — it must fall back to the service ID so the error still
+        // points at the misconfigured service.
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.storage.custom_service_id', 'my.classless_storage');
+        $container->setDefinition('my.classless_storage', new Definition()); // class is null
+        $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$transactional', true);
+
+        $this->expectException(\Soviann\DeployTasksBundle\Exception\IncompatibleStorageException::class);
+        $this->expectExceptionMessageMatches('/Custom storage "my\.classless_storage".*transactional: true/');
+
+        (new RegisterTasksCompilerPass())->process($container);
     }
 
     public function testCustomStorageServiceIdParameterIsRemovedAfterCompilation(): void
@@ -432,6 +463,21 @@ final class RegisterTasksCompilerPassTest extends TestCase
         self::assertTrue($container->hasDefinition('service.no_class'));
     }
 
+    public function testTaggedServiceNotImplementingTaskInterfaceIsSkipped(): void
+    {
+        // A mis-tagged service whose class exists but is not a DeployTaskInterface
+        // must be skipped silently — runtime autoconfiguration owns that contract.
+        $container = $this->baseContainer();
+
+        $def = new Definition(\stdClass::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.not_a_task', $def);
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        self::assertTrue($container->hasDefinition('service.not_a_task'));
+    }
+
     // -------------------------------------------------------------------------
     // validateTaggedTasks — attribute ID vs. generator (mutants 106, 107)
     // -------------------------------------------------------------------------
@@ -554,6 +600,38 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $def->addTag('soviann_deploy_tasks.task');
         $container->setDefinition('service.plain', $def);
 
+        (new RegisterTasksCompilerPass())->process($container);
+
+        $this->addToAssertionCount(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // validateTaggedTasks — generateStatic() returning null opts tasks out
+    // -------------------------------------------------------------------------
+
+    public function testGeneratorReturningNullStaticIdSkipsCompileTimeDuplicateDetection(): void
+    {
+        // Two services share the same attribute-ID-less class: the default generator
+        // would derive the same static ID for both and reject the build as a duplicate.
+        // A generator whose generateStatic() returns null opts them out of compile-time
+        // detection — duplicates surface at runtime in the registry instead.
+        $container = $this->baseContainer();
+        $container->setDefinition(
+            'soviann_deploy_tasks.id_generator',
+            new Definition(NullStaticTaskIdGenerator::class),
+        );
+        $this->withDbalColumnLengths($container, idColumnLength: 3, groupColumnLength: 3);
+
+        $def1 = new Definition(NoAttributeSeedCategoriesTask::class);
+        $def1->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.first', $def1);
+
+        $def2 = new Definition(NoAttributeSeedCategoriesTask::class);
+        $def2->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.second', $def2);
+
+        // Must not throw — neither duplicate detection nor the id_column_length
+        // check may run against an ID that does not exist at compile time.
         (new RegisterTasksCompilerPass())->process($container);
 
         $this->addToAssertionCount(1);

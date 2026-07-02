@@ -153,6 +153,28 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('Process error', $output->fetch());
     }
 
+    public function testProcessExceptionMessageIsSanitizedBeforeOutput(): void
+    {
+        // Exception messages can carry raw terminal control bytes (e.g. ANSI colour
+        // sequences echoed back from a failing command). The catch block must strip
+        // them via ConsoleSanitizer before writing to the deployer's terminal.
+        // Process embeds the cwd verbatim in its "cwd does not exist" message,
+        // giving a deterministic control-byte-bearing exception without mocking.
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->invoke(
+            new Process(['php', '-r', 'echo 1;'], "/nonexistent/\e[31mboom\e[0m bell\x07end"),
+            $output,
+        );
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        $rendered = $output->fetch();
+        // Control BYTES are removed; the printable "[31m" remainders survive.
+        self::assertStringContainsString('[31mboom[0m bellend', $rendered);
+        self::assertStringNotContainsString("\e", $rendered);
+        self::assertStringNotContainsString("\x07", $rendered);
+    }
+
     public function testAngleBracketStderrDoesNotCorruptFormatter(): void
     {
         // Use a real (decorated=false) BufferedOutput so the formatter actually

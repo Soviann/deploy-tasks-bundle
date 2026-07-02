@@ -274,6 +274,22 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertStringContainsString('across all slots', $this->tester->getDisplay());
     }
 
+    public function testResetWithDeclaredGroupWithoutExecutionRecordReportsAlreadyPending(): void
+    {
+        // 'predeploy' IS declared on test.multi_group, so the undeclared-group warning
+        // branch is not taken; with nothing saved, the (task, group) slot has no record
+        // and the command must short-circuit with the "already pending" note.
+        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('no execution record for group "predeploy"', $display);
+        self::assertStringContainsString('already pending', $display);
+        self::assertStringNotContainsString('not declared', $display);
+        // Storage must remain untouched.
+        self::assertSame([], $this->storage->all());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
