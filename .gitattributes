@@ -1,7 +1,6 @@
 /.github/              export-ignore
 /.infection/           export-ignore
 /.phpunit.cache/       export-ignore
-/docs/                 export-ignore
 /tests/                export-ignore
 /var/                  export-ignore
 .editorconfig          export-ignore

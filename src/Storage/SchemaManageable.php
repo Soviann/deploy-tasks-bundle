@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Storage;
 
+use Soviann\DeployTasksBundle\Exception\StorageException;
+
 /**
  * Capability opt-in for storage backends that can provision their own persistence
  * layer — typically a relational table, but anything the `deploytasks:create-schema`
@@ -13,6 +15,9 @@ namespace Soviann\DeployTasksBundle\Storage;
  * have nothing to set up (e.g. filesystem storage) simply don't implement it.
  * Note: the create-schema command is currently wired only for the built-in
  * database storage.
+ *
+ * Exception contract: implementations MUST wrap backend failures in StorageException
+ * (see TaskStorageInterface).
  */
 interface SchemaManageable
 {
@@ -22,6 +27,8 @@ interface SchemaManageable
      * Useful for `--dump-sql` so operators can fold the statement into a
      * Doctrine migration (or an equivalent migration tool) instead of running
      * the command against the live connection.
+     *
+     * @throws StorageException When the DDL cannot be generated
      */
     public function getCreateTableSql(): string;
 
@@ -30,6 +37,8 @@ interface SchemaManageable
      *
      * Implementations must be idempotent (e.g. `CREATE TABLE IF NOT EXISTS`)
      * so repeated runs don't fail on an already-provisioned storage.
+     *
+     * @throws StorageException When the schema bootstrap fails
      */
     public function createSchema(): void;
 }

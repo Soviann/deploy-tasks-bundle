@@ -75,7 +75,7 @@ For tasks that require database transaction support, set `transactional: true` o
 
 This requires a storage backend implementing `TransactionalStorageInterface`. The built-in `DbalStorage` supports this out of the box. The task's `run()` method and the storage `save()` call are wrapped in a single transaction. If the task fails, both the data changes and the execution record are rolled back.
 
-If the active storage does not implement `TransactionalStorageInterface`, `transactional: true` is silently ignored.
+If the active storage does not implement `TransactionalStorageInterface`, a task declaring `transactional: true` fails the container build with an `IncompatibleStorageException` — an explicit per-task transaction demand never silently degrades to unwrapped execution. Switch to `storage.type: database` (or a custom transactional backend), or remove the flag.
 
 ## Custom ID Generator
 

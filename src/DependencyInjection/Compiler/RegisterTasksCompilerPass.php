@@ -26,6 +26,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     /**
      * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
      * @throws IncompatibleStorageException When the custom storage service does not implement TaskStorageInterface
+     * @throws IncompatibleStorageException When a task declares transactional: true on a non-transactional storage
      * @throws \LogicException              When two tagged tasks resolve to the same ID
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
@@ -160,16 +161,25 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * and group fits the configured DBAL column length — the attribute itself is
      * storage-agnostic, so the limit can only be checked once storage is known.
      *
-     * @throws \LogicException      When two tagged tasks resolve to the same ID
-     * @throws \LogicException      When a task ID exceeds the configured id_column_length
-     * @throws \LogicException      When a task group exceeds the configured group_column_length
-     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
+     * Also rejects tasks declaring #[AsDeployTask(transactional: true)] when the
+     * active storage does not implement TransactionalStorageInterface — mirroring
+     * the config-level checks so an explicit per-task transaction demand can never
+     * silently degrade to unwrapped execution.
+     *
+     * @throws IncompatibleStorageException When a task demands a transaction the storage cannot provide
+     * @throws \LogicException              When two tagged tasks resolve to the same ID
+     * @throws \LogicException              When a task ID exceeds the configured id_column_length
+     * @throws \LogicException              When a task group exceeds the configured group_column_length
+     * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
     {
         $generatorClass = $this->resolveGeneratorClass($container);
         $taggedServices = $container->findTaggedServiceIds('soviann_deploy_tasks.task');
         [$idColumnLength, $groupColumnLength] = $this->resolveStorageColumnLengths($container);
+        $storageClass = $container->hasDefinition('soviann_deploy_tasks.storage')
+            ? $container->findDefinition('soviann_deploy_tasks.storage')->getClass()
+            : null;
 
         /** @var array<string, string> $seenIds resolved task ID → service ID */
         $seenIds = [];
@@ -189,6 +199,15 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
             if (null !== $groupColumnLength) {
                 $this->validateGroupLengths($class, $serviceId, $groupColumnLength);
+            }
+
+            // Before the TaskIdProviderInterface early-continue: the transactional flag
+            // is attribute-declared, so it is compile-time known for provider tasks too.
+            if (null !== $storageClass
+                && true === AsDeployTask::of($class)?->transactional
+                && !\is_a($storageClass, TransactionalStorageInterface::class, true)
+            ) {
+                throw IncompatibleStorageException::taskRequiresTransactional($class, $storageClass);
             }
 
             if (\is_a($class, TaskIdProviderInterface::class, true)) {
@@ -277,7 +296,9 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             return DefaultTaskIdGenerator::class;
         }
 
-        \assert(\is_a($class, TaskIdGeneratorInterface::class, true));
+        if (!\is_a($class, TaskIdGeneratorInterface::class, true)) {
+            throw new \LogicException(\sprintf('The configured task ID generator "%s" (service "soviann_deploy_tasks.id_generator", config key "soviann_deploy_tasks.id_generator") must implement %s.', $class, TaskIdGeneratorInterface::class));
+        }
 
         return $class;
     }

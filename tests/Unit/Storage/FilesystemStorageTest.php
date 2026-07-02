@@ -213,14 +213,44 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         new FilesystemStorage('/srv/republican-data/storage');
     }
 
-    public function testCorruptJsonThrowsJsonException(): void
+    public function testCorruptJsonThrowsStorageExceptionWithJsonExceptionChained(): void
     {
         \mkdir($this->storagePath, 0755, true);
         \file_put_contents($this->storagePath.'/task.corrupt.json', 'not-valid-json');
 
-        $this->expectException(\JsonException::class);
+        try {
+            $this->storage->get('task.corrupt');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('task.corrupt.json', $e->getMessage());
+            self::assertStringContainsString('Syntax error', $e->getMessage());
+            self::assertInstanceOf(\JsonException::class, $e->getPrevious());
+        }
+    }
 
-        $this->storage->get('task.corrupt');
+    public function testCorruptJsonSurfacesAsStorageExceptionFromAll(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents($this->storagePath.'/task.corrupt.json', '{"id": "task.corrupt", truncated');
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Failed to decode storage file ".*task\.corrupt\.json"/');
+
+        $this->storage->all();
+    }
+
+    public function testSaveWithUnencodablePayloadThrowsStorageException(): void
+    {
+        // Invalid UTF-8 in the error payload makes json_encode() fail.
+        $execution = new TaskExecution('task.utf8', TaskStatus::Failed, new \DateTimeImmutable(), "\xB1\x31");
+
+        try {
+            $this->storage->save($execution);
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('Failed to encode execution record for task "task.utf8"', $e->getMessage());
+            self::assertInstanceOf(\JsonException::class, $e->getPrevious());
+        }
     }
 
     public function testInvalidDateThrowsStorageException(): void

@@ -8,6 +8,11 @@ use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\ScalarNodeDefinition;
 
+/**
+ * Builds the `storage` section of the bundle's config tree (filesystem / database / custom).
+ *
+ * @internal
+ */
 final class StorageConfigNode
 {
     public function buildRoot(): ArrayNodeDefinition

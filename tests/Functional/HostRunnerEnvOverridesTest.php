@@ -9,8 +9,9 @@ use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\Process\Process;
 
 /**
- * Covers the three DEPLOY_TASKS_HOST_* env var overrides that
- * bin/deploy-tasks-host.sh.dist honors but HostRunnerTest does not exercise.
+ * Covers the environment-variable surface of bin/deploy-tasks-host.sh.dist
+ * that HostRunnerTest does not exercise: the three DEPLOY_TASKS_HOST_* path
+ * overrides, APP_ENV validation, and real-env-wins dotenv precedence.
  */
 final class HostRunnerEnvOverridesTest extends FunctionalTestCase
 {
@@ -78,6 +79,28 @@ final class HostRunnerEnvOverridesTest extends FunctionalTestCase
         self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         self::assertFileExists($this->workspace.'/.alt-lock');
         self::assertFileDoesNotExist($this->workspace.'/.deploy-tasks-host.lock');
+    }
+
+    public function testRealEnvironmentVariableWinsOverDotenvFiles(): void
+    {
+        // Symfony Dotenv semantics: a variable already present in the process
+        // environment (e.g. CI-injected DATABASE_URL) must never be
+        // overwritten by any .env file in the cascade.
+        \file_put_contents($this->workspace.'/.env', "DATABASE_URL=from-dotenv\n");
+        \file_put_contents($this->workspace.'/.env.dev.local', "DATABASE_URL=from-dotenv-local\n");
+
+        \mkdir($this->workspace.'/deploy/host-tasks', 0o755, true);
+        $output = $this->workspace.'/db.txt';
+        \file_put_contents(
+            $this->workspace.'/deploy/host-tasks/20260101_000000_echo_db.sh',
+            "#!/usr/bin/env bash\necho \"\$DATABASE_URL\" > ".\escapeshellarg($output)."\n",
+        );
+        \chmod($this->workspace.'/deploy/host-tasks/20260101_000000_echo_db.sh', 0o755);
+
+        $process = $this->runRunner(['DATABASE_URL' => 'from-real-env']);
+
+        self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        self::assertSame("from-real-env\n", \file_get_contents($output));
     }
 
     #[DataProvider('invalidAppEnvProvider')]

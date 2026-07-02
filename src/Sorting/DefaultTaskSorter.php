@@ -18,10 +18,10 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
  *
  * @internal
  */
-final class DefaultTaskSorter implements TaskSorterInterface
+final readonly class DefaultTaskSorter implements TaskSorterInterface
 {
     public function __construct(
-        private readonly TaskIdResolver $idResolver,
+        private TaskIdResolver $idResolver,
     ) {
     }
 

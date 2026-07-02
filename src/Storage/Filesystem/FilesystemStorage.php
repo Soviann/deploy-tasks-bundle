@@ -65,9 +65,8 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \InvalidArgumentException When the group name fails validation
-     * @throws \JsonException            When the stored JSON file cannot be decoded
      * @throws StorageException          When the file cannot be read
-     * @throws StorageException          When the file contains an invalid record
+     * @throws StorageException          When the file contains an invalid or undecodable record
      */
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
@@ -83,7 +82,7 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \InvalidArgumentException When the group name fails validation
-     * @throws \JsonException            When the execution payload cannot be encoded
+     * @throws StorageException          When the execution payload cannot be encoded
      * @throws StorageException          When the storage directory cannot be created
      * @throws StorageException          When the storage file cannot be written
      */
@@ -92,7 +91,12 @@ final class FilesystemStorage implements TaskStorageInterface
         $this->ensureDirectoryExists();
 
         $path = $this->filePath($execution->id, $execution->group);
-        $json = \json_encode($this->toArray($execution), \JSON_THROW_ON_ERROR);
+
+        try {
+            $json = \json_encode($this->toArray($execution), \JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new StorageException(\sprintf('Failed to encode execution record for task "%s": %s', $execution->id, $e->getMessage()), 0, $e);
+        }
 
         // Sidecar lockfile serialises concurrent writers; Filesystem::dumpFile() provides
         // atomic visibility to readers via a temp-file + rename on POSIX.
@@ -156,8 +160,7 @@ final class FilesystemStorage implements TaskStorageInterface
      * @return list<TaskExecution>
      *
      * @throws \InvalidArgumentException When the task id fails validation
-     * @throws \JsonException            When a stored JSON file cannot be decoded
-     * @throws StorageException          When a file cannot be read
+     * @throws StorageException          When a file cannot be read or decoded
      */
     public function findByTaskId(string $taskId): array
     {
@@ -175,8 +178,7 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @return list<TaskExecution>
      *
-     * @throws \JsonException   When a stored JSON file cannot be decoded
-     * @throws StorageException When a file cannot be read
+     * @throws StorageException When a file cannot be read or decoded
      */
     public function all(): array
     {
@@ -248,8 +250,7 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \JsonException   When the stored JSON file cannot be decoded
-     * @throws StorageException When the file cannot be read or contains an invalid record
+     * @throws StorageException When the file cannot be read, decoded, or contains an invalid record
      */
     private function readRecord(string $path): TaskExecution
     {
@@ -348,13 +349,16 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \JsonException
      * @throws StorageException
      */
     private function decode(string $json, string $sourceFile): TaskExecution
     {
-        /** @var array<string, mixed> $data */
-        $data = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
+        try {
+            /** @var array<string, mixed> $data */
+            $data = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new StorageException(\sprintf('Failed to decode storage file "%s": %s', $sourceFile, $e->getMessage()), 0, $e);
+        }
 
         $this->assertRecordShape($data, $sourceFile);
 

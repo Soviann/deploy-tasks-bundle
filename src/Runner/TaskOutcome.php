@@ -17,10 +17,18 @@ final readonly class TaskOutcome
 {
     public function __construct(
         public TaskResult $result,
-        public TaskStatus $status,
         public \DateTimeImmutable $executedAt,
         public float $durationSeconds = 0.0,
         public ?string $error = null,
     ) {
+    }
+
+    /**
+     * The storage status this outcome is persisted under, derived from the task
+     * result — {@see TaskResult::toStatus()} owns the mapping.
+     */
+    public function status(): TaskStatus
+    {
+        return $this->result->toStatus();
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Runner;
 
+use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
@@ -13,12 +14,14 @@ use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
+use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Exception\TaskReturnedFailureException;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
@@ -35,23 +38,25 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 /**
  * Executes pending deploy tasks in order, tracking results in storage.
  */
-final class TaskRunner
+final readonly class TaskRunner
 {
-    private readonly LoggerInterface $logger;
+    private LoggerInterface $logger;
 
     public function __construct(
-        private readonly TaskRegistry $registry,
-        private readonly TaskStorageInterface $storage,
-        private readonly TaskSorterInterface $sorter,
-        private readonly TaskIdResolver $idResolver,
-        private readonly TaskDescriptionResolver $descriptionResolver,
-        private readonly int $defaultTimeout,
-        private readonly bool $transactional,
-        private readonly bool $allOrNothing,
-        private readonly int $lockTtl,
-        private readonly ?EventDispatcherInterface $dispatcher = null,
-        private readonly ?LockFactory $lockFactory = null,
-        private readonly ?string $environment = null,
+        private TaskRegistry $registry,
+        private TaskStorageInterface $storage,
+        private TaskSorterInterface $sorter,
+        private TaskIdResolver $idResolver,
+        private TaskDescriptionResolver $descriptionResolver,
+        private int $defaultTimeout,
+        private bool $transactional,
+        private bool $allOrNothing,
+        private int $lockTtl,
+        private ?EventDispatcherInterface $dispatcher = null,
+        private ?LockFactory $lockFactory = null,
+        private ?string $environment = null,
+        /** Override for deterministic time in tests. */
+        private ClockInterface $clock = new SystemClock(),
         ?LoggerInterface $logger = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
@@ -60,44 +65,40 @@ final class TaskRunner
     /**
      * Runs all pending tasks in resolved order.
      *
-     * When `$groups` is empty only default-slot tasks run; when it lists one or more
-     * group names, only tasks declaring any of those groups run, and a multi-group
-     * task executes once per invocation writing one storage row per matching slot.
-     * When `$force` is true, all matching slots are re-executed regardless of state.
+     * Dry-run, rerun-all, and group targeting semantics are documented on the
+     * {@see RunOptions} properties.
      *
-     * @param list<string> $groups
-     *
-     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a registered task
-     * @throws \Throwable           When `all_or_nothing` is enabled and a task throws — the exception escapes after
-     *                              the transaction is rolled back
+     * @throws \ReflectionException   When the #[AsDeployTask] attribute lookup fails for a registered task
+     * @throws StorageException       When the storage backend fails while reading pending slots or persisting
+     *                                outcomes
+     * @throws EventListenerException When a Before/After listener throws — propagates even without
+     *                                `all_or_nothing`
+     * @throws \Throwable             When `all_or_nothing` is enabled and a task throws — the exception escapes
+     *                                after the transaction is rolled back
      */
-    public function runAll(
-        OutputInterface $output,
-        bool $dryRun = false,
-        bool $force = false,
-        array $groups = [],
-    ): RunResult {
+    public function runAll(OutputInterface $output, RunOptions $options = new RunOptions()): RunResult
+    {
         $result = $this->withLock(
             $output,
-            function (?LockInterface $lock) use ($output, $dryRun, $force, $groups): RunResult {
+            function (?LockInterface $lock) use ($output, $options): RunResult {
                 $this->logger->info('Deploy tasks run starting', [
                     'environment' => $this->environment,
-                    'dry_run' => $dryRun,
-                    'force' => $force,
-                    'groups' => $groups,
+                    'dry_run' => $options->dryRun,
+                    'rerun_all' => $options->rerunAll,
+                    'groups' => $options->groups,
                 ]);
 
-                $tasks = \array_values($this->registry->all($this->environment, $groups));
+                $tasks = \array_values($this->registry->all($this->environment, $options->groups));
                 $sorted = $this->sorter->sort($tasks);
                 /** @var list<?string> $effectiveGroups */
-                $effectiveGroups = [] === $groups ? [null] : $groups;
+                $effectiveGroups = [] === $options->groups ? [null] : $options->groups;
 
-                if ($dryRun) {
-                    return $this->dryRun($sorted, $output, $effectiveGroups, $force);
+                if ($options->dryRun) {
+                    return $this->dryRun($sorted, $output, $effectiveGroups, $options->rerunAll);
                 }
 
                 return $this->withAllOrNothingTransaction(
-                    fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock),
+                    fn (): RunResult => $this->executeAll($sorted, $output, $options->rerunAll, $effectiveGroups, $lock),
                 );
             });
 
@@ -116,21 +117,19 @@ final class TaskRunner
     /**
      * Runs a single task by ID, recording one storage row per target slot.
      *
-     * When `$dryRun` is true, pending slots are listed without executing the task
-     * and nothing is written to storage.
+     * Dry-run, rerun-all, and group targeting semantics are documented on the
+     * {@see RunOptions} properties.
      *
      * When `all_or_nothing` is enabled and the storage backend is transactional,
      * execution and persistence run inside a single transaction, mirroring runAll():
      * a failure rolls back every side-effect before the exception escapes.
      *
-     * Slot resolution:
+     * Slot resolution (`$groups` being `$options->groups`):
      * - `$groups === []` and task has no declared groups → single default slot.
      * - `$groups === []` and task declares groups → throws {@see TaskGroupRequiredException}.
      * - `$groups !== []` and task has no declared groups → throws {@see TaskGroupMismatchException}.
      * - `$groups !== []` → slots are the requested groups; any undeclared group throws
      *   {@see TaskGroupMismatchException}.
-     *
-     * @param list<string> $groups
      *
      * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the
      *                                          runner's environment
@@ -138,19 +137,18 @@ final class TaskRunner
      * @throws TaskGroupMismatchException
      * @throws TaskNotFoundException            When no task is registered with the given id
      * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
+     * @throws StorageException                 When the storage backend fails while reading pending slots or
+     *                                          persisting outcomes
+     * @throws EventListenerException           When a Before/After listener throws — propagates even without
+     *                                          `all_or_nothing`
      * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception
      *                                          escapes after the transaction is rolled back
      */
-    public function runOne(
-        string $taskId,
-        OutputInterface $output,
-        bool $dryRun = false,
-        bool $force = false,
-        array $groups = [],
-    ): TaskResult {
+    public function runOne(string $taskId, OutputInterface $output, RunOptions $options = new RunOptions()): TaskResult
+    {
         $result = $this->withLock(
             $output,
-            function (?LockInterface $lock) use ($taskId, $output, $force, $groups, $dryRun): TaskResult {
+            function (?LockInterface $lock) use ($taskId, $output, $options): TaskResult {
                 $task = $this->registry->get($taskId);
 
                 $envs = AsDeployTask::envsOf($task);
@@ -159,8 +157,8 @@ final class TaskRunner
                     throw new TaskEnvironmentMismatchException($taskId, \implode('|', $envs), $this->environment);
                 }
 
-                $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
-                $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
+                $slots = $this->resolveSlotsForRunOne($taskId, $task, $options->groups);
+                $pendingSlots = $this->filterPendingSlots($taskId, $slots, $options->rerunAll);
 
                 if ([] === $pendingSlots) {
                     $output->writeln(\sprintf('<comment>Task "%s" has already been executed.</comment>', $taskId));
@@ -169,7 +167,7 @@ final class TaskRunner
                     return TaskResult::SKIPPED;
                 }
 
-                if ($dryRun) {
+                if ($options->dryRun) {
                     foreach ($pendingSlots as $slot) {
                         $this->writeWouldRunLine($output, $taskId, $slot, $task);
                     }
@@ -224,15 +222,15 @@ final class TaskRunner
     /**
      * Lists pending (task, slot) pairs without executing them.
      *
-     * When `$force` is true, every slot is treated as pending, mirroring what a
-     * forced run would re-execute.
+     * When `$rerunAll` is true, every slot is treated as pending, mirroring what a
+     * rerun-all run would re-execute.
      *
      * @param list<DeployTaskInterface> $tasks
      * @param list<?string>             $effectiveGroups
      *
      * @throws \ReflectionException
      */
-    private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups, bool $force): RunResult
+    private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups, bool $rerunAll): RunResult
     {
         $pending = 0;
         $skipped = 0;
@@ -240,7 +238,7 @@ final class TaskRunner
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
             $slots = self::computeSlots($task, $effectiveGroups);
-            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll);
 
             $skipped += \count($slots) - \count($pendingSlots);
             $pending += \count($pendingSlots);
@@ -250,7 +248,7 @@ final class TaskRunner
             }
         }
 
-        return new RunResult(ran: $pending, skipped: $skipped, failed: 0);
+        return new RunResult(ran: $pending, skipped: $skipped, failed: 0, dryRun: true);
     }
 
     /**
@@ -309,7 +307,7 @@ final class TaskRunner
     private function executeAll(
         array $tasks,
         OutputInterface $output,
-        bool $force,
+        bool $rerunAll,
         array $effectiveGroups,
         ?LockInterface $lock = null,
     ): RunResult {
@@ -329,7 +327,7 @@ final class TaskRunner
                 continue;
             }
 
-            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll);
             $skipped += \count($slots) - \count($pendingSlots);
 
             if ([] === $pendingSlots) {
@@ -478,7 +476,7 @@ final class TaskRunner
 
         $output->writeln(\sprintf(
             '   → %s (%dms)',
-            $outcome->status->value,
+            $outcome->status()->value,
             (int) \round($outcome->durationSeconds * 1000),
         ));
     }
@@ -504,8 +502,6 @@ final class TaskRunner
             ]);
         }
 
-        $status = TaskResult::SKIPPED === $result ? TaskStatus::Skipped : TaskStatus::Ran;
-
         $this->logger->info('Deploy task executed', [
             'task_id' => $taskId,
             'result' => $result->value,
@@ -514,8 +510,7 @@ final class TaskRunner
 
         return new TaskOutcome(
             result: $result,
-            status: $status,
-            executedAt: new \DateTimeImmutable(),
+            executedAt: $this->clock->now(),
             durationSeconds: $duration,
         );
     }
@@ -539,8 +534,7 @@ final class TaskRunner
 
         return new TaskOutcome(
             result: TaskResult::FAILURE,
-            status: TaskStatus::Failed,
-            executedAt: new \DateTimeImmutable(),
+            executedAt: $this->clock->now(),
             durationSeconds: $duration,
             error: $e->getMessage(),
         );
@@ -563,7 +557,7 @@ final class TaskRunner
                 'exception' => $listenerError,
             ]);
 
-            throw new EventListenerException(\sprintf('Listener for %s failed.', $event::class), 0, $listenerError);
+            throw new EventListenerException(\sprintf('Listener for %s failed (task "%s").', $event::class, $taskId), 0, $listenerError);
         }
     }
 
@@ -637,8 +631,17 @@ final class TaskRunner
 
         $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
 
-        if ($shouldWrap && $this->storage instanceof TransactionalStorageInterface) {
-            return $this->storage->transactional($run);
+        if ($shouldWrap) {
+            if ($this->storage instanceof TransactionalStorageInterface) {
+                return $this->storage->transactional($run);
+            }
+
+            // Only reachable on a hand-constructed runner: the DI compiler pass rejects
+            // transactional config on a non-transactional storage at compile time.
+            $this->logger->warning(
+                'Task requested transactional execution but the storage backend does not support transactions — running unwrapped.',
+                ['task_id' => $taskId],
+            );
         }
 
         return $run();
@@ -708,9 +711,9 @@ final class TaskRunner
      *
      * @return list<?string>
      */
-    private function filterPendingSlots(string $taskId, array $slots, bool $force): array
+    private function filterPendingSlots(string $taskId, array $slots, bool $rerunAll): array
     {
-        if ($force) {
+        if ($rerunAll) {
             return $slots;
         }
 
@@ -726,12 +729,12 @@ final class TaskRunner
     }
 
     /**
-     * A slot is pending when it has no stored execution yet, or its last execution
-     * failed — failed slots are retried on the next run.
+     * A slot is pending when it has no stored execution yet, or its stored status
+     * is retried on the next run — {@see TaskStatus::willRerun()} owns that rule.
      */
     private function isPendingSlot(?TaskExecution $execution): bool
     {
-        return null === $execution || TaskStatus::Failed === $execution->status;
+        return null === $execution || $execution->status->willRerun();
     }
 
     /**
@@ -742,7 +745,7 @@ final class TaskRunner
         foreach ($pendingSlots as $slot) {
             $this->storage->save(new TaskExecution(
                 id: $taskId,
-                status: $outcome->status,
+                status: $outcome->status(),
                 executedAt: $outcome->executedAt,
                 error: $outcome->error,
                 group: $slot,

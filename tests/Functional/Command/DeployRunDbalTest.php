@@ -87,7 +87,7 @@ final class DeployRunDbalTest extends FunctionalTestCase
 
     public function testSkipCommandWithDbalStorage(): void
     {
-        $this->skipTester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->skipTester->execute(['id' => 'test.simple'], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->skipTester->getStatusCode());
 

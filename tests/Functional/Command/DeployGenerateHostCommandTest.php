@@ -6,11 +6,14 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Exception\IOException;
@@ -111,7 +114,7 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         $fixedNow = new \DateTimeImmutable('2026-04-17 12:00:00');
         $command = $this->makeCommand(
             projectDir: $projectDir,
-            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+            clock: new MockClock($fixedNow),
         );
         $tester = new CommandTester($command);
 
@@ -561,13 +564,13 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
 
     private function makeCommand(
         ?string $projectDir = null,
-        ?\Closure $nowProvider = null,
+        ClockInterface $clock = new SystemClock(),
         string $hostDirectory = self::HOST_DIR,
     ): DeployTasksGenerateHostCommand {
         return new DeployTasksGenerateHostCommand(
             hostDirectory: $hostDirectory,
             projectDir: $projectDir,
-            nowProvider: $nowProvider,
+            clock: $clock,
         );
     }
 }

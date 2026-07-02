@@ -80,6 +80,10 @@ final class DeployTasksStatusCommand extends Command
                   <info>ran</info>       — executed successfully
                   <error>failed</error>    — execution failed (will be retried on next run)
                   <comment>skipped</comment>  — manually marked as skipped via <info>deploytasks:skip</info>
+
+                Note: failed slots are retried on the next run, so to list everything the
+                next <info>deploytasks:run</info> will execute, filter on <comment>--filter-status=PENDING,FAILED</comment>
+                (or use <info>deploytasks:run --dry-run</info>, the authoritative preview).
                 EOT)
         ;
     }

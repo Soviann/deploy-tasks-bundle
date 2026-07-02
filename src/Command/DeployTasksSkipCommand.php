@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -28,6 +30,8 @@ final class DeployTasksSkipCommand extends Command
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
+        /** Override for deterministic time in tests. */
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         parent::__construct();
     }
@@ -121,7 +125,7 @@ final class DeployTasksSkipCommand extends Command
             $slot = $group;
         }
 
-        if (!(bool) $input->getOption('no-interaction')) {
+        if ($input->isInteractive()) {
             $prompt = null === $slot
                 ? \sprintf('Skip task "%s"? This marks it done without executing.', $id)
                 : \sprintf('Skip task "%s" in group "%s"? This marks it done without executing.', $id, $slot);
@@ -131,7 +135,7 @@ final class DeployTasksSkipCommand extends Command
             }
         }
 
-        $this->storage->save(new TaskExecution($id, TaskStatus::Skipped, new \DateTimeImmutable(), null, $slot));
+        $this->storage->save(new TaskExecution($id, TaskStatus::Skipped, $this->clock->now(), null, $slot));
 
         $io->success(null === $slot
             ? \sprintf('Task "%s" marked as skipped.', $id)

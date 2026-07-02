@@ -656,6 +656,80 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         );
     }
 
+    public function testFirstUseAutoCreateFailureIsWrappedInStorageException(): void
+    {
+        // ensureInitialized() runs before the per-method try/catch; a failing
+        // auto-create (bad DSN, missing perms) must still surface as StorageException.
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('createSchemaManager')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('bad DSN'));
+
+        $storage = new DbalStorage($connection, $this->configuration);
+
+        try {
+            $storage->has('task.first');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('Failed to create storage table "deploy_task_executions"', $e->getMessage());
+            self::assertStringContainsString('bad DSN', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
+    public function testCreateSchemaWrapsDbalExceptionInStorageException(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('createSchemaManager')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('schema manager unavailable'));
+
+        $storage = new DbalStorage($connection, $this->configuration);
+
+        try {
+            $storage->createSchema();
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('Failed to create storage table "deploy_task_executions"', $e->getMessage());
+            self::assertStringContainsString('schema manager unavailable', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
+    public function testGetCreateTableSqlWrapsDbalExceptionInStorageException(): void
+    {
+        $platform = $this->connection->getDatabasePlatform();
+        $calls = 0;
+
+        // First getDatabasePlatform() call (constructor) succeeds; the next one —
+        // made while building the schema SQL — fails like a dropped connection would.
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturnCallback(static function () use ($platform, &$calls): \Doctrine\DBAL\Platforms\AbstractPlatform {
+                if (++$calls > 1) {
+                    throw new \Doctrine\DBAL\Exception\InvalidArgumentException('platform unavailable');
+                }
+
+                return $platform;
+            });
+
+        $storage = new DbalStorage($connection, $this->configuration);
+
+        try {
+            $storage->getCreateTableSql();
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString(
+                'Failed to generate the CREATE TABLE SQL for storage table "deploy_task_executions"',
+                $e->getMessage(),
+            );
+            self::assertStringContainsString('platform unavailable', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
     public function testCreateSchemaToleratesLosingTheCreateRace(): void
     {
         $schemaManager = $this->createMock(\Doctrine\DBAL\Schema\AbstractSchemaManager::class);

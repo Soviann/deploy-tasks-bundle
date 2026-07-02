@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -39,7 +39,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -49,21 +49,21 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
 
       - name: Cache PHPStan result
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: var/cache/phpstan
           key: phpstan-${{ runner.os }}-${{ hashFiles('phpstan.neon', '**/composer.json') }}
           restore-keys: phpstan-${{ runner.os }}-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress --no-scripts
 
       - name: Run PHPStan
         run: vendor/bin/phpstan analyse --no-progress
@@ -75,7 +75,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -85,21 +85,21 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
 
       - name: Cache CS Fixer result
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: .php-cs-fixer.cache
           key: php-cs-fixer-${{ runner.os }}-${{ hashFiles('.php-cs-fixer.dist.php', '**/composer.json') }}
           restore-keys: php-cs-fixer-${{ runner.os }}-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress --no-scripts
 
       - name: Run CS Fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
@@ -125,7 +125,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -135,7 +135,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.composer/cache
           key: composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-${{ hashFiles('composer.json') }}
@@ -161,7 +161,7 @@ jobs:
         run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
 
       - name: Install dependencies
-        run: composer update --prefer-dist --no-progress ${{ matrix.composer-flags }}
+        run: composer update --prefer-dist --no-progress --no-scripts ${{ matrix.composer-flags }}
 
       - name: Run tests
         env:
@@ -175,7 +175,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -185,14 +185,14 @@ jobs:
           coverage: pcov
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.composer/cache
           key: composer-coverage-${{ hashFiles('composer.json') }}
           restore-keys: composer-coverage-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress --no-scripts
 
       - name: Run tests with coverage
         run: vendor/bin/phpunit --coverage-clover=build/coverage/clover.xml --coverage-text=build/coverage/coverage.txt
@@ -201,12 +201,12 @@ jobs:
         run: |
           php -r '
           $xml = simplexml_load_file("build/coverage/clover.xml");
-          $metrics = $xml->xpath("//metrics")[0];
+          $metrics = $xml->xpath("/coverage/project/metrics")[0];
           $covered = (int) $metrics["coveredstatements"];
           $total = (int) $metrics["statements"];
           $pct = $total > 0 ? ($covered / $total) * 100 : 0;
           printf("Line coverage: %.2f%% (%d / %d)\n", $pct, $covered, $total);
-          exit($pct >= 85 ? 0 : 1);
+          exit($pct >= 95 ? 0 : 1);
           '
 
       - name: Upload coverage to Codecov
@@ -219,7 +219,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: coverage-clover
@@ -233,7 +233,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -242,7 +242,7 @@ jobs:
           coverage: none
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress --no-scripts
 
       # Same suppressions as the tests job — drop each entry once the matching Symfony release ships:
       # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.4.*.
@@ -262,7 +262,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
 
@@ -274,14 +274,14 @@ jobs:
           coverage: pcov
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.composer/cache
           key: composer-mutation-${{ hashFiles('composer.json') }}
           restore-keys: composer-mutation-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress --no-scripts
 
       - name: Run Infection
         # Explicit --threads=4 (ubuntu-latest has 4 vCPUs): --threads=max fails to

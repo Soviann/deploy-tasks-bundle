@@ -46,7 +46,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
 
     public function testSkipWithNoInteraction(): void
     {
-        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('marked as skipped', $this->tester->getDisplay());
@@ -158,10 +158,11 @@ final class DeploySkipCommandTest extends FunctionalTestCase
 
     public function testSkipWithNoInteractionOptionSkipsPrompt(): void
     {
-        // Kills CastBool (#83, line 102): without cast, the boolean coercion of 'no-interaction'
-        // option value may behave differently; we assert success without any stdin input.
-        // (No setInputs() call — any prompt would block/fail.)
-        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        // Pins the $input->isInteractive() guard: a non-interactive invocation must skip
+        // the confirmation prompt entirely and proceed — kills mutants inverting or
+        // removing the guard. (No setInputs() call — any prompt would block/fail on the
+        // empty input stream.)
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('marked as skipped', $this->tester->getDisplay());
@@ -171,7 +172,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
     {
         // Kills Ternary (#85, line 116): mutation swaps the success message branches so a task
         // with no slot uses the group-mentioning format and vice versa.
-        $this->tester->execute(['id' => 'test.simple', '--no-interaction' => true]);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();

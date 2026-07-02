@@ -51,7 +51,7 @@ final class DeployFullWorkflowTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Ran, $ran->status);
 
         // 4. Skip the predeploy slot
-        $skipper->execute(['id' => 'test.predeploy', '--group' => 'predeploy', '--no-interaction' => true]);
+        $skipper->execute(['id' => 'test.predeploy', '--group' => 'predeploy'], ['interactive' => false]);
         self::assertSame(Command::SUCCESS, $skipper->getStatusCode());
         $skipped = $storage->get('test.predeploy', 'predeploy');
         \assert(null !== $skipped);

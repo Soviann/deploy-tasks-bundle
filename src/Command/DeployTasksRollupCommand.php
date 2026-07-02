@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -27,6 +29,8 @@ final class DeployTasksRollupCommand extends Command
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
+        /** Override for deterministic time in tests. */
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         parent::__construct();
     }
@@ -143,7 +147,7 @@ final class DeployTasksRollupCommand extends Command
                 $this->storage->reset();
             }
 
-            $now = new \DateTimeImmutable();
+            $now = $this->clock->now();
 
             foreach ($targets as $target) {
                 $this->storage->save(new TaskExecution($target['id'], TaskStatus::Ran, $now, null, $target['slot']));

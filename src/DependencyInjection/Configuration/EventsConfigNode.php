@@ -6,6 +6,11 @@ namespace Soviann\DeployTasksBundle\DependencyInjection\Configuration;
 
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
+/**
+ * Builds the `events` section of the bundle's config tree (lifecycle-event toggle).
+ *
+ * @internal
+ */
 final class EventsConfigNode
 {
     public function buildRoot(): ArrayNodeDefinition

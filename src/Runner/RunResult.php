@@ -10,11 +10,13 @@ namespace Soviann\DeployTasksBundle\Runner;
 final readonly class RunResult
 {
     public function __construct(
-        /** Number of tasks executed. In dry-run mode, holds the number of pending tasks instead. */
+        /** Number of slots executed. When $dryRun is true, $ran counts the slots that WOULD run. */
         public int $ran,
         public int $skipped,
         public int $failed,
         public bool $locked = false,
+        /** Whether this result describes a dry run: nothing was executed or persisted. */
+        public bool $dryRun = false,
     ) {
     }
 

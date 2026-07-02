@@ -17,7 +17,7 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
  *
  * @internal
  */
-final class TaskDescriptionResolver
+final readonly class TaskDescriptionResolver
 {
     /**
      * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails

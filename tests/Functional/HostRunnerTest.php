@@ -97,6 +97,40 @@ final class HostRunnerTest extends FunctionalTestCase
         self::assertSame("d\n", \file_get_contents($output));
     }
 
+    public function testAppEnvFileOverridesEnvLocal(): void
+    {
+        // Symfony order: .env.local loads BEFORE .env.$APP_ENV, so the
+        // environment-specific file must win over the generic local override.
+        \file_put_contents($this->workspace.'/.env.local', "FOO=local\n");
+        \file_put_contents($this->workspace.'/.env.prod', "FOO=prod\n");
+
+        $output = $this->workspace.'/foo.txt';
+        $this->writeTask('20260101_000000_echo_foo', \sprintf('echo "$FOO" > %s', \escapeshellarg($output)));
+
+        $process = $this->runRunner(['prod']);
+
+        self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        self::assertSame("prod\n", \file_get_contents($output));
+    }
+
+    public function testCliSelectedAppEnvSurvivesDotenvFiles(): void
+    {
+        // .env declaring APP_ENV=dev must not clobber the CLI-selected env:
+        // tasks must see APP_ENV=prod and the .env.prod file must be loaded
+        // (not .env.dev).
+        \file_put_contents($this->workspace.'/.env', "APP_ENV=dev\n");
+        \file_put_contents($this->workspace.'/.env.dev', "MARK=from-dev\n");
+        \file_put_contents($this->workspace.'/.env.prod', "MARK=from-prod\n");
+
+        $output = $this->workspace.'/env.txt';
+        $this->writeTask('20260101_000000_echo_env', \sprintf('echo "$APP_ENV $MARK" > %s', \escapeshellarg($output)));
+
+        $process = $this->runRunner(['prod']);
+
+        self::assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        self::assertSame("prod from-prod\n", \file_get_contents($output));
+    }
+
     public function testLoadsLocalOverrideScriptAfterEnvCascade(): void
     {
         \file_put_contents($this->workspace.'/.env.prod.local', "BAR=x\n");
@@ -171,8 +205,9 @@ final class HostRunnerTest extends FunctionalTestCase
         $first->wait();
 
         self::assertSame(0, $first->getExitCode(), $first->getOutput().$first->getErrorOutput());
-        self::assertNotSame(0, $second->getExitCode());
-        self::assertStringContainsString('Another deploy-tasks-host run is in progress', $second->getOutput());
+        // EX_TEMPFAIL, same "retry later" convention as deploytasks:run.
+        self::assertSame(75, $second->getExitCode());
+        self::assertStringContainsString('Another deploy-tasks-host run is in progress', $second->getErrorOutput());
     }
 
     public function testMissingTasksDirIsNonFatal(): void

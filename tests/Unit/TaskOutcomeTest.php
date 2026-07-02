@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Runner\TaskOutcome;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -19,7 +20,6 @@ final class TaskOutcomeTest extends TestCase
         // Creating a TaskOutcome without specifying durationSeconds must yield exactly 0.0.
         $outcome = new TaskOutcome(
             result: TaskResult::SUCCESS,
-            status: TaskStatus::Ran,
             executedAt: new \DateTimeImmutable(),
         );
 
@@ -30,7 +30,6 @@ final class TaskOutcomeTest extends TestCase
     {
         $outcome = new TaskOutcome(
             result: TaskResult::SUCCESS,
-            status: TaskStatus::Ran,
             executedAt: new \DateTimeImmutable(),
             durationSeconds: 1.5,
         );
@@ -42,10 +41,35 @@ final class TaskOutcomeTest extends TestCase
     {
         $outcome = new TaskOutcome(
             result: TaskResult::FAILURE,
-            status: TaskStatus::Failed,
             executedAt: new \DateTimeImmutable(),
         );
 
         self::assertNull($outcome->error);
+    }
+
+    /**
+     * The outcome no longer stores a status — it derives it from the result via
+     * TaskResult::toStatus(), the single owner of the mapping.
+     */
+    #[DataProvider('provideStatusDerivation')]
+    public function testStatusDerivesFromResult(TaskResult $result, TaskStatus $expected): void
+    {
+        $outcome = new TaskOutcome(
+            result: $result,
+            executedAt: new \DateTimeImmutable(),
+        );
+
+        self::assertSame($expected, $outcome->status());
+    }
+
+    /**
+     * @return iterable<string, array{TaskResult, TaskStatus}>
+     */
+    public static function provideStatusDerivation(): iterable
+    {
+        yield 'success persists as ran' => [TaskResult::SUCCESS, TaskStatus::Ran];
+        yield 'skipped persists as skipped' => [TaskResult::SKIPPED, TaskStatus::Skipped];
+        yield 'failure persists as failed' => [TaskResult::FAILURE, TaskStatus::Failed];
+        yield 'runner-reserved locked persists as failed' => [TaskResult::LOCKED, TaskStatus::Failed];
     }
 }

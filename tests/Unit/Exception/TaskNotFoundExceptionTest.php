@@ -11,11 +11,13 @@ use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 #[CoversClass(TaskNotFoundException::class)]
 final class TaskNotFoundExceptionTest extends TestCase
 {
-    public function testExtendsInvalidArgumentException(): void
+    public function testExtendsRuntimeException(): void
     {
+        // RuntimeException like the other CLI-targeting exceptions (group/env mismatch):
+        // they all mean "the operator targeted a task the current setup cannot serve".
         $parents = \class_parents(TaskNotFoundException::class);
         self::assertNotFalse($parents);
-        self::assertContains(\InvalidArgumentException::class, $parents);
+        self::assertContains(\RuntimeException::class, $parents);
     }
 
     public function testCreateReturnsInstanceWithExpectedMessage(): void
