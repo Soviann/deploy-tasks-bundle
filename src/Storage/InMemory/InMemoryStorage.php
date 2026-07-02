@@ -22,27 +22,28 @@ final class InMemoryStorage implements TaskStorageInterface
 
     public function has(string $taskId, ?string $group = null): bool
     {
-        return isset($this->executions[self::key($taskId, $group)]);
+        return isset($this->executions[TaskExecution::slotKey($taskId, $group)]);
     }
 
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
-        return $this->executions[self::key($taskId, $group)] ?? null;
+        return $this->executions[TaskExecution::slotKey($taskId, $group)] ?? null;
     }
 
     public function save(TaskExecution $execution): void
     {
-        $this->executions[self::key($execution->id, $execution->group)] = $execution;
+        $this->executions[TaskExecution::slotKey($execution->id, $execution->group)] = $execution;
     }
 
     public function remove(string $taskId, ?string $group = null): void
     {
-        unset($this->executions[self::key($taskId, $group)]);
+        unset($this->executions[TaskExecution::slotKey($taskId, $group)]);
     }
 
     public function removeAll(string $taskId): void
     {
-        $prefix = $taskId."\0";
+        // slotKey(id, null) is exactly the shared "<id>\0" prefix of every slot of this task.
+        $prefix = TaskExecution::slotKey($taskId, null);
 
         foreach (\array_keys($this->executions) as $key) {
             if (\str_starts_with($key, $prefix)) {
@@ -73,10 +74,5 @@ final class InMemoryStorage implements TaskStorageInterface
     public function reset(): void
     {
         $this->executions = [];
-    }
-
-    private static function key(string $taskId, ?string $group): string
-    {
-        return $taskId."\0".($group ?? '');
     }
 }

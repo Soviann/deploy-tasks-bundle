@@ -199,7 +199,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 continue;
             }
 
-            $attributeId = $this->readAttributeId($class);
+            $attributeId = AsDeployTask::idOf($class);
 
             if ('' !== $attributeId) {
                 $taskId = $attributeId;
@@ -280,20 +280,6 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         \assert(\is_a($class, TaskIdGeneratorInterface::class, true));
 
         return $class;
-    }
-
-    /**
-     * Reads the #[AsDeployTask] attribute id from a class, or '' if absent/empty.
-     *
-     * @param class-string $className
-     *
-     * @throws \ReflectionException
-     */
-    private function readAttributeId(string $className): string
-    {
-        $attribute = AsDeployTask::of($className);
-
-        return null !== $attribute ? $attribute->id : '';
     }
 
     private function wireOptionalDependencies(ContainerBuilder $container): void

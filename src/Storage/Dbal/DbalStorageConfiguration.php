@@ -18,6 +18,12 @@ namespace Soviann\DeployTasksBundle\Storage\Dbal;
  */
 final readonly class DbalStorageConfiguration
 {
+    /**
+     * Allowlist for table/column names. Single source for construct-time validation
+     * here and config-time validation in the bundle's config tree.
+     */
+    public const SQL_IDENTIFIER_PATTERN = '/^[A-Za-z_][A-Za-z0-9_]*$/';
+
     public function __construct(
         public bool $autoCreateTable = true,
         public string $errorColumn = 'error',
@@ -39,8 +45,8 @@ final readonly class DbalStorageConfiguration
         ];
 
         foreach ($names as $option => $name) {
-            if (1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name)) {
-                throw new \InvalidArgumentException(\sprintf('%s "%s" is not a plain SQL identifier (must match /^[A-Za-z_][A-Za-z0-9_]*$/).', $option, $name));
+            if (1 !== \preg_match(self::SQL_IDENTIFIER_PATTERN, $name)) {
+                throw new \InvalidArgumentException(\sprintf('%s "%s" is not a plain SQL identifier (must match %s).', $option, $name, self::SQL_IDENTIFIER_PATTERN));
             }
         }
 

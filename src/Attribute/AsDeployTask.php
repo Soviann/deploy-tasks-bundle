@@ -18,16 +18,23 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
 final class AsDeployTask
 {
     /**
+     * Regex atom matching one valid task-ID/group-name character. Single source for
+     * TASK_ID_PATTERN, GROUP_NAME_PATTERN, and derived patterns (e.g. storage record
+     * filenames) so the accepted charset cannot drift between them.
+     */
+    public const IDENTIFIER_CHAR = '[a-zA-Z0-9._-]';
+
+    /**
      * Allowlist for group names — mirrors the task-ID allowlist and keeps every
      * accepted value safe for use in filesystem paths, DB primary keys, and URLs.
      */
-    public const GROUP_NAME_PATTERN = '/^[a-zA-Z0-9._-]+$/';
+    public const GROUP_NAME_PATTERN = '/^'.self::IDENTIFIER_CHAR.'+$/';
 
     /**
      * Allowlist for task IDs — identical to GROUP_NAME_PATTERN; every accepted value
      * is safe as a filesystem name, DB primary-key value, and terminal output.
      */
-    public const TASK_ID_PATTERN = '/^[a-zA-Z0-9._-]+$/';
+    public const TASK_ID_PATTERN = '/^'.self::IDENTIFIER_CHAR.'+$/';
 
     /** @var array<class-string, ?self> */
     private static array $cache = [];
@@ -140,5 +147,39 @@ final class AsDeployTask
         }
 
         return \is_array($attribute->groups) ? \array_values($attribute->groups) : [$attribute->groups];
+    }
+
+    /**
+     * Returns the task's declared environments as a list of names, or null if the
+     * task runs in every environment (attribute missing or `env: null`).
+     *
+     * @param class-string|DeployTaskInterface $classOrTask
+     *
+     * @return list<string>|null
+     *
+     * @throws \ReflectionException
+     */
+    public static function envsOf(string|DeployTaskInterface $classOrTask): ?array
+    {
+        $attribute = self::of($classOrTask);
+
+        if (null === $attribute || null === $attribute->env) {
+            return null;
+        }
+
+        return \is_array($attribute->env) ? \array_values($attribute->env) : [$attribute->env];
+    }
+
+    /**
+     * Returns the attribute-declared task id, or '' when the attribute is absent
+     * or declares no id.
+     *
+     * @param class-string|DeployTaskInterface $classOrTask
+     *
+     * @throws \ReflectionException
+     */
+    public static function idOf(string|DeployTaskInterface $classOrTask): string
+    {
+        return self::of($classOrTask)->id ?? '';
     }
 }

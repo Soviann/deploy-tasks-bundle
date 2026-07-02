@@ -999,7 +999,9 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::LOCKED, $result);
-        self::assertStringContainsString('Another deploytasks:run process is already running', $this->output->fetch());
+        // Presentation belongs to the command layer: the runner only returns the
+        // LOCKED sentinel (and logs), it must not write to the caller's output.
+        self::assertSame('', $this->output->fetch());
         self::assertFalse($this->storage->has('task.1'));
     }
 

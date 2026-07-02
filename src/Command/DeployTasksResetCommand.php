@@ -108,15 +108,11 @@ final class DeployTasksResetCommand extends Command
                 return Command::SUCCESS;
             }
 
-            if (!$force
-                && !$io->confirm(\sprintf(
-                    'Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.',
-                    $id,
-                    $group,
-                ), false)
-            ) {
-                $io->note('Aborted.');
-
+            if (!$force && !$this->confirmOrAbort($io, \sprintf(
+                'Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.',
+                $id,
+                $group,
+            ))) {
                 return Command::FAILURE;
             }
 
@@ -138,14 +134,10 @@ final class DeployTasksResetCommand extends Command
             return Command::SUCCESS;
         }
 
-        if (!$force
-            && !$io->confirm(\sprintf(
-                'Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.',
-                $id,
-            ), false)
-        ) {
-            $io->note('Aborted.');
-
+        if (!$force && !$this->confirmOrAbort($io, \sprintf(
+            'Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.',
+            $id,
+        ))) {
             return Command::FAILURE;
         }
 

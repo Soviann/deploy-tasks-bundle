@@ -93,37 +93,15 @@ final class DeployTasksGenerateCommand extends Command
         /** @var string $dir */
         $dir = $input->getOption('dir');
 
-        if (\str_starts_with($dir, '/')) {
-            $io->error('The --dir option must be a relative path.');
+        try {
+            $absoluteDir = PathNormalizer::resolveRelativeDirWithin($dir, $this->projectDir);
+        } catch (\InvalidArgumentException $e) {
+            $io->error(\sprintf('Invalid --dir value "%s": %s', $dir, $e->getMessage()));
 
             return Command::FAILURE;
         }
-
-        $dir = \rtrim($dir, '/').'/';
 
         $canonical = PathNormalizer::normalize($dir);
-
-        if (\str_starts_with($canonical, '..') || 1 !== \preg_match('#^[A-Za-z0-9/_\-]+$#', $canonical)) {
-            $io->error(\sprintf(
-                'Invalid --dir value "%s": must be a relative path using only letters, digits, slash, underscore, dash, and must not traverse above its starting point.',
-                $dir,
-            ));
-
-            return Command::FAILURE;
-        }
-
-        $absoluteDir = $dir;
-
-        if (null !== $this->projectDir) {
-            $resolvedDir = PathNormalizer::normalize($this->projectDir.'/'.$dir);
-            $boundary = \rtrim($this->projectDir, '/').'/';
-
-            if (!\str_starts_with($resolvedDir.'/', $boundary)) {
-                throw new \InvalidArgumentException(\sprintf('The --dir option resolves to "%s", which is outside the project directory "%s".', $resolvedDir, $this->projectDir));
-            }
-
-            $absoluteDir = $resolvedDir.'/';
-        }
 
         $filePath = $absoluteDir.$className.'.php';
 
@@ -147,19 +125,17 @@ final class DeployTasksGenerateCommand extends Command
             }
         }
 
-        $replacements = [
-            '__TASK_ID__' => \var_export($taskId, true),
-            '__DESCRIPTION__' => \var_export($description, true),
-        ];
+        $taskIdExport = \var_export($taskId, true);
+        $descriptionExport = \var_export($description, true);
 
         if (null !== $this->templatePath && \is_file($this->templatePath)) {
             $fileContent = (string) \file_get_contents($this->templatePath);
-            $fileContent = \strtr($fileContent, \array_merge([
+            $fileContent = \strtr($fileContent, [
                 '{{ namespace }}' => $namespace,
                 '{{ className }}' => $className,
-                '{{ taskId }}' => $replacements['__TASK_ID__'],
-                '{{ description }}' => $replacements['__DESCRIPTION__'],
-            ], $replacements));
+                '{{ taskId }}' => $taskIdExport,
+                '{{ description }}' => $descriptionExport,
+            ]);
         } else {
             $template = <<<'PHP'
                 <?php
@@ -202,10 +178,12 @@ final class DeployTasksGenerateCommand extends Command
                 }
                 PHP;
 
-            $fileContent = \strtr($template, \array_merge($replacements, [
+            $fileContent = \strtr($template, [
                 '__NAMESPACE__' => $namespace,
                 '__CLASS_NAME__' => $className,
-            ]));
+                '__TASK_ID__' => $taskIdExport,
+                '__DESCRIPTION__' => $descriptionExport,
+            ]);
         }
 
         $this->fs->mkdir($absoluteDir, 0755);

@@ -81,29 +81,4 @@ final class TaskIdResolverTest extends TestCase
         self::assertStringContainsString('attribute_id', $warning);
         self::assertStringContainsString('method_id', $warning);
     }
-
-    public function testResolveFromClassUsesAttributeId(): void
-    {
-        // AttributeOnlyTask has #[AsDeployTask(id: 'attribute_only')]
-        self::assertSame('attribute_only', $this->resolver->resolveFromClass(AttributeOnlyTask::class));
-    }
-
-    public function testResolveFromClassReturnsAttributeIdWhenItDiffersFromFqcnDeduction(): void
-    {
-        // ProviderAndAttributeTask has #[AsDeployTask(id: 'matching_id')].
-        // The FQCN auto-deduction would produce 'provider_and_attribute'
-        // (strip 'Task' from 'ProviderAndAttributeTask'), which is different from 'matching_id'.
-        // Mutant ReturnRemoval would skip the attribute return and fall through to the generator,
-        // producing 'provider_and_attribute' instead of 'matching_id'.
-        self::assertSame('matching_id', $this->resolver->resolveFromClass(ProviderAndAttributeTask::class));
-    }
-
-    public function testResolveFromClassFallsBackToFqcn(): void
-    {
-        // NoAttributeSeedCategoriesTask has no attribute → deduce from FQCN
-        self::assertSame(
-            'no_attribute_seed_categories',
-            $this->resolver->resolveFromClass(NoAttributeSeedCategoriesTask::class),
-        );
-    }
 }

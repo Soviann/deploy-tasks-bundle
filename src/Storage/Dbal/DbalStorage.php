@@ -41,6 +41,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     /** Comma-separated, platform-quoted column list for SELECT projections. */
     private readonly string $selectColumns;
 
+    /** Platform-specific upsert statement, built once on first save(). */
+    private ?string $upsertSql = null;
+
     private bool $initialized = false;
 
     /**
@@ -171,26 +174,6 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     {
         $this->ensureInitialized();
 
-        $t = $this->quotedTable;
-        $id = $this->quotedIdColumn;
-        $group = $this->quotedGroupColumn;
-        $status = $this->quotedStatusColumn;
-        $executedAt = $this->quotedExecutedAtColumn;
-        $error = $this->quotedErrorColumn;
-
-        $columnList = \implode(', ', [$id, $group, $status, $executedAt, $error]);
-        $placeholderList = '?, ?, ?, ?, ?';
-        $updateAssignments = \implode(', ', [
-            \sprintf('%s = excluded.%s', $status, $status),
-            \sprintf('%s = excluded.%s', $executedAt, $executedAt),
-            \sprintf('%s = excluded.%s', $error, $error),
-        ]);
-        $updateAssignmentsMysql = \implode(', ', [
-            \sprintf('%s = VALUES(%s)', $status, $status),
-            \sprintf('%s = VALUES(%s)', $executedAt, $executedAt),
-            \sprintf('%s = VALUES(%s)', $error, $error),
-        ]);
-
         // Normalize to UTC so cross-timezone ORDER BY works on platforms that store
         // wall-clock time without a TZ offset (SQLite, MySQL DATETIME).
         $executedAtUtc = $execution->executedAt->setTimezone(new \DateTimeZone('UTC'));
@@ -211,31 +194,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         ];
 
         try {
-            $platform = $this->connection->getDatabasePlatform();
+            $this->upsertSql ??= $this->buildUpsertSql();
 
-            if ($platform instanceof SQLitePlatform || $platform instanceof PostgreSQLPlatform) {
-                $sql = \sprintf(
-                    'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s, %s) DO UPDATE SET %s',
-                    $t,
-                    $columnList,
-                    $placeholderList,
-                    $id,
-                    $group,
-                    $updateAssignments,
-                );
-            } elseif ($platform instanceof MySQLPlatform || $platform instanceof MariaDBPlatform) {
-                $sql = \sprintf(
-                    'INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s',
-                    $t,
-                    $columnList,
-                    $placeholderList,
-                    $updateAssignmentsMysql,
-                );
-            } else {
-                throw new StorageException(\sprintf('Unsupported database platform "%s". Supported: SQLite, PostgreSQL, MySQL, MariaDB.', $platform::class));
-            }
-
-            $this->connection->executeStatement($sql, $parameters, $types);
+            $this->connection->executeStatement($this->upsertSql, $parameters, $types);
         } catch (StorageException $e) {
             throw $e;
         } catch (DbalException $e) {
@@ -407,6 +368,58 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
+     * Builds the platform-specific upsert statement — a pure function of the
+     * constructor-fixed configuration and connection platform, so save() caches it.
+     *
+     * @throws StorageException When the platform supports no known upsert dialect
+     */
+    private function buildUpsertSql(): string
+    {
+        $id = $this->quotedIdColumn;
+        $group = $this->quotedGroupColumn;
+        $status = $this->quotedStatusColumn;
+        $executedAt = $this->quotedExecutedAtColumn;
+        $error = $this->quotedErrorColumn;
+
+        $columnList = \implode(', ', [$id, $group, $status, $executedAt, $error]);
+        $placeholderList = '?, ?, ?, ?, ?';
+
+        $platform = $this->connection->getDatabasePlatform();
+
+        if ($platform instanceof SQLitePlatform || $platform instanceof PostgreSQLPlatform) {
+            return \sprintf(
+                'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s, %s) DO UPDATE SET %s',
+                $this->quotedTable,
+                $columnList,
+                $placeholderList,
+                $id,
+                $group,
+                \implode(', ', [
+                    \sprintf('%s = excluded.%s', $status, $status),
+                    \sprintf('%s = excluded.%s', $executedAt, $executedAt),
+                    \sprintf('%s = excluded.%s', $error, $error),
+                ]),
+            );
+        }
+
+        if ($platform instanceof MySQLPlatform || $platform instanceof MariaDBPlatform) {
+            return \sprintf(
+                'INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s',
+                $this->quotedTable,
+                $columnList,
+                $placeholderList,
+                \implode(', ', [
+                    \sprintf('%s = VALUES(%s)', $status, $status),
+                    \sprintf('%s = VALUES(%s)', $executedAt, $executedAt),
+                    \sprintf('%s = VALUES(%s)', $error, $error),
+                ]),
+            );
+        }
+
+        throw new StorageException(\sprintf('Unsupported database platform "%s". Supported: SQLite, PostgreSQL, MySQL, MariaDB.', $platform::class));
+    }
+
+    /**
      * @throws DbalException
      */
     private function ensureInitialized(): void
@@ -497,15 +510,9 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
         $group = '' === $groupRaw ? null : $groupRaw;
 
-        try {
-            $status = TaskStatus::from($statusRaw);
-        } catch (\ValueError $e) {
-            throw StorageException::corruptedRow($id, $group, $statusRaw, $e);
-        }
-
         return new TaskExecution(
             id: $id,
-            status: $status,
+            status: TaskStatus::fromStored($statusRaw, $id, $group),
             executedAt: $executedAt,
             error: $error,
             group: $group,

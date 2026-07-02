@@ -11,18 +11,9 @@ final class EventsConfigNode
     public function buildRoot(): ArrayNodeDefinition
     {
         $node = new ArrayNodeDefinition('events');
-        $node
-            ->beforeNormalization()
-                ->ifTrue(static fn (mixed $value): bool => \is_bool($value))
-                ->then(static fn (bool $value): array => ['enabled' => $value])
-            ->end()
-            ->addDefaultsIfNotSet()
-            ->children()
-                ->booleanNode('enabled')
-                    ->defaultTrue()
-                ->end()
-            ->end()
-        ;
+        // canBeDisabled() provides the bool shortcut (`events: false`) and the
+        // enabled-by-default `enabled` child.
+        $node->canBeDisabled();
 
         return $node;
     }

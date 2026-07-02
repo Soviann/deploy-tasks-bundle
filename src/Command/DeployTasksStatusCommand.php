@@ -107,7 +107,6 @@ final class DeployTasksStatusCommand extends Command
             ? ['ID', 'Group', 'Description']
             : ['ID', 'Group', 'Description', 'Status', 'Error', 'Executed At'];
         $rows = [];
-        $slotCount = 0;
 
         foreach ($tasks as $id => $task) {
             $declared = AsDeployTask::groupsOf($task);
@@ -118,14 +117,13 @@ final class DeployTasksStatusCommand extends Command
                     continue;
                 }
 
-                $execution = $executions[self::executionKey($id, $slot)] ?? null;
+                $execution = $executions[TaskExecution::slotKey($id, $slot)] ?? null;
 
                 if ([] !== $filterStatus && !$this->matchesStatusFilter($execution, $filterStatus)) {
                     continue;
                 }
 
                 $rows[] = $this->buildRow($id, $slot, $this->descriptionResolver->resolve($task), $execution, $noState);
-                ++$slotCount;
             }
         }
 
@@ -137,7 +135,7 @@ final class DeployTasksStatusCommand extends Command
         }
         $table->render();
         $io->newLine();
-        $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), $slotCount));
+        $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), \count($rows)));
 
         return Command::SUCCESS;
     }
@@ -150,7 +148,7 @@ final class DeployTasksStatusCommand extends Command
         $index = [];
 
         foreach ($this->storage->all() as $execution) {
-            $index[self::executionKey($execution->id, $execution->group)] = $execution;
+            $index[TaskExecution::slotKey($execution->id, $execution->group)] = $execution;
         }
 
         return $index;
@@ -234,10 +232,5 @@ final class DeployTasksStatusCommand extends Command
         $label = null === $execution ? self::PENDING_FILTER_VALUE : \strtoupper($execution->status->name);
 
         return \in_array($label, $filterStatus, true);
-    }
-
-    private static function executionKey(string $id, ?string $slot): string
-    {
-        return $id."\0".($slot ?? '');
     }
 }

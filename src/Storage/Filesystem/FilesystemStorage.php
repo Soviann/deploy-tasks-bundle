@@ -28,10 +28,11 @@ final class FilesystemStorage implements TaskStorageInterface
 {
     /**
      * Regex pattern for valid record filenames: `<task-id>.json` or `<task-id>@<group>.json`.
-     * Task IDs and group names must match `[a-zA-Z0-9._-]+` (AsDeployTask::TASK_ID_PATTERN /
-     * GROUP_NAME_PATTERN), so the `@` separator is unambiguous.
+     * Built from the shared identifier charset (AsDeployTask::TASK_ID_PATTERN /
+     * GROUP_NAME_PATTERN) so widening the charset there cannot orphan existing records,
+     * and the `@` separator stays unambiguous.
      */
-    private const RECORD_NAME_PATTERN = '/^[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?\.json$/';
+    private const RECORD_NAME_PATTERN = '/^'.AsDeployTask::IDENTIFIER_CHAR.'+(@'.AsDeployTask::IDENTIFIER_CHAR.'+)?\.json$/';
 
     private readonly Filesystem $fs;
 
@@ -76,13 +77,7 @@ final class FilesystemStorage implements TaskStorageInterface
             return null;
         }
 
-        $contents = \file_get_contents($path);
-
-        if (false === $contents) {
-            throw new StorageException(\sprintf('Failed to read storage file "%s".', $path));
-        }
-
-        return $this->decode($contents, $path);
+        return $this->readRecord($path);
     }
 
     /**
@@ -114,7 +109,7 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw StorageException::lockUnavailable($lockPath);
             }
 
-            (new Filesystem())->dumpFile($path, $json);
+            $this->fs->dumpFile($path, $json);
 
             // Deploy-task payloads can carry error messages, DSN fragments, or other sensitive
             // context; restrict reads to the owning user so unrelated accounts on the host
@@ -141,12 +136,7 @@ final class FilesystemStorage implements TaskStorageInterface
             return;
         }
 
-        try {
-            // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
-            $this->fs->remove([$path, $path.'.lock']);
-        } catch (IOException $e) {
-            throw new StorageException(\sprintf('Failed to remove storage file "%s".', $path), 0, $e);
-        }
+        $this->removeRecordFile($path);
     }
 
     /**
@@ -157,31 +147,8 @@ final class FilesystemStorage implements TaskStorageInterface
     {
         $this->validateTaskId($taskId);
 
-        if (!\is_dir($this->storagePath)) {
-            return;
-        }
-
-        $prefix = $taskId.'.json';
-        $prefixAt = $taskId.'@';
-
-        $finder = (new Finder())
-            ->files()
-            ->in($this->storagePath)
-            ->depth(0)
-            ->name(self::RECORD_NAME_PATTERN)
-            ->filter(static function (\SplFileInfo $file) use ($prefix, $prefixAt): bool {
-                $basename = $file->getBasename();
-
-                return $basename === $prefix || \str_starts_with($basename, $prefixAt);
-            });
-
-        foreach ($finder as $file) {
-            try {
-                // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
-                $this->fs->remove([$file->getPathname(), $file->getPathname().'.lock']);
-            } catch (IOException $e) {
-                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file->getPathname()), 0, $e);
-            }
+        foreach ($this->records($taskId) as $file) {
+            $this->removeRecordFile($file->getPathname());
         }
     }
 
@@ -196,34 +163,10 @@ final class FilesystemStorage implements TaskStorageInterface
     {
         $this->validateTaskId($taskId);
 
-        if (!\is_dir($this->storagePath)) {
-            return [];
-        }
-
-        $prefix = $taskId.'.json';
-        $prefixAt = $taskId.'@';
-
-        $finder = (new Finder())
-            ->files()
-            ->in($this->storagePath)
-            ->depth(0)
-            ->name(self::RECORD_NAME_PATTERN)
-            ->filter(static function (\SplFileInfo $file) use ($prefix, $prefixAt): bool {
-                $basename = $file->getBasename();
-
-                return $basename === $prefix || \str_starts_with($basename, $prefixAt);
-            });
-
         $executions = [];
 
-        foreach ($finder as $file) {
-            $contents = \file_get_contents($file->getPathname());
-
-            if (false === $contents) {
-                throw new StorageException(\sprintf('Failed to read storage file "%s".', $file->getPathname()));
-            }
-
-            $executions[] = $this->decode($contents, $file->getPathname());
+        foreach ($this->records($taskId) as $file) {
+            $executions[] = $this->readRecord($file->getPathname());
         }
 
         return $executions;
@@ -237,26 +180,10 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     public function all(): array
     {
-        if (!\is_dir($this->storagePath)) {
-            return [];
-        }
-
-        $finder = (new Finder())
-            ->files()
-            ->in($this->storagePath)
-            ->depth(0)
-            ->name(self::RECORD_NAME_PATTERN);
-
         $executions = [];
 
-        foreach ($finder as $file) {
-            $contents = \file_get_contents($file->getPathname());
-
-            if (false === $contents) {
-                throw new StorageException(\sprintf('Failed to read storage file "%s".', $file->getPathname()));
-            }
-
-            $executions[] = $this->decode($contents, $file->getPathname());
+        foreach ($this->records() as $file) {
+            $executions[] = $this->readRecord($file->getPathname());
         }
 
         return $executions;
@@ -267,8 +194,22 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     public function reset(): void
     {
+        foreach ($this->records() as $file) {
+            $this->removeRecordFile($file->getPathname());
+        }
+    }
+
+    /**
+     * Iterates the record files in the storage directory — all of them, or only
+     * those belonging to $taskId (any slot). Yields nothing when the directory
+     * does not exist yet.
+     *
+     * @return iterable<\SplFileInfo>
+     */
+    private function records(?string $taskId = null): iterable
+    {
         if (!\is_dir($this->storagePath)) {
-            return;
+            return [];
         }
 
         $finder = (new Finder())
@@ -277,14 +218,48 @@ final class FilesystemStorage implements TaskStorageInterface
             ->depth(0)
             ->name(self::RECORD_NAME_PATTERN);
 
-        foreach ($finder as $file) {
-            try {
-                // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
-                $this->fs->remove([$file->getPathname(), $file->getPathname().'.lock']);
-            } catch (IOException $e) {
-                throw new StorageException(\sprintf('Failed to remove storage file "%s".', $file->getPathname()), 0, $e);
-            }
+        if (null === $taskId) {
+            return $finder;
         }
+
+        $defaultSlotName = $taskId.'.json';
+        $groupSlotPrefix = $taskId.'@';
+
+        return $finder->filter(
+            static function (\SplFileInfo $file) use ($defaultSlotName, $groupSlotPrefix): bool {
+                $basename = $file->getBasename();
+
+                return $basename === $defaultSlotName || \str_starts_with($basename, $groupSlotPrefix);
+            },
+        );
+    }
+
+    /**
+     * @throws StorageException When the file cannot be removed
+     */
+    private function removeRecordFile(string $path): void
+    {
+        try {
+            // Also drop the save-time lock sidecar; Filesystem::remove() ignores missing paths.
+            $this->fs->remove([$path, $path.'.lock']);
+        } catch (IOException $e) {
+            throw new StorageException(\sprintf('Failed to remove storage file "%s".', $path), 0, $e);
+        }
+    }
+
+    /**
+     * @throws \JsonException   When the stored JSON file cannot be decoded
+     * @throws StorageException When the file cannot be read or contains an invalid record
+     */
+    private function readRecord(string $path): TaskExecution
+    {
+        $contents = \file_get_contents($path);
+
+        if (false === $contents) {
+            throw new StorageException(\sprintf('Failed to read storage file "%s".', $path));
+        }
+
+        return $this->decode($contents, $path);
     }
 
     /**
@@ -394,15 +369,9 @@ final class FilesystemStorage implements TaskStorageInterface
 
         $group = $data['group'] ?? null;
 
-        try {
-            $status = TaskStatus::from($data['status']);
-        } catch (\ValueError $e) {
-            throw StorageException::corruptedRow($data['id'], $group, $data['status'], $e);
-        }
-
         return new TaskExecution(
             id: $data['id'],
-            status: $status,
+            status: TaskStatus::fromStored($data['status'], $data['id'], $group),
             executedAt: $executedAt,
             error: $data['error'],
             group: $group,

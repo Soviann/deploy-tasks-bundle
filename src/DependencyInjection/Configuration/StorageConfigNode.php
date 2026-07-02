@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\DependencyInjection\Configuration;
 
+use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
+use Symfony\Component\Config\Definition\Builder\ScalarNodeDefinition;
 
 final class StorageConfigNode
 {
@@ -48,69 +50,24 @@ final class StorageConfigNode
                         ->scalarNode('connection')
                             ->defaultValue('default')
                         ->end()
-                        ->scalarNode('table')
-                            ->defaultValue('deploy_task_executions')
-                            ->validate()
-                                ->ifTrue(
-                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
-                                )
-                                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
-                            ->end()
-                        ->end()
+                        ->append(self::sqlIdentifierNode('table', 'deploy_task_executions'))
                         ->booleanNode('auto_create_table')
                             ->defaultTrue()
                             ->info('Automatically create the storage table on first use (like Doctrine Migrations).')
                         ->end()
-                        ->scalarNode('id_column')
-                            ->defaultValue('id')
-                            ->validate()
-                                ->ifTrue(
-                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
-                                )
-                                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
-                            ->end()
-                        ->end()
+                        ->append(self::sqlIdentifierNode('id_column', 'id'))
                         ->integerNode('id_column_length')
                             ->defaultValue(255)
                             ->min(1)
                         ->end()
-                        ->scalarNode('status_column')
-                            ->defaultValue('status')
-                            ->validate()
-                                ->ifTrue(
-                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
-                                )
-                                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
-                            ->end()
-                        ->end()
-                        ->scalarNode('executed_at_column')
-                            ->defaultValue('executed_at')
-                            ->validate()
-                                ->ifTrue(
-                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
-                                )
-                                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
-                            ->end()
-                        ->end()
-                        ->scalarNode('error_column')
-                            ->defaultValue('error')
-                            ->validate()
-                                ->ifTrue(
-                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
-                                )
-                                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
-                            ->end()
-                        ->end()
-                        ->scalarNode('group_column')
-                            ->defaultValue('task_group')
-                            ->info('Column name for the task group slot. Override to reuse an existing table with a different column name.')
-                            ->validate()
-                                ->ifTrue(
-                                    static fn (string $v): bool => 1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $v),
-                                )
-                                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
-                            ->end()
-                        ->end()
+                        ->append(self::sqlIdentifierNode('status_column', 'status'))
+                        ->append(self::sqlIdentifierNode('executed_at_column', 'executed_at'))
+                        ->append(self::sqlIdentifierNode('error_column', 'error'))
+                        ->append(self::sqlIdentifierNode(
+                            'group_column',
+                            'task_group',
+                            'Column name for the task group slot. Override to reuse an existing table with a different column name.',
+                        ))
                         ->integerNode('group_column_length')
                             ->defaultValue(128)
                             ->min(1)
@@ -143,6 +100,31 @@ final class StorageConfigNode
                         ->end()
                     ->end()
                 ->end()
+            ->end()
+        ;
+
+        return $node;
+    }
+
+    /**
+     * Builds a scalar node validated against the SQL-identifier allowlist shared
+     * with DbalStorageConfiguration's construct-time check.
+     */
+    private static function sqlIdentifierNode(string $name, string $default, ?string $info = null): ScalarNodeDefinition
+    {
+        $node = new ScalarNodeDefinition($name);
+        $node->defaultValue($default);
+
+        if (null !== $info) {
+            $node->info($info);
+        }
+
+        $node
+            ->validate()
+                ->ifTrue(
+                    static fn (string $v): bool => 1 !== \preg_match(DbalStorageConfiguration::SQL_IDENTIFIER_PATTERN, $v),
+                )
+                ->thenInvalid('Identifier %s is not a valid SQL identifier.')
             ->end()
         ;
 

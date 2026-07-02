@@ -11,16 +11,11 @@ final class LockConfigNode
     public function buildRoot(): ArrayNodeDefinition
     {
         $node = new ArrayNodeDefinition('lock');
+        // canBeDisabled() provides the bool shortcut (`lock: false`) and the
+        // enabled-by-default `enabled` child.
         $node
-            ->beforeNormalization()
-                ->ifTrue(static fn (mixed $value): bool => \is_bool($value))
-                ->then(static fn (bool $value): array => ['enabled' => $value])
-            ->end()
-            ->addDefaultsIfNotSet()
+            ->canBeDisabled()
             ->children()
-                ->booleanNode('enabled')
-                    ->defaultTrue()
-                ->end()
                 ->integerNode('ttl')
                     ->defaultValue(3600)
                     ->min(60)

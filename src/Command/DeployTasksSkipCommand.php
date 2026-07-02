@@ -21,6 +21,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:skip', description: 'Mark a deploy task as skipped without executing it.')]
 final class DeployTasksSkipCommand extends Command
 {
+    // Only the confirmation helper is used: skip is reversible (deploytasks:reset), so it
+    // intentionally proceeds under --no-interaction without requiring --force.
+    use DestructiveCommandTrait;
+
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
@@ -122,9 +126,7 @@ final class DeployTasksSkipCommand extends Command
                 ? \sprintf('Skip task "%s"? This marks it done without executing.', $id)
                 : \sprintf('Skip task "%s" in group "%s"? This marks it done without executing.', $id, $slot);
 
-            if (!$io->confirm($prompt, false)) {
-                $io->warning('Aborted.');
-
+            if (!$this->confirmOrAbort($io, $prompt)) {
                 return Command::FAILURE;
             }
         }
