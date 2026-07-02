@@ -46,7 +46,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
 /**
  * @phpstan-type StorageConfig array{
  *     type: string,
- *     filesystem: array{path: string, transactional: bool, all_or_nothing: bool},
+ *     filesystem: array{path: string},
  *     database: array{
  *         connection: string,
  *         table: string,
@@ -177,20 +177,29 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         $builder->setParameter('soviann_deploy_tasks.events.enabled', $eventsConfig['enabled']);
         $builder->setParameter('soviann_deploy_tasks.lock.enabled', $lockConfig['enabled']);
 
-        // TaskRunner — transactional/all_or_nothing come from the active storage sub-config
+        // TaskRunner — transactional/all_or_nothing come from the active storage sub-config.
+        // Filesystem storage is inherently non-transactional (no config keys for it).
         /**
          * @var array{
          *     type: string,
-         *     filesystem: array{path: string, transactional: bool, all_or_nothing: bool},
+         *     filesystem: array{path: string},
          *     database: array{transactional: bool, all_or_nothing: bool},
          *     custom: array{service: string|null, transactional: bool, all_or_nothing: bool},
          * } $storageConfig
          */
         $storageConfig = $config['storage'];
-        /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
-        $activeStorage = $storageConfig[$storageConfig['type']];
 
-        $builder->setParameter('soviann_deploy_tasks.runner.all_or_nothing', $activeStorage['all_or_nothing']);
+        if ('filesystem' === $storageConfig['type']) {
+            $transactional = false;
+            $allOrNothing = false;
+        } else {
+            /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
+            $activeStorage = $storageConfig[$storageConfig['type']];
+            $transactional = $activeStorage['transactional'];
+            $allOrNothing = $activeStorage['all_or_nothing'];
+        }
+
+        $builder->setParameter('soviann_deploy_tasks.runner.all_or_nothing', $allOrNothing);
 
         $services->set('soviann_deploy_tasks.runner', TaskRunner::class)
             ->args([
@@ -203,8 +212,8 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$lockFactory' => null, // set by compiler pass
                 '$defaultTimeout' => $config['default_timeout'],
                 '$environment' => param('kernel.environment'),
-                '$transactional' => $activeStorage['transactional'],
-                '$allOrNothing' => $activeStorage['all_or_nothing'],
+                '$transactional' => $transactional,
+                '$allOrNothing' => $allOrNothing,
                 '$logger' => null, // set below
                 '$lockTtl' => $lockConfig['ttl'],
             ])

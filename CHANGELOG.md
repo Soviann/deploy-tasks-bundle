@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** removed `storage.filesystem.transactional` and `storage.filesystem.all_or_nothing` config keys. They accepted only `false` (any `true` was rejected at container build); filesystem storage is inherently non-transactional. Delete the keys from your config if present.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** A task declaring `#[AsDeployTask(transactional: true)]` while the active storage does not implement `TransactionalStorageInterface` now fails the container build with `IncompatibleStorageException` (naming the task class) instead of silently running unwrapped — the same compile-time stance already applied to the config-level `transactional` / `all_or_nothing` flags.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** Storage failures now consistently surface as `StorageException`: DBAL first-use table auto-creation, `createSchema()`, `getCreateTableSql()`, and row hydration no longer leak raw `Doctrine\DBAL\Exception`; corrupted or unencodable JSON records in the filesystem backend no longer leak `\JsonException` (originals chained). The storage interfaces now document this contract for custom implementations.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** A task declaring two different IDs (`getTaskId()` vs `#[AsDeployTask(id: ...)]`) now throws `MismatchedTaskIdException` at registry boot instead of emitting an invisible-in-prod `E_USER_WARNING` and letting the interface value silently win.

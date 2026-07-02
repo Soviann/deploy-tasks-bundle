@@ -80,8 +80,6 @@ soviann_deploy_tasks:
         type: filesystem                    # filesystem | database | custom
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
-            transactional: false            # must stay false — true is rejected at container build
-            all_or_nothing: false           # must stay false — true is rejected at container build
         database:
             connection: default             # DBAL connection name
             table: deploy_task_executions

@@ -12,11 +12,9 @@ soviann_deploy_tasks:
         type: filesystem
         filesystem:
             path: '%kernel.project_dir%/var/deploy-tasks'
-            transactional: false    # must stay false — true is rejected at container build
-            all_or_nothing: false   # must stay false — true is rejected at container build
 ```
 
-Filesystem storage does not implement `TransactionalStorageInterface`. Setting `transactional: true` is rejected when the configuration is processed, and `all_or_nothing: true` fails the container build with `IncompatibleStorageException`. The keys exist for config-tree uniformity and must stay `false`.
+Filesystem storage does not implement `TransactionalStorageInterface` and is inherently non-transactional — there are no `transactional` / `all_or_nothing` keys under `storage.filesystem`. Setting either fails at container build with Symfony's standard "Unrecognized option" error. Use `storage.type: database` (or a custom transactional backend) if you need transaction wrapping.
 
 The directory is created automatically on the first write. Add it to `.gitignore`:
 

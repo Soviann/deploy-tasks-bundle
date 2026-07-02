@@ -6,7 +6,6 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
-use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Runner\RunOptions;
@@ -27,6 +26,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -240,8 +240,10 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         self::bootKernel();
     }
 
-    public function testBootFailsWhenAllOrNothingWithNonTransactionalStorage(): void
+    public function testBootFailsWhenFilesystemStorageConfiguresAllOrNothing(): void
     {
+        // storage.filesystem has no `all_or_nothing` key — filesystem storage is inherently
+        // non-transactional, so the config tree rejects it as an unrecognized option.
         self::useConfigurableKernel([
             'storage' => [
                 'type' => 'filesystem',
@@ -251,8 +253,8 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
             'lock' => ['enabled' => false],
         ]);
 
-        self::expectException(IncompatibleStorageException::class);
-        self::expectExceptionMessage(FilesystemStorage::class);
+        self::expectException(InvalidConfigurationException::class);
+        self::expectExceptionMessageMatches('/Unrecognized option "all_or_nothing"/');
 
         self::bootKernel();
     }
