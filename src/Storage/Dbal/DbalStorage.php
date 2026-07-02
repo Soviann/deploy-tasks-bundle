@@ -79,11 +79,17 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      * unquoted identifiers with their properly-quoted equivalents so the output is safe to
      * fold into a Doctrine migration. Table and column names are quoted via the platform's
      * own quoting rules.
+     *
+     * @throws StorageException When the DDL cannot be generated for the connection's platform
      */
     public function getCreateTableSql(): string
     {
-        $sqls = $this->buildSchemaSql();
-        $platform = $this->connection->getDatabasePlatform();
+        try {
+            $sqls = $this->buildSchemaSql();
+            $platform = $this->connection->getDatabasePlatform();
+        } catch (DbalException $e) {
+            throw new StorageException(\sprintf('Failed to generate the CREATE TABLE SQL for storage table "%s": %s', $this->configuration->tableName, $e->getMessage()), 0, $e);
+        }
 
         // The Schema builder omits quotes for safe identifiers on some platforms (e.g. SQLite).
         // Replace the unquoted names with their platform-quoted equivalents so the output of
@@ -347,23 +353,27 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     /**
      * Creates the storage table if it does not exist (idempotent).
      *
-     * @throws DbalException
+     * @throws StorageException When the table cannot be created
      */
     public function createSchema(): void
     {
-        $schemaManager = $this->connection->createSchemaManager();
+        try {
+            $schemaManager = $this->connection->createSchemaManager();
 
-        if ($schemaManager->tablesExist([$this->configuration->tableName])) {
-            return;
-        }
-
-        foreach ($this->buildSchemaSql() as $sql) {
-            try {
-                $this->connection->executeStatement($sql);
-            } catch (TableExistsException) {
-                // Lost a create race against a concurrent command — table exists, done.
+            if ($schemaManager->tablesExist([$this->configuration->tableName])) {
                 return;
             }
+
+            foreach ($this->buildSchemaSql() as $sql) {
+                try {
+                    $this->connection->executeStatement($sql);
+                } catch (TableExistsException) {
+                    // Lost a create race against a concurrent command — table exists, done.
+                    return;
+                }
+            }
+        } catch (DbalException $e) {
+            throw new StorageException(\sprintf('Failed to create storage table "%s": %s', $this->configuration->tableName, $e->getMessage()), 0, $e);
         }
     }
 
@@ -420,7 +430,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
-     * @throws DbalException
+     * @throws StorageException When first-use table auto-creation fails
      */
     private function ensureInitialized(): void
     {
@@ -479,7 +489,6 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      * @param array<string, mixed> $row
      *
      * @throws StorageException
-     * @throws DbalException
      */
     private function hydrate(array $row): TaskExecution
     {
@@ -495,7 +504,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
         try {
             $executedAtConverted = $this->connection->convertToPHPValue($executedAtRaw, Types::DATETIME_IMMUTABLE);
-        } catch (\Doctrine\DBAL\Types\ConversionException $e) {
+        } catch (DbalException $e) {
             throw new StorageException(\sprintf('Invalid executed_at value "%s" in storage row.', \is_scalar($executedAtRaw) ? (string) $executedAtRaw : \gettype($executedAtRaw)), 0, $e);
         }
 

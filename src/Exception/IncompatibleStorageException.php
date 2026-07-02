@@ -16,4 +16,13 @@ final class IncompatibleStorageException extends \LogicException implements Depl
             $storageClass,
         ));
     }
+
+    public static function taskRequiresTransactional(string $taskClass, string $storageClass): self
+    {
+        return new self(\sprintf(
+            'Deploy task "%s" declares #[AsDeployTask(transactional: true)] but the configured storage ("%s") does not support transactions. Use "storage.type: database" (or a custom transactional backend), or remove the per-task transactional flag.',
+            $taskClass,
+            $storageClass,
+        ));
+    }
 }

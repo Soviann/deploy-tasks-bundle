@@ -28,6 +28,8 @@ Thrown by `deploytasks:run --id=<id>`, `deploytasks:show <id>`, `deploytasks:ski
 
 The active storage backend does not implement `TransactionalStorageInterface`. The filesystem backend never does (no transactions on disk). The only built-in backend that supports transactions is `DbalStorage`. For a custom backend, implement `TransactionalStorageInterface` and the bundle will detect it automatically.
 
+The same exception is raised at container build when any task declares `#[AsDeployTask(transactional: true)]` while the active storage is non-transactional — the message names the task class. Remove the per-task flag or switch to a transactional storage.
+
 ## `TaskGroupRequiredException` from `deploytasks:skip`
 
 `deploytasks:skip <id>` requires `--group=<name>` when the task declares one or more groups — there is no single slot to mark as skipped. Pick the slot explicitly:

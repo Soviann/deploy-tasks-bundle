@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Identifier;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Exception\MismatchedTaskIdException;
 
 /**
  * Resolves the canonical ID for a deploy task.
@@ -15,34 +16,30 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
  *  2. #[AsDeployTask] attribute `id` (if present and non-empty)
  *  3. Auto-deduced from FQCN via TaskIdGeneratorInterface
  *
- * If both getTaskId() and attribute `id` return non-empty different values,
- * a E_USER_WARNING is triggered and the interface value takes precedence.
- *
- * @internal
+ * Supported for use by custom {@see \Soviann\DeployTasksBundle\Sorting\TaskSorterInterface}
+ * implementations that need task IDs.
  */
-final class TaskIdResolver
+final readonly class TaskIdResolver
 {
     public function __construct(
-        private readonly TaskIdGeneratorInterface $generator = new DefaultTaskIdGenerator(),
+        private TaskIdGeneratorInterface $generator = new DefaultTaskIdGenerator(),
     ) {
     }
 
     /**
-     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
+     * @throws MismatchedTaskIdException When getTaskId() and the attribute declare different non-empty IDs
+     * @throws \ReflectionException      When the #[AsDeployTask] attribute lookup fails
      */
     public function resolve(DeployTaskInterface $task): string
     {
         $attributeId = AsDeployTask::idOf($task);
         $providerId = $task instanceof TaskIdProviderInterface ? $task->getTaskId() : '';
 
-        // Warn on mismatch when both are non-empty
+        // Two different non-empty declarations are a config bug — fail fast instead of
+        // letting one silently win (and silently rewrite stored history if the other
+        // declaration is removed later).
         if ('' !== $attributeId && '' !== $providerId && $attributeId !== $providerId) {
-            \trigger_error(\sprintf(
-                'Task "%s" has mismatched IDs: getTaskId() "%s" differs from attribute id "%s". The interface value takes precedence.',
-                $task::class,
-                $providerId,
-                $attributeId,
-            ), \E_USER_WARNING);
+            throw MismatchedTaskIdException::create($task::class, $providerId, $attributeId);
         }
 
         // 1. TaskIdProviderInterface wins if non-empty

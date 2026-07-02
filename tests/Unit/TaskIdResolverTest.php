@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasksBundle\Exception\MismatchedTaskIdException;
 use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
@@ -58,27 +59,15 @@ final class TaskIdResolverTest extends TestCase
         self::assertSame('no_attribute_seed_categories', $this->resolver->resolve($task));
     }
 
-    public function testMismatchTriggersWarningAndUsesInterfaceValue(): void
+    public function testMismatchedDeclarationsThrow(): void
     {
+        // Two conflicting non-empty IDs are a config bug: whichever "won" would
+        // silently rewrite stored history if the other declaration were removed.
         $task = new MismatchedIdTask();
 
-        $warning = null;
-        \set_error_handler(static function (int $errno, string $errstr) use (&$warning): bool {
-            $warning = $errstr;
+        $this->expectException(MismatchedTaskIdException::class);
+        $this->expectExceptionMessageMatches('/mismatched IDs.*"method_id".*"attribute_id"/');
 
-            return true;
-        }, \E_USER_WARNING);
-
-        try {
-            $result = $this->resolver->resolve($task);
-        } finally {
-            \restore_error_handler();
-        }
-
-        self::assertSame('method_id', $result);
-        self::assertNotNull($warning);
-        self::assertStringContainsString('mismatched IDs', $warning);
-        self::assertStringContainsString('attribute_id', $warning);
-        self::assertStringContainsString('method_id', $warning);
+        $this->resolver->resolve($task);
     }
 }

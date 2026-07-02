@@ -6,6 +6,11 @@ namespace Soviann\DeployTasksBundle\DependencyInjection\Configuration;
 
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
+/**
+ * Builds the `lock` section of the bundle's config tree (run-lock toggle + TTL).
+ *
+ * @internal
+ */
 final class LockConfigNode
 {
     public function buildRoot(): ArrayNodeDefinition

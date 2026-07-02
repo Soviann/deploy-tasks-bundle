@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Helper\PathNormalizer;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -22,14 +24,11 @@ final class DeployTasksGenerateHostCommand extends Command
 {
     private readonly Filesystem $fs;
 
-    /**
-     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic
-     *                                                           timestamps in tests
-     */
     public function __construct(
         private readonly string $hostDirectory,
         private readonly ?string $projectDir = null,
-        private readonly ?\Closure $nowProvider = null,
+        /** Override for deterministic timestamps in tests. */
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         $this->fs = new Filesystem();
         parent::__construct();
@@ -95,7 +94,7 @@ final class DeployTasksGenerateHostCommand extends Command
             }
         }
 
-        $now = null !== $this->nowProvider ? ($this->nowProvider)() : new \DateTimeImmutable();
+        $now = $this->clock->now();
         $filename = 'deploy_task_'.$now->format('Ymd_His').'.sh';
         $filePath = $dir.$filename;
 

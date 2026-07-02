@@ -21,6 +21,7 @@ use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Runner\RunOptions;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
 use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
@@ -121,7 +122,7 @@ final class TaskRunnerTest extends TestCase
             new SimpleTask('task.2', 'Second'),
         ]);
 
-        $result = $runner->runAll($this->output, force: true);
+        $result = $runner->runAll($this->output, new RunOptions(rerunAll: true));
 
         self::assertSame(2, $result->ran);
         self::assertSame(0, $result->skipped);
@@ -155,7 +156,7 @@ final class TaskRunnerTest extends TestCase
             new SimpleTask('task.2', 'Second'),
         ]);
 
-        $result = $runner->runAll($this->output, dryRun: true);
+        $result = $runner->runAll($this->output, new RunOptions(dryRun: true));
 
         self::assertSame(2, $result->ran);
         self::assertSame(0, $result->skipped);
@@ -173,7 +174,7 @@ final class TaskRunnerTest extends TestCase
     {
         $runner = $this->createRunner([new PredeployTask()]);
 
-        $result = $runner->runAll($this->output, dryRun: true, groups: ['predeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(dryRun: true, groups: ['predeploy']));
 
         self::assertSame(1, $result->ran);
         // Group slot → label is `{taskId}@{slot}`; kills Concat/Ternary/Identical/Operand-removal mutants
@@ -193,7 +194,7 @@ final class TaskRunnerTest extends TestCase
             new SimpleTask('task.2', 'Second'),
         ]);
 
-        $result = $runner->runAll($this->output, dryRun: true);
+        $result = $runner->runAll($this->output, new RunOptions(dryRun: true));
 
         self::assertSame(1, $result->ran);
         self::assertSame(1, $result->skipped);
@@ -207,7 +208,7 @@ final class TaskRunnerTest extends TestCase
         $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
 
         $runner = $this->createRunner([$task]);
-        $result = $runner->runAll($this->output, dryRun: true, force: true);
+        $result = $runner->runAll($this->output, new RunOptions(dryRun: true, rerunAll: true));
 
         self::assertSame(1, $result->ran);
         self::assertSame(0, $result->skipped);
@@ -261,7 +262,7 @@ final class TaskRunnerTest extends TestCase
             new SimpleTask('task.1', 'First'),
         ]);
 
-        $result = $runner->runOne('task.1', $this->output, force: true);
+        $result = $runner->runOne('task.1', $this->output, new RunOptions(rerunAll: true));
 
         self::assertSame(TaskResult::SUCCESS, $result);
     }
@@ -284,7 +285,7 @@ final class TaskRunnerTest extends TestCase
     {
         $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
 
-        $result = $runner->runOne('task.1', $this->output, dryRun: true);
+        $result = $runner->runOne('task.1', $this->output, new RunOptions(dryRun: true));
 
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertStringContainsString('[would run] task.1 - First', $this->output->fetch());
@@ -297,7 +298,7 @@ final class TaskRunnerTest extends TestCase
         $runner->runOne('task.1', $this->output);
         $this->output->fetch();
 
-        $result = $runner->runOne('task.1', $this->output, dryRun: true);
+        $result = $runner->runOne('task.1', $this->output, new RunOptions(dryRun: true));
 
         self::assertSame(TaskResult::SKIPPED, $result);
         self::assertStringContainsString('already been executed', $this->output->fetch());
@@ -553,6 +554,27 @@ final class TaskRunnerTest extends TestCase
             'Transactional task must persist through the transactional() wrapper.',
         );
         self::assertSame(TaskStatus::Ran, $storage->get('test.transactional')?->status);
+    }
+
+    public function testTransactionalTaskOnNonTransactionalStorageWarnsAndRunsUnwrapped(): void
+    {
+        // Only reachable on a hand-constructed runner: in DI the compiler pass rejects
+        // transactional config on a non-transactional storage at compile time. The
+        // fall-through must be loud (warning) instead of silently skipping the wrap.
+        $logger = new ArrayLogger();
+        $runner = $this->createRunner([new TransactionalTask()], logger: $logger);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(1, $result->ran);
+        self::assertSame(TaskStatus::Ran, $this->storage->get('test.transactional')?->status);
+
+        $records = $logger->recordsMatching(
+            'warning',
+            'does not support transactions — running unwrapped',
+        );
+        self::assertCount(1, $records);
+        self::assertSame('test.transactional', $records[0]['context']['task_id'] ?? null);
     }
 
     public function testRunOneFailingTask(): void
@@ -881,7 +903,7 @@ final class TaskRunnerTest extends TestCase
             new PredeployTask(),
         ]);
 
-        $result = $runner->runAll($this->output, groups: ['predeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(groups: ['predeploy']));
 
         self::assertSame(1, $result->ran);
         self::assertFalse($this->storage->has('task.default'));
@@ -908,7 +930,7 @@ final class TaskRunnerTest extends TestCase
     {
         $runner = $this->createRunner([new MultiGroupTask()]);
 
-        $result = $runner->runAll($this->output, groups: ['predeploy', 'postdeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(groups: ['predeploy', 'postdeploy']));
 
         self::assertSame(2, $result->ran);
         self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
@@ -920,7 +942,7 @@ final class TaskRunnerTest extends TestCase
     {
         $runner = $this->createRunner([new MultiGroupTask()]);
 
-        $result = $runner->runAll($this->output, groups: ['predeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(groups: ['predeploy']));
 
         self::assertSame(1, $result->ran);
         self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
@@ -935,7 +957,7 @@ final class TaskRunnerTest extends TestCase
         );
 
         $runner = $this->createRunner([$task]);
-        $result = $runner->runAll($this->output, groups: ['predeploy', 'postdeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(groups: ['predeploy', 'postdeploy']));
 
         self::assertSame(1, $result->ran);
         self::assertSame(
@@ -960,7 +982,7 @@ final class TaskRunnerTest extends TestCase
 
         $this->expectException(TaskGroupMismatchException::class);
 
-        $runner->runOne('test.predeploy', $this->output, groups: ['postdeploy']);
+        $runner->runOne('test.predeploy', $this->output, new RunOptions(groups: ['postdeploy']));
     }
 
     public function testRunOneThrowsWhenDefaultTaskReceivesGroups(): void
@@ -969,14 +991,14 @@ final class TaskRunnerTest extends TestCase
 
         $this->expectException(TaskGroupMismatchException::class);
 
-        $runner->runOne('task.default', $this->output, groups: ['predeploy']);
+        $runner->runOne('task.default', $this->output, new RunOptions(groups: ['predeploy']));
     }
 
     public function testRunOneWritesOneRowPerRequestedGroup(): void
     {
         $runner = $this->createRunner([new MultiGroupTask()]);
 
-        $result = $runner->runOne('test.multi_group', $this->output, groups: ['predeploy', 'postdeploy']);
+        $result = $runner->runOne('test.multi_group', $this->output, new RunOptions(groups: ['predeploy', 'postdeploy']));
 
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
@@ -1596,7 +1618,7 @@ final class TaskRunnerTest extends TestCase
             logger: $logger,
         );
 
-        $runner->runAll($this->output, dryRun: true);
+        $runner->runAll($this->output, new RunOptions(dryRun: true));
 
         $records = $logger->recordsMatching('info', 'Deploy tasks run starting');
         self::assertCount(1, $records);
@@ -2206,7 +2228,7 @@ final class TaskRunnerTest extends TestCase
         $runner = $this->createRunner([new MultiGroupTask()]);
 
         try {
-            $runner->runOne('test.multi_group', $this->output, groups: ['predeploy', 'nonexistent']);
+            $runner->runOne('test.multi_group', $this->output, new RunOptions(groups: ['predeploy', 'nonexistent']));
             self::fail('Expected TaskGroupMismatchException');
         } catch (TaskGroupMismatchException $e) {
             // The exception was thrown — array_diff found the undeclared group.
@@ -2234,7 +2256,7 @@ final class TaskRunnerTest extends TestCase
             new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), group: 'postdeploy'),
         );
 
-        $result = $runner->runAll($this->output, force: true, groups: ['predeploy', 'postdeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(rerunAll: true, groups: ['predeploy', 'postdeploy']));
 
         // Both slots must be re-run — the mutant would run only predeploy (1 ran).
         self::assertSame(2, $result->ran);
@@ -2307,7 +2329,7 @@ final class TaskRunnerTest extends TestCase
 
         $runner = $this->createRunner([new MultiGroupTask()]);
 
-        $result = $runner->runAll($this->output, dryRun: true, groups: ['predeploy', 'postdeploy']);
+        $result = $runner->runAll($this->output, new RunOptions(dryRun: true, groups: ['predeploy', 'postdeploy']));
 
         // predeploy slot is already ran → skipped; postdeploy slot is pending.
         // With the break mutant, the loop exits after predeploy and postdeploy is never counted.

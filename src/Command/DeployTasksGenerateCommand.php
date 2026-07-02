@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Helper\PathNormalizer;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,19 +23,19 @@ use Symfony\Component\Filesystem\Filesystem;
 )]
 final class DeployTasksGenerateCommand extends Command
 {
+    /** One valid PHP identifier — the per-segment rule for namespaces derived from --dir or given via --namespace. */
+    private const PHP_LABEL_PATTERN = '/^[A-Za-z_][A-Za-z0-9_]*$/';
+
     private readonly Filesystem $fs;
 
-    /**
-     * @param (\Closure(): \DateTimeImmutable)|null $nowProvider optional clock override for deterministic
-     *                                                           timestamps in tests
-     */
     public function __construct(
         private readonly TaskIdGeneratorInterface $idGenerator,
         private readonly string $defaultDirectory,
         private readonly string $rootNamespace,
         private readonly ?string $templatePath = null,
         private readonly ?string $projectDir = null,
-        private readonly ?\Closure $nowProvider = null,
+        /** Override for deterministic timestamps in tests. */
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         $this->fs = new Filesystem();
         parent::__construct();
@@ -82,11 +84,10 @@ final class DeployTasksGenerateCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $now = null !== $this->nowProvider ? ($this->nowProvider)() : new \DateTimeImmutable();
+        $now = $this->clock->now();
         $timestamp = $now->format('YmdHis');
         $className = 'DeployTask'.$timestamp;
 
-        /** @var class-string $className */
         $taskId = $this->idGenerator->generate($className);
         $description = 'TODO: describe this task';
 
@@ -114,6 +115,17 @@ final class DeployTasksGenerateCommand extends Command
         /** @var string|null $namespaceOverride */
         $namespaceOverride = $input->getOption('namespace');
         if (null !== $namespaceOverride && '' !== $namespaceOverride) {
+            // Same per-segment rule as the --dir derivation: the value lands verbatim
+            // in the generated file's `namespace` statement, so it must be a clean
+            // identifier chain — never raw PHP.
+            foreach (\explode('\\', $namespaceOverride) as $segment) {
+                if (1 !== \preg_match(self::PHP_LABEL_PATTERN, $segment)) {
+                    $io->error(\sprintf('Invalid --namespace value "%s": every segment must be a valid PHP identifier.', $namespaceOverride));
+
+                    return Command::FAILURE;
+                }
+            }
+
             $namespace = $namespaceOverride;
         } else {
             try {
@@ -213,7 +225,7 @@ final class DeployTasksGenerateCommand extends Command
         $parts = \explode('/', $dir);
 
         foreach ($parts as $segment) {
-            if (1 !== \preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $segment)) {
+            if (1 !== \preg_match(self::PHP_LABEL_PATTERN, $segment)) {
                 throw new \InvalidArgumentException(\sprintf('Directory "%s" cannot be turned into a valid PHP namespace; use letters/underscores only.', $dir));
             }
         }

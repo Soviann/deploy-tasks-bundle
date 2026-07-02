@@ -486,6 +486,100 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    // -------------------------------------------------------------------------
+    // validateTaggedTasks — per-task transactional flag vs storage capability
+    // -------------------------------------------------------------------------
+
+    public function testTransactionalTaskOnNonTransactionalStorageThrows(): void
+    {
+        $container = $this->baseContainer();
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(\Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage::class),
+        );
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.transactional', $def);
+
+        $this->expectException(\Soviann\DeployTasksBundle\Exception\IncompatibleStorageException::class);
+        $this->expectExceptionMessageMatches('/TransactionalTask.*transactional: true.*FilesystemStorage/s');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    public function testTransactionalTaskOnTransactionalStorageBuilds(): void
+    {
+        $container = $this->baseContainer();
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(TransactionalInMemoryStorageFixture::class),
+        );
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.transactional', $def);
+
+        (new RegisterTasksCompilerPass())->process($container);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testTransactionalTaskWithClasslessStorageDefinitionBuilds(): void
+    {
+        // Storage class unresolvable at compile time (factory-built) → the check is
+        // skipped, consistent with validateAllOrNothingStorage's null-class handling.
+        $container = $this->baseContainer();
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition());
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.transactional', $def);
+
+        (new RegisterTasksCompilerPass())->process($container);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testNonTransactionalTaskOnNonTransactionalStorageBuilds(): void
+    {
+        // Only the explicit per-task demand is validated — absent/false/null passes.
+        $container = $this->baseContainer();
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(\Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage::class),
+        );
+
+        $def = new Definition(AttributeOnlyTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.plain', $def);
+
+        (new RegisterTasksCompilerPass())->process($container);
+
+        $this->addToAssertionCount(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // resolveGeneratorClass — misconfigured generator fails loudly
+    // -------------------------------------------------------------------------
+
+    public function testGeneratorClassNotImplementingInterfaceThrows(): void
+    {
+        // Previously guarded by assert() — invisible with zend.assertions=-1, where a
+        // misconfigured generator surfaced later as "call to undefined method".
+        $container = $this->baseContainer();
+        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(\stdClass::class));
+
+        $def = new Definition(PredeployTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.task', $def);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/stdClass.*must implement/');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
     /**
      * Builds a container with the services and parameters the pass needs to run:
      * id resolver/generator (for ID resolution) and the runner plus its optional

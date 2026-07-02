@@ -6,12 +6,15 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Exception\IOException;
@@ -91,7 +94,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $command = $this->makeCommand(
             $idGenerator,
             projectDir: $projectDir,
-            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+            clock: new MockClock($fixedNow),
         );
         $tester = new CommandTester($command);
 
@@ -150,7 +153,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $command = $this->makeCommand(
             $idGenerator,
             projectDir: $projectDir,
-            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+            clock: new MockClock($fixedNow),
         );
         $tester = new CommandTester($command);
 
@@ -523,7 +526,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         $command = $this->makeCommand(
             $hostileGenerator,
             projectDir: $projectDir,
-            nowProvider: static fn (): \DateTimeImmutable => $fixedNow,
+            clock: new MockClock($fixedNow),
         );
         $tester = new CommandTester($command);
 
@@ -741,6 +744,34 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testNamespaceOverrideRejectsNonIdentifierSegments(): void
+    {
+        // The override lands verbatim in the generated file's `namespace` statement;
+        // unlike the --dir derivation it used to skip per-segment validation, allowing
+        // arbitrary PHP after a `;`. Every segment must be a plain PHP identifier.
+        $projectDir = \sys_get_temp_dir().'/generate-ns-inject-'.\uniqid();
+        \mkdir($projectDir, 0o755, true);
+
+        try {
+            $command = $this->makeCommand(
+                new \Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator(),
+                projectDir: $projectDir,
+            );
+            $tester = new CommandTester($command);
+            $tester->execute(['--dir' => 'tasks/', '--namespace' => "App; system('id'); //"]);
+
+            self::assertSame(Command::FAILURE, $tester->getStatusCode());
+            self::assertStringContainsString('Invalid --namespace value', $tester->getDisplay());
+            self::assertSame(
+                [],
+                (array) \glob($projectDir.'/tasks/DeployTask*.php'),
+                'No file may be generated from a hostile namespace.',
+            );
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+        }
+    }
+
     public function testGeneratedDirectoryHasPermissions0755(): void
     {
         // Kills DecrementInteger (#16) and IncrementInteger (#18) on the mkdir mode: if 0755 is
@@ -810,7 +841,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         TaskIdGeneratorInterface $idGenerator,
         ?string $templatePath = null,
         ?string $projectDir = null,
-        ?\Closure $nowProvider = null,
+        ClockInterface $clock = new SystemClock(),
         string $rootNamespace = 'App',
     ): DeployTasksGenerateCommand {
         return new DeployTasksGenerateCommand(
@@ -819,7 +850,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             rootNamespace: $rootNamespace,
             templatePath: $templatePath,
             projectDir: $projectDir,
-            nowProvider: $nowProvider,
+            clock: $clock,
         );
     }
 }

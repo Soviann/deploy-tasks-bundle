@@ -214,10 +214,12 @@ Host tasks use a separate append-only log (`.deploy-tasks-host.log`, one-shot pe
 
 The runner loads env files in Symfony cascade order (lowest to highest priority):
 1. `.env`
-2. `.env.$APP_ENV`
-3. `.env.local`
+2. `.env.local`
+3. `.env.$APP_ENV`
 4. `.env.$APP_ENV.local`
 5. `deploy-tasks-host.local.sh` (bash source, for overrides the `.env` parser can't express)
+
+As with Symfony's Dotenv, real environment variables always take precedence: a variable already set in the process environment before the runner starts (e.g. CI-injected `DATABASE_URL`) is never overwritten by any `.env` file. The resolved `APP_ENV` (CLI argument, else pre-set `APP_ENV`, else `dev`) is likewise authoritative — an `APP_ENV=` line in a `.env` file cannot change which environment the tasks run in.
 
 Values are taken literally — no variable expansion, no inline comments, no multiline values; `deploy-tasks-host.local.sh` is the escape hatch for anything the parser can't express.
 
@@ -225,7 +227,7 @@ Values in host task scripts reference exported env vars (`$NAS_HOST`, etc.).
 
 ### Concurrency
 
-A `flock` lock at `.deploy-tasks-host.lock` prevents concurrent runs on the same machine.
+A `flock` lock at `.deploy-tasks-host.lock` prevents concurrent runs on the same machine. When the lock is already held, the runner exits with code `75` (`EX_TEMPFAIL`) — the same "temporary failure, retry later" convention as `deploytasks:run`.
 
 ### Environment variables
 

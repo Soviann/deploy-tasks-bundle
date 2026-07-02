@@ -9,6 +9,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyGroupedTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -120,6 +121,53 @@ final class DeployRunEnvTest extends FunctionalTestCase
         \assert($storage instanceof TaskStorageInterface);
 
         self::assertFalse($storage->has('test.multi_env'), 'Multi-env task (dev+test) must not run in prod env');
+    }
+
+    // --- --require-some × environment filter ---
+
+    public function testRequireSomeExitsUsageWhenOnlyEnvMismatchedTasksMatchGroup(): void
+    {
+        // The only task declaring group "prodonly" is env-restricted to prod; in the
+        // test env the runner filters it out. The gate must derive "nothing matched"
+        // from the run result — a registry group match alone must not satisfy it.
+        $this->bootAndBuildTester(['extraTasks' => [ProdOnlyGroupedTask::class]]);
+
+        $this->tester->execute(['--require-some' => true, '--group' => ['prodonly']]);
+
+        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertStringContainsString('No task matched', $this->tester->getDisplay());
+    }
+
+    public function testRequireSomeDryRunExitsUsageWhenOnlyEnvMismatchedTasksMatchGroup(): void
+    {
+        $this->bootAndBuildTester(['extraTasks' => [ProdOnlyGroupedTask::class]]);
+
+        $this->tester->execute(['--require-some' => true, '--dry-run' => true, '--group' => ['prodonly']]);
+
+        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+    }
+
+    public function testRequireSomeSucceedsWhenAllMatchedTasksAlreadyExecuted(): void
+    {
+        // Already-executed slots count as "matched" (they are reported as skipped):
+        // --require-some guards against a filter matching nothing, not against no-ops.
+        $this->bootAndBuildTester();
+
+        $this->tester->execute([]);
+        $this->tester->execute(['--require-some' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+    }
+
+    public function testRequireSomeWithIdEnvMismatchExitsUsage(): void
+    {
+        // --id targeting an env-mismatched task under --require-some is "no task
+        // matched the filters" — the documented usage exit code, not INVALID.
+        $this->bootAndBuildTester();
+
+        $this->tester->execute(['--require-some' => true, '--id' => 'test.prod_only']);
+
+        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
     }
 
     /**

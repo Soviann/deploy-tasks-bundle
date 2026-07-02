@@ -44,14 +44,12 @@ final class DefaultTaskIdGeneratorTest extends TestCase
     {
         // Deliberately feeds non-existent class names to exercise the pure string-manipulation
         // edge cases (e.g. 'Task', 'DeployTask' alone) — the generator performs no reflection.
-        /* @phpstan-ignore argument.type */
         self::assertSame($expectedId, $this->generator->generate($className));
     }
 
     #[DataProvider('provideClassNames')]
     public function testGenerateStatic(string $className, string $expectedId): void
     {
-        /* @phpstan-ignore argument.type */
         self::assertSame($expectedId, DefaultTaskIdGenerator::generateStatic($className));
     }
 
@@ -61,7 +59,6 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         // '/^\d+$/' (anchored both ends) must NOT match — 'Seed123' is not purely numeric.
         // The mutant PregMatchRemoveCaret ('/\d+$/') would wrongly match and return 'task_123'.
         // The correct result is the snake_case conversion: 'seed123'.
-        /* @phpstan-ignore argument.type */
         self::assertSame('seed123', DefaultTaskIdGenerator::generateStatic('Seed123Task'));
     }
 
@@ -71,7 +68,6 @@ final class DefaultTaskIdGeneratorTest extends TestCase
         // '/^\d+$/' (anchored both ends) must NOT match — '123Seed' is not purely numeric.
         // The mutant PregMatchRemoveDollar ('/^\d+/') would wrongly match and return 'task_123Seed'.
         // The correct result is the snake_case conversion: '123_seed'.
-        /* @phpstan-ignore argument.type */
         self::assertSame('123_seed', DefaultTaskIdGenerator::generateStatic('Task123Seed'));
     }
 
@@ -79,17 +75,13 @@ final class DefaultTaskIdGeneratorTest extends TestCase
     {
         // 'Task' is only a prefix at a CamelCase/digit boundary — 'Tasking' and
         // 'Taskmaster' are single words and must keep their full names.
-        /* @phpstan-ignore argument.type */
         self::assertSame('tasking', DefaultTaskIdGenerator::generateStatic('App\Tasking'));
-        /* @phpstan-ignore argument.type */
         self::assertSame('taskmaster', DefaultTaskIdGenerator::generateStatic('App\Taskmaster'));
     }
 
     public function testStillStripsRealPrefixes(): void
     {
-        /* @phpstan-ignore argument.type */
         self::assertSame('task_20260416205300', DefaultTaskIdGenerator::generateStatic('App\Task20260416205300'));
-        /* @phpstan-ignore argument.type */
         self::assertSame('seed_categories', DefaultTaskIdGenerator::generateStatic('App\TaskSeedCategories'));
     }
 
@@ -104,7 +96,6 @@ final class DefaultTaskIdGeneratorTest extends TestCase
             'Cannot derive task id from class name "Task"; supply #[AsDeployTask(id: ...)] explicitly.',
         );
 
-        /* @phpstan-ignore argument.type */
         $this->generator->generate('Task');
     }
 
@@ -119,7 +110,6 @@ final class DefaultTaskIdGeneratorTest extends TestCase
             'Cannot derive task id from class name "DeployTask"; supply #[AsDeployTask(id: ...)] explicitly.',
         );
 
-        /* @phpstan-ignore argument.type */
         $this->generator->generate('DeployTask');
     }
 }

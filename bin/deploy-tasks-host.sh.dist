@@ -26,6 +26,13 @@ if [[ ! "$APP_ENV" =~ ^[a-zA-Z0-9_-]+$ ]]; then
 fi
 export APP_ENV
 
+# Symfony Dotenv semantics: real environment variables always win over .env
+# file values, while later files in the cascade override earlier files.
+# Snapshot the exported names present before any file is loaded to tell the
+# two cases apart. APP_ENV was resolved and exported above, so it lands in
+# the snapshot and no .env file can override the selected environment.
+ENV_SNAPSHOT=$'\n'"$(compgen -e)"$'\n'
+
 _load_env() {
     [ -f "$1" ] || return 0
     # Parse KEY=VALUE pairs instead of sourcing: dotenv syntax is not shell
@@ -37,6 +44,10 @@ _load_env() {
         esac
         if [[ "$line" =~ ^(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
             local key="${BASH_REMATCH[2]}" value="${BASH_REMATCH[3]}"
+            # Pre-existing process environment takes precedence over files.
+            if [[ "$ENV_SNAPSHOT" == *$'\n'"$key"$'\n'* ]]; then
+                continue
+            fi
             # Strip one layer of matching surrounding quotes
             if [[ "$value" =~ ^\"(.*)\"$ ]] || [[ "$value" =~ ^\'(.*)\'$ ]]; then
                 value="${BASH_REMATCH[1]}"
@@ -45,9 +56,10 @@ _load_env() {
         fi
     done < "$1"
 }
+# Symfony Dotenv cascade order (lowest to highest priority).
 _load_env .env
-_load_env ".env.$APP_ENV"
 _load_env .env.local
+_load_env ".env.$APP_ENV"
 _load_env ".env.$APP_ENV.local"
 
 if [ -f deploy-tasks-host.local.sh ]; then
@@ -62,7 +74,9 @@ LOCK_FILE="${DEPLOY_TASKS_HOST_LOCK:-$LOCK_FILE}"
 
 touch "$STORAGE"
 exec 9>"$LOCK_FILE"
-flock -n 9 || { echo "Another deploy-tasks-host run is in progress"; exit 1; }
+# Exit 75 (EX_TEMPFAIL) on contention, matching deploytasks:run's convention:
+# "temporary failure — retry", not a genuine deploy failure.
+flock -n 9 || { echo "Another deploy-tasks-host run is in progress (exit 75: retry later)" >&2; exit 75; }
 
 exit_code=0
 shopt -s nullglob

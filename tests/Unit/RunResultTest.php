@@ -18,12 +18,14 @@ final class RunResultTest extends TestCase
             skipped: 2,
             failed: 1,
             locked: true,
+            dryRun: true,
         );
 
         self::assertSame(5, $result->ran);
         self::assertSame(2, $result->skipped);
         self::assertSame(1, $result->failed);
         self::assertTrue($result->locked);
+        self::assertTrue($result->dryRun);
     }
 
     public function testIsSuccessfulWhenNoFailuresAndNotLocked(): void
@@ -52,5 +54,6 @@ final class RunResultTest extends TestCase
         $result = new RunResult(ran: 1, skipped: 0, failed: 0);
 
         self::assertFalse($result->locked);
+        self::assertFalse($result->dryRun);
     }
 }

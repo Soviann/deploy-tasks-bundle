@@ -16,6 +16,17 @@ enum TaskStatus: string
     case Skipped = 'skipped';
 
     /**
+     * Whether a slot recorded with this status is executed again on the next run.
+     *
+     * Owned by the enum so the runner's pending predicate and any UI reporting on
+     * "what will run next" share one source of truth.
+     */
+    public function willRerun(): bool
+    {
+        return self::Failed === $this;
+    }
+
+    /**
      * Parses a status read back from storage, mapping an unknown value to the
      * storage-corruption exception every backend must raise for it.
      *

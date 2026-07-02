@@ -9,6 +9,7 @@ use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
+use Soviann\DeployTasksBundle\Runner\RunOptions;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
 use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
@@ -111,7 +112,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 
         $runner = $container->get(TaskRunner::class);
         \assert($runner instanceof TaskRunner);
-        $runner->runOne('test.simple', new BufferedOutput(), force: true);
+        $runner->runOne('test.simple', new BufferedOutput(), new RunOptions(rerunAll: true));
 
         self::assertSame(['test.simple'], $captured, 'AfterTaskEvent must fire when dispatcher wired on TaskRunner.');
     }
@@ -139,7 +140,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         \assert($runner instanceof TaskRunner);
 
         $output = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
-        $runner->runAll($output, dryRun: true);
+        $runner->runAll($output, new RunOptions(dryRun: true));
 
         self::assertStringNotContainsString(
             'No lock factory configured',
