@@ -47,6 +47,12 @@ soviann_deploy_tasks:
         enabled: true
     lock:
         enabled: true
+        ttl: 3600             # lock lifetime in seconds; the runner refreshes it between tasks
+    generate:
+        directory: src/DeployTasks/Task/
+        template: ~           # path to a custom PHP template
+        root_namespace: App   # root namespace for src/-rooted --dir (mirrors symfony/maker-bundle)
+        host_directory: '%kernel.project_dir%/deploy/host-tasks'   # where deploytasks:generate:host writes stubs
 ```
 
 See [storage.md](storage.md) for the full storage configuration reference.
@@ -55,20 +61,4 @@ See [storage.md](storage.md) for the full storage configuration reference.
 
 ## Host-scope tasks
 
-Host-scope tasks run as plain bash scripts outside the container, invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. Host tasks use a separate append-only log (`.deploy-tasks-host.log`, one-shot per machine); `APP_ENV` determines which `.env.*` files are loaded for task execution and does not scope storage. One-time setup:
-
-```bash
-cp vendor/soviann/deploy-tasks-bundle/bin/deploy-tasks-host.sh.dist bin/deploy-tasks-host.sh
-chmod +x bin/deploy-tasks-host.sh
-mkdir -p deploy/host-tasks
-```
-
-Add the following entries to `.gitignore`:
-
-```
-/.deploy-tasks-host.log
-/.deploy-tasks-host.lock
-deploy-tasks-host.local.sh
-```
-
-See [README → Host-scope tasks](../README.md#host-scope-tasks) for generation, execution, and rollout details.
+Host-scope tasks run as plain bash scripts outside the container, invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. See [`docs/host-tasks.md`](host-tasks.md) for installation, task generation, execution, and the `.env` cascade.

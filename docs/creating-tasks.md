@@ -145,4 +145,51 @@ Recommended naming convention: `task_YYYYMMDDHHMMSS_<description_in_snake_case>`
 
 ## Host-scope tasks
 
-Container-scope tasks (the default) run through the Symfony kernel and are the right fit for 99% of use cases. Host-scope tasks run as plain bash scripts on the host machine, outside the container — use them when you need to touch the host filesystem, invoke host-only binaries, or sequence deploy steps that cannot run from inside the container. See [README → Host-scope tasks](../README.md#host-scope-tasks) for setup and operation details.
+Container-scope tasks (the default) run through the Symfony kernel and are the right fit for 99% of use cases. Host-scope tasks run as plain bash scripts on the host machine, outside the container — use them when you need to touch the host filesystem, invoke host-only binaries, or sequence deploy steps that cannot run from inside the container. See [`docs/host-tasks.md`](host-tasks.md) for setup and operation details.
+
+## Running shell commands
+
+Tasks that shell out to external binaries (asset builds, `rsync`, CLI migrations) can opt into the `ProcessRunnerTrait`. It wraps `symfony/process` to stream stdout/stderr, enforce a per-call timeout, and map the outcome to a `TaskResult`.
+
+Install the soft dependency first:
+
+```bash
+composer require symfony/process
+```
+
+Then compose the trait into your task:
+
+```php
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
+use Soviann\DeployTasksBundle\Helper\ProcessRunnerTrait;
+use Soviann\DeployTasksBundle\TaskResult;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Process;
+
+#[AsDeployTask(id: 'build_assets', timeout: 120)]
+final class BuildAssetsTask implements DeployTaskInterface
+{
+    use ProcessRunnerTrait;
+
+    public function getDescription(): string
+    {
+        return 'Build frontend assets';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return $this->runProcess(
+            new Process(['npm', 'run', 'build'], cwd: __DIR__.'/../../assets'),
+            $output,
+        );
+    }
+}
+```
+
+Behavior notes:
+
+- **You own the `Process` instance** — use array-form commands to avoid shell parsing, or `Process::fromShellCommandline()` if you deliberately need shell features.
+- **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, overriding any timeout set on the `Process` instance. Use `runProcessWithTimeout()` to apply a different explicit limit per call.
+- **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
+- **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.

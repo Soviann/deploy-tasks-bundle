@@ -177,7 +177,7 @@ The namespace is built by applying `ucfirst` to each path segment of the target 
 
 ## deploytasks:generate:host
 
-Generate a new host-scope deploy task script. Host scripts are plain bash files executed outside the container by `bin/deploy-tasks-host.sh`; see the [README host-runner setup](../README.md#host-scope-tasks) for installation details.
+Generate a new host-scope deploy task script. Host scripts are plain bash files executed outside the container by `bin/deploy-tasks-host.sh`; see [`docs/host-tasks.md`](host-tasks.md) for installation details.
 
 ```bash
 bin/console deploytasks:generate:host

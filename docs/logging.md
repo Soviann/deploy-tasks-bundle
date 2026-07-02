@@ -51,3 +51,31 @@ monolog:
 - No `symfony/monolog-bundle`: the channel tag is a benign no-op. Records flow to the application's `@logger` if one exists, otherwise to `NullLogger`.
 - No application `@logger` and no override: `NullLogger` — silent, no errors.
 - Custom logger via `soviann_deploy_tasks.logger`: wins over auto-detection. Channel tag is ignored.
+
+## Credential-safety when routing the channel
+
+The bundle emits PSR-3 `error` records from the task runner on every task failure.
+The context carries the original throwable so handlers can surface stack traces,
+but when the failure chain contains a `Doctrine\DBAL\Exception` the runner drops
+the full throwable and substitutes string-only fields (`exception_class`,
+`exception_message`, `previous_message`). This is a defence-in-depth measure:
+DBAL driver exceptions raised during connection or authentication typically embed
+the full DSN, including credentials, into their message and stack trace — forwarding
+that object to a handler that renders `previous.trace` (the Monolog default) would
+export the password into every sink the channel writes to.
+
+Operators routing the `soviann_deploy_tasks` Monolog channel to a shared destination
+(central logging, stderr slurpers, chat alerts) should still take care:
+
+- Prefer a handler that renders context as JSON with a normaliser configured to
+  limit trace depth (Monolog's `LineFormatter` with `$allowInlineLineBreaks = false`
+  or the `JsonFormatter` + `NormalizerFormatter::setMaxNormalizeDepth(1)`) rather
+  than rolling dumps that serialise every nested exception verbatim.
+- Keep the dedicated `soviann_deploy_tasks` channel routed to a handler you control — don't
+  fan it into generic "application error" sinks whose redaction guarantees are not
+  under your control.
+- Set the application's Doctrine connection DSN via environment variables, not
+  inline configuration, so accidental exception dumps in other code paths can't
+  capture the password from the container parameters.
+
+See [`docs/security.md`](security.md) for the bundle's broader trust model and hardening notes.
