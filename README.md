@@ -110,7 +110,7 @@ final class BuildAssetsTask implements DeployTaskInterface
     public function run(OutputInterface $output): TaskResult
     {
         return $this->runProcess(
-            new Process(['npm', 'run', 'build'], cwd: __DIR__.'/../../assets', timeout: 120),
+            new Process(['npm', 'run', 'build'], cwd: __DIR__.'/../../assets'),
             $output,
         );
     }
@@ -120,7 +120,7 @@ final class BuildAssetsTask implements DeployTaskInterface
 Behavior notes:
 
 - **You own the `Process` instance** — use array-form commands to avoid shell parsing, or `Process::fromShellCommandline()` if you deliberately need shell features.
-- **Timeout lives on the `Process`.** It is not auto-read from `#[AsDeployTask(timeout: ...)]` — keep them aligned manually if you want them to match.
+- **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, overriding any timeout set on the `Process` instance. Use `runProcessWithTimeout()` to apply a different explicit limit per call.
 - **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
 - **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.
 

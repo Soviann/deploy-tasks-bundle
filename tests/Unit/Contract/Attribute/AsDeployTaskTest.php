@@ -197,6 +197,21 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(1, \array_key_last($result));
     }
 
+    public function testTimeoutOfReturnsDeclaredTimeout(): void
+    {
+        self::assertSame(120, AsDeployTask::timeoutOf(TimeoutDeclaringTask::class));
+    }
+
+    public function testTimeoutOfReturnsNullWhenAttributeAbsent(): void
+    {
+        self::assertNull(AsDeployTask::timeoutOf(PlainTaskWithoutAttribute::class));
+    }
+
+    public function testTimeoutOfReturnsNullWhenTimeoutNotDeclared(): void
+    {
+        self::assertNull(AsDeployTask::timeoutOf(TimeoutlessAttributedTask::class));
+    }
+
     public function testRejectsIdWithDisallowedCharacters(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -345,6 +360,47 @@ final class UnattributedTestTask implements DeployTaskInterface
     public function getDescription(): string
     {
         return 'Unattributed test task';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+#[AsDeployTask(id: 'test.timeout_declaring', timeout: 120)]
+final class TimeoutDeclaringTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Timeout declaring task';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+final class PlainTaskWithoutAttribute implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Plain task without attribute';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+#[AsDeployTask(id: 'test.timeoutless')]
+final class TimeoutlessAttributedTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Timeoutless attributed task';
     }
 
     public function run(OutputInterface $output): TaskResult

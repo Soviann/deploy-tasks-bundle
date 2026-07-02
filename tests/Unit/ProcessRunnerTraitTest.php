@@ -6,6 +6,8 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Helper\ProcessRunnerTrait;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -222,6 +224,27 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('ok', $output->fetch());
     }
 
+    public function testRunProcessAppliesAttributeTimeout(): void
+    {
+        $output = self::createRawOutput();
+        $caller = new ProcessRunnerTraitAttributeTimeoutCaller();
+
+        $result = $caller->run($output);
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        self::assertStringContainsString('timed out', $output->fetch());
+    }
+
+    public function testRunProcessWithTimeoutOverridesAttributeTimeout(): void
+    {
+        $output = self::createRawOutput();
+        $caller = new ProcessRunnerTraitAttributeTimeoutOverrideCaller();
+
+        $result = $caller->run($output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+    }
+
     private static function createRawOutput(): BufferedOutput
     {
         $output = new BufferedOutput();
@@ -264,5 +287,43 @@ final class ProcessRunnerTraitWithTimeoutCaller
     public function invokeWithTimeout(Process $process, int $seconds, OutputInterface $output): TaskResult
     {
         return $this->runProcessWithTimeout($process, $seconds, $output);
+    }
+}
+
+/**
+ * @internal
+ */
+#[AsDeployTask(id: 'test.attr_timeout', timeout: 1)]
+final class ProcessRunnerTraitAttributeTimeoutCaller implements DeployTaskInterface
+{
+    use ProcessRunnerTrait;
+
+    public function getDescription(): string
+    {
+        return '';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return $this->runProcess(new Process(['php', '-r', 'sleep(5);']), $output);
+    }
+}
+
+/**
+ * @internal
+ */
+#[AsDeployTask(id: 'test.attr_timeout_override', timeout: 1)]
+final class ProcessRunnerTraitAttributeTimeoutOverrideCaller implements DeployTaskInterface
+{
+    use ProcessRunnerTrait;
+
+    public function getDescription(): string
+    {
+        return '';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return $this->runProcessWithTimeout(new Process(['php', '-r', 'echo 1;']), 10, $output);
     }
 }
