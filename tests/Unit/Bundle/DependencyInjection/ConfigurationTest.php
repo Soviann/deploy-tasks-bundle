@@ -56,8 +56,6 @@ final class ConfigurationTest extends TestCase
                     'type' => 'filesystem',
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'default',
@@ -97,8 +95,6 @@ final class ConfigurationTest extends TestCase
                     'type' => 'database',
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'default',
@@ -152,8 +148,6 @@ final class ConfigurationTest extends TestCase
                     ],
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'default',
@@ -193,7 +187,7 @@ final class ConfigurationTest extends TestCase
                 'default_timeout' => 600,
                 'storage' => [
                     'type' => 'database',
-                    'filesystem' => ['path' => '/custom/fs', 'transactional' => false, 'all_or_nothing' => false],
+                    'filesystem' => ['path' => '/custom/fs'],
                     'database' => [
                         'connection' => 'audit',
                         'table' => 't',
@@ -223,8 +217,6 @@ final class ConfigurationTest extends TestCase
                     'type' => 'database',
                     'filesystem' => [
                         'path' => '/custom/fs',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'audit',
@@ -264,8 +256,6 @@ final class ConfigurationTest extends TestCase
                     'type' => 'database',
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'default',
@@ -314,8 +304,6 @@ final class ConfigurationTest extends TestCase
                     'type' => 'filesystem',
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'default',
@@ -359,8 +347,6 @@ final class ConfigurationTest extends TestCase
                     'type' => 'filesystem',
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'database' => [
                         'connection' => 'default',
@@ -421,8 +407,6 @@ final class ConfigurationTest extends TestCase
                     ],
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
                     ],
                     'custom' => [
                         'service' => null,
@@ -696,21 +680,6 @@ final class ConfigurationTest extends TestCase
         $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
 
         self::processConfig(['generate' => ['host_directory' => '']]);
-    }
-
-    public function testFilesystemTransactionalFalseIsAccepted(): void
-    {
-        // Mutant 130: FalseValue changes `?? false` to `?? true`, which would make the
-        // validator fire even when transactional: false. Verify that the default (false) is accepted.
-        $config = self::processConfig([
-            'storage' => ['type' => 'filesystem', 'filesystem' => ['transactional' => false]],
-        ]);
-
-        $storage = $config['storage'];
-        self::assertIsArray($storage);
-        $filesystem = $storage['filesystem'];
-        self::assertIsArray($filesystem);
-        self::assertFalse($filesystem['transactional']);
     }
 
     /**
