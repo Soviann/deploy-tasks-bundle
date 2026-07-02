@@ -4,7 +4,9 @@ Host tasks run outside the Symfony container — useful for operations that must
 
 ## Install the runner
 
-Until a Flex recipe ships, install the runner manually:
+The Flex recipe installs the runner automatically (see [`installation.md`](installation.md#flex-recipe)): it copies `bin/deploy-tasks-host.sh`, publishes the config file, and adds the `.gitignore` entries below.
+
+Without Flex, or if the recipe endpoint isn't enabled, install manually:
 
     cp vendor/soviann/deploy-tasks-bundle/bin/deploy-tasks-host.sh.dist bin/deploy-tasks-host.sh
     chmod +x bin/deploy-tasks-host.sh
