@@ -8,6 +8,7 @@ One-time deploy tasks for Symfony — tracked, ordered, transactional.
 | [Creating tasks](creating-tasks.md) | Task classes, `#[AsDeployTask]`, IDs, priorities, environments, groups, host-scope tasks |
 | [Commands](commands.md) | Every `deploytasks:*` command, options, and exit codes |
 | [Storage backends](storage.md) | Filesystem, database (DBAL), in-memory, and custom backends |
+| [Host-scope tasks](host-tasks.md) | Host runner install, task generation, `.env` cascade, concurrency |
 | [Events](events.md) | `BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` |
 | [Logging](logging.md) | PSR-3 wiring, Monolog channel, message reference |
 | [Security](security.md) | Trust model, permissions, secrets handling, hardening notes |
