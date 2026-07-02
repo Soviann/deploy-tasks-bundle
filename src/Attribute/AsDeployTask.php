@@ -182,4 +182,17 @@ final class AsDeployTask
     {
         return self::of($classOrTask)->id ?? '';
     }
+
+    /**
+     * Declared timeout of a task class, or null when the class has no
+     * attribute or the attribute declares no timeout.
+     *
+     * @param class-string|DeployTaskInterface $classOrTask
+     *
+     * @throws \ReflectionException
+     */
+    public static function timeoutOf(string|DeployTaskInterface $classOrTask): ?int
+    {
+        return self::of($classOrTask)?->timeout;
+    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Helper;
 
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -17,11 +19,40 @@ use Symfony\Component\Process\Process;
  * Streams stdout/stderr to the task's OutputInterface, enforces the Process's
  * own timeout, and maps the outcome to a TaskResult.
  *
+ * Timeout precedence: when the using class implements DeployTaskInterface and
+ * declares `#[AsDeployTask(timeout: N)]`, runProcess() sets the Process's hard
+ * timeout to N, overriding any timeout already set on the Process instance.
+ * Use runProcessWithTimeout() to apply an explicit, different limit — it
+ * bypasses attribute resolution entirely.
+ *
  * Requires symfony/process (listed under "suggest" in composer.json).
  */
 trait ProcessRunnerTrait
 {
     protected function runProcess(Process $process, OutputInterface $output): TaskResult
+    {
+        if ($this instanceof DeployTaskInterface) {
+            $attributeTimeout = AsDeployTask::timeoutOf($this);
+
+            if (null !== $attributeTimeout) {
+                $process->setTimeout((float) $attributeTimeout);
+            }
+        }
+
+        return $this->doRunProcess($process, $output);
+    }
+
+    protected function runProcessWithTimeout(
+        Process $process,
+        int $seconds,
+        OutputInterface $output,
+    ): TaskResult {
+        $process->setTimeout($seconds);
+
+        return $this->doRunProcess($process, $output);
+    }
+
+    private function doRunProcess(Process $process, OutputInterface $output): TaskResult
     {
         try {
             $exitCode = $process->run(static function (string $type, string $buffer) use ($output): void {
@@ -54,15 +85,5 @@ trait ProcessRunnerTrait
         }
 
         return TaskResult::SUCCESS;
-    }
-
-    protected function runProcessWithTimeout(
-        Process $process,
-        int $seconds,
-        OutputInterface $output,
-    ): TaskResult {
-        $process->setTimeout($seconds);
-
-        return $this->runProcess($process, $output);
     }
 }
