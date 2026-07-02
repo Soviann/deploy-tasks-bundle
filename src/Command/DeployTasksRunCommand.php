@@ -40,6 +40,7 @@ final class DeployTasksRunCommand extends Command
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskRunner $runner,
+        private readonly bool $lockUnavailable = false,
     ) {
         parent::__construct();
     }
@@ -125,6 +126,11 @@ final class DeployTasksRunCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        if ($this->lockUnavailable) {
+            $output->writeln('<comment>Warning: lock.enabled is true but symfony/lock is not installed — concurrent-run protection is inactive.</comment>');
+        }
+
         $rerunAll = (bool) $input->getOption('rerun-all');
         $requireSome = (bool) $input->getOption('require-some');
 

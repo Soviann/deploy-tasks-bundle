@@ -24,7 +24,7 @@ abstract class FunctionalTestCase extends KernelTestCase
     protected static array $testKernelOptions = [];
 
     /**
-     * @var array{extensionConfig: array<string, mixed>, services: array<string, ServiceSpec>}|null
+     * @var array{extensionConfig: array<string, mixed>, services: array<string, ServiceSpec>, frameworkConfig: array<string, mixed>}|null
      */
     private static ?array $configurableKernelConfig = null;
 
@@ -51,13 +51,17 @@ abstract class FunctionalTestCase extends KernelTestCase
      *
      * @param array<string, mixed>       $extensionConfig config for the `soviann_deploy_tasks` extension
      * @param array<string, ServiceSpec> $services        extra service definitions, keyed by service id
+     * @param array<string, mixed>       $frameworkConfig overrides merged onto the base `framework` config
+     *                                                    (e.g. `['lock' => false]` to simulate symfony/lock
+     *                                                    being unavailable even though it's installed)
      */
-    protected static function useConfigurableKernel(array $extensionConfig, array $services = []): void
+    protected static function useConfigurableKernel(array $extensionConfig, array $services = [], array $frameworkConfig = []): void
     {
         static::$class = ConfigurableTestKernel::class;
         self::$configurableKernelConfig = [
             'extensionConfig' => $extensionConfig,
             'services' => $services,
+            'frameworkConfig' => $frameworkConfig,
         ];
     }
 
@@ -94,6 +98,7 @@ abstract class FunctionalTestCase extends KernelTestCase
                 $debug,
                 extensionConfig: self::$configurableKernelConfig['extensionConfig'],
                 services: self::$configurableKernelConfig['services'],
+                frameworkConfig: self::$configurableKernelConfig['frameworkConfig'],
             );
         }
 

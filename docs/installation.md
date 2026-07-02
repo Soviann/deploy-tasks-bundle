@@ -27,7 +27,7 @@ Soviann\DeployTasksBundle\SoviannDeployTasksBundle::class => ['all' => true],
 | `symfony/event-dispatcher` | Task lifecycle events (`BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent`) |
 | `symfony/lock` | Prevent concurrent execution of `deploytasks:run` |
 
-These packages are detected at runtime. If they are not installed, the corresponding features are silently disabled.
+These packages are detected at runtime. If they are not installed, the corresponding features are disabled — silently for events and storage, but `deploytasks:run` prints a warning when `lock.enabled` is `true` and symfony/lock is missing, since that means concurrent-run protection is off.
 
 ## Configuration
 
