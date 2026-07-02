@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
@@ -19,6 +20,7 @@ use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Runner\RunOptions;
@@ -44,6 +46,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
@@ -79,6 +82,32 @@ final class TaskRunnerTest extends TestCase
         self::assertTrue($this->storage->has('task.2'));
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.2')?->status);
+    }
+
+    public function testSuccessOutcomeStampsExecutedAtFromInjectedClock(): void
+    {
+        $clock = new MockClock('2026-02-03 04:05:06.123456+00:00');
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')], clock: $clock);
+
+        $runner->runAll($this->output);
+
+        $execution = $this->storage->get('task.1');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Ran, $execution->status);
+        self::assertEquals($clock->now(), $execution->executedAt);
+    }
+
+    public function testFailureOutcomeStampsExecutedAtFromInjectedClock(): void
+    {
+        $clock = new MockClock('2026-02-03 04:05:06.123456+00:00');
+        $runner = $this->createRunner([new FailingTask()], clock: $clock);
+
+        $runner->runAll($this->output);
+
+        $execution = $this->storage->get('test.failing');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Failed, $execution->status);
+        self::assertEquals($clock->now(), $execution->executedAt);
     }
 
     public function testRunAllSkipsPreviouslyRanTasks(): void
@@ -2668,6 +2697,7 @@ final class TaskRunnerTest extends TestCase
         bool $allOrNothing = false,
         int $lockTtl = 3600,
         ?string $environment = null,
+        ?ClockInterface $clock = null,
     ): TaskRunner {
         $idResolver = new TaskIdResolver();
 
@@ -2684,6 +2714,7 @@ final class TaskRunnerTest extends TestCase
             dispatcher: $dispatcher,
             lockFactory: $lockFactory,
             environment: $environment,
+            clock: $clock ?? new SystemClock(),
             logger: $logger ?? new NullLogger(),
         );
     }

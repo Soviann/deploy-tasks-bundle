@@ -777,6 +777,210 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Injection safety: hostile identifiers round-trip as bound parameters
+    // -------------------------------------------------------------------------
+
+    /**
+     * Pins the injection-safety property: DbalStorage never validates task ids or
+     * groups (unlike FilesystemStorage), so hostile values reach the SQL layer and
+     * MUST be neutralised by parameter binding. Quotes, statement terminators, and
+     * LIKE/quoting metacharacters (%, _, backtick) round-trip verbatim through every
+     * CRUD entry point, and the table survives a DROP TABLE payload.
+     */
+    public function testHostileTaskIdAndGroupRoundTripVerbatimWithoutInjection(): void
+    {
+        $hostileId = 'O\'Brien"; DROP TABLE deploy_task_executions; --';
+        $hostileGroup = 'grp%_`\'"; DELETE FROM deploy_task_executions; --';
+
+        $execution = new TaskExecution(
+            $hostileId,
+            TaskStatus::Ran,
+            new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+            null,
+            $hostileGroup,
+        );
+
+        $this->storage->save($execution);
+
+        self::assertTrue($this->storage->has($hostileId, $hostileGroup));
+
+        $retrieved = $this->storage->get($hostileId, $hostileGroup);
+        self::assertNotNull($retrieved);
+        self::assertSame($hostileId, $retrieved->id, 'Task id must round-trip verbatim.');
+        self::assertSame($hostileGroup, $retrieved->group, 'Group must round-trip verbatim.');
+
+        $matches = $this->storage->findByTaskId($hostileId);
+        self::assertCount(1, $matches);
+        self::assertSame($hostileId, $matches[0]->id);
+        self::assertSame($hostileGroup, $matches[0]->group);
+
+        $this->storage->remove($hostileId, $hostileGroup);
+        self::assertFalse($this->storage->has($hostileId, $hostileGroup));
+
+        // The DROP TABLE payload must not have executed: the table still exists
+        // and remains fully usable for a subsequent write + read.
+        self::assertTrue(
+            $this->connection->createSchemaManager()->tablesExist(['deploy_task_executions']),
+            'Storage table must survive a DROP TABLE payload in a task id.',
+        );
+        $this->storage->save(new TaskExecution('task.after', TaskStatus::Ran, new \DateTimeImmutable()));
+        self::assertCount(1, $this->storage->all());
+    }
+
+    // -------------------------------------------------------------------------
+    // DbalException→StorageException catch wrappers: remove/removeAll/findByTaskId/all
+    // -------------------------------------------------------------------------
+
+    public function testRemoveWrapsDbalExceptionWithCodeZero(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('executeStatement')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('delete failed'));
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        try {
+            $storage->remove('task.boom');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame(0, $e->getCode());
+            self::assertStringContainsString('Failed to remove task "task.boom"', $e->getMessage());
+            self::assertStringContainsString('delete failed', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
+    public function testRemoveAllWrapsDbalExceptionWithCodeZero(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('executeStatement')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('delete-all failed'));
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        try {
+            $storage->removeAll('task.boom');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame(0, $e->getCode());
+            self::assertStringContainsString('Failed to remove task "task.boom"', $e->getMessage());
+            self::assertStringContainsString('delete-all failed', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
+    public function testFindByTaskIdWrapsDbalExceptionWithCodeZero(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('fetchAllAssociative')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('fetch failed'));
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        try {
+            $storage->findByTaskId('task.boom');
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame(0, $e->getCode());
+            self::assertStringContainsString('Failed to fetch task "task.boom"', $e->getMessage());
+            self::assertStringContainsString('fetch failed', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
+    public function testAllWrapsDbalExceptionWithCodeZero(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('fetchAllAssociative')
+            ->willThrowException(new \Doctrine\DBAL\Exception\InvalidArgumentException('fetch-all failed'));
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        try {
+            $storage->all();
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame(0, $e->getCode());
+            self::assertStringContainsString('Failed to fetch all tasks', $e->getMessage());
+            self::assertStringContainsString('fetch-all failed', $e->getMessage());
+            self::assertInstanceOf(\Doctrine\DBAL\Exception::class, $e->getPrevious());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // hydrate(): non-DateTimeImmutable conversion result
+    // -------------------------------------------------------------------------
+
+    /**
+     * Covers the hydrate() branch where convertToPHPValue() returns something other
+     * than a \DateTimeImmutable without throwing. A NULL executed_at cannot be
+     * inserted through the storage's own schema (the column is NOT NULL), so the
+     * row is delivered via a mocked connection; convertToPHPValue(null, …) mirrors
+     * real DBAL behaviour, which passes NULL through unconverted.
+     */
+    public function testNullExecutedAtInRowThrowsStorageException(): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')
+            ->willReturn($this->connection->getDatabasePlatform());
+        $connection->method('fetchAssociative')->willReturn([
+            'id' => 'task.nulldate',
+            'task_group' => '',
+            'status' => 'ran',
+            'executed_at' => null,
+            'error' => null,
+        ]);
+        $connection->method('convertToPHPValue')->willReturn(null);
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Invalid executed_at value "NULL"/');
+
+        $storage->get('task.nulldate');
+    }
+
+    // -------------------------------------------------------------------------
+    // TransactionalStorageInterface contract: callback exceptions propagate unchanged
+    // -------------------------------------------------------------------------
+
+    /**
+     * Pins the transactional() contract: an exception thrown by the callback is NOT
+     * wrapped in StorageException — the very same instance propagates after the
+     * transaction rolled back, leaving the storage untouched.
+     */
+    public function testTransactionalCallbackExceptionPropagatesUnwrappedAfterRollback(): void
+    {
+        $boom = new \RuntimeException('boom');
+        $caught = null;
+
+        try {
+            $this->storage->transactional(function () use ($boom): void {
+                $this->storage->save(new TaskExecution(
+                    'task.tx', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+                ));
+
+                throw $boom;
+            });
+        } catch (\RuntimeException $e) {
+            $caught = $e;
+        }
+
+        self::assertSame($boom, $caught, 'The exact callback exception must propagate, not a StorageException wrapper.');
+
+        self::assertFalse($this->storage->has('task.tx'), 'The save must have been rolled back.');
+        self::assertSame([], $this->storage->all(), 'Storage must be empty after rollback.');
+    }
+
     protected function createStorage(): TaskStorageInterface
     {
         return $this->storage;

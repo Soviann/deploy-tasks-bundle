@@ -32,4 +32,16 @@ final class ConsoleSanitizerTest extends TestCase
     {
         self::assertSame('ab', ConsoleSanitizer::sanitize("a\x7fb"));
     }
+
+    public function testPreservesMultibyteUtf8(): void
+    {
+        // The regex targets single control bytes only; UTF-8 continuation bytes
+        // (>= 0x80) must never match, so multibyte text passes through unchanged.
+        self::assertSame('café — 日本語', ConsoleSanitizer::sanitize('café — 日本語'));
+    }
+
+    public function testStripsControlBytesWithoutCorruptingAdjacentMultibyte(): void
+    {
+        self::assertSame('café[2J日本語', ConsoleSanitizer::sanitize("café\x1b[2J\x07日本語"));
+    }
 }

@@ -162,6 +162,41 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(1, \array_key_last($result));
     }
 
+    public function testEnvsOfReturnsNullWhenAttributeMissing(): void
+    {
+        self::assertNull(AsDeployTask::envsOf(new UnattributedTestTask()));
+    }
+
+    public function testEnvsOfReturnsNullWhenAttributeHasNoEnv(): void
+    {
+        self::assertNull(AsDeployTask::envsOf(new AttributedTestTask()));
+    }
+
+    public function testEnvsOfNormalisesStringToList(): void
+    {
+        self::assertSame(['prod'], AsDeployTask::envsOf(new SingleEnvTestTask()));
+    }
+
+    public function testEnvsOfReturnsList(): void
+    {
+        self::assertSame(['dev', 'test'], AsDeployTask::envsOf(new MultiEnvTestTask()));
+    }
+
+    public function testEnvsOfReIndexesNonSequentialArrayKeys(): void
+    {
+        // Simulate an array with non-sequential keys (e.g. produced by array_filter or unset).
+        // array_values() in envsOf() must re-index — without it the mutated code returns
+        // the original keyed array, which is not a list.
+        $task = new EnvWithGapKeysTask();
+        $result = AsDeployTask::envsOf($task);
+
+        self::assertNotNull($result);
+        self::assertSame(['dev', 'prod'], $result);
+        // Keys must be 0 and 1 (list), not the gap keys from the attribute.
+        self::assertSame(0, \array_key_first($result));
+        self::assertSame(1, \array_key_last($result));
+    }
+
     public function testRejectsIdWithDisallowedCharacters(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -212,6 +247,49 @@ final class GroupsWithGapKeysTask implements DeployTaskInterface
     public function getDescription(): string
     {
         return 'Gap keys task';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+/** Task whose attribute has explicit non-sequential integer keys in the env array. */
+#[AsDeployTask(id: 'test.env_gap_keys', env: [0 => 'dev', 5 => 'prod'])]
+final class EnvWithGapKeysTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Env gap keys task';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+#[AsDeployTask(id: 'test.single_env', env: 'prod')]
+final class SingleEnvTestTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Single env';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+#[AsDeployTask(id: 'test.multi_env_local', env: ['dev', 'test'])]
+final class MultiEnvTestTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return 'Multi env';
     }
 
     public function run(OutputInterface $output): TaskResult

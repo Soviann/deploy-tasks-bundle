@@ -12,11 +12,13 @@ use Soviann\DeployTasksBundle\Exception\DeployTasksExceptionInterface;
 use Soviann\DeployTasksBundle\Exception\DuplicateTaskIdException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
+use Soviann\DeployTasksBundle\Exception\MismatchedTaskIdException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
+use Soviann\DeployTasksBundle\Exception\TaskReturnedFailureException;
 
 // The marker interface carries no executable code to cover; this test only
 // asserts the structural relationship that each exception implements it.
@@ -38,6 +40,8 @@ final class DeployTasksExceptionInterfaceTest extends TestCase
         yield 'EventListenerException' => [EventListenerException::class];
         yield 'AllOrNothingFailureException' => [AllOrNothingFailureException::class];
         yield 'TaskEnvironmentMismatchException' => [TaskEnvironmentMismatchException::class];
+        yield 'MismatchedTaskIdException' => [MismatchedTaskIdException::class];
+        yield 'TaskReturnedFailureException' => [TaskReturnedFailureException::class];
     }
 
     #[DataProvider('provideExceptions')]

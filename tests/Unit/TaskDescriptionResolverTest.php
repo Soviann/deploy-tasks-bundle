@@ -49,6 +49,13 @@ final class TaskDescriptionResolverTest extends TestCase
 
         self::assertSame('', $this->resolver->resolve($task));
     }
+
+    public function testReturnsEmptyWhenAttributeDescriptionIsEmptyString(): void
+    {
+        $task = new EmptyDescriptionEmptyAttributeTask();
+
+        self::assertSame('', $this->resolver->resolve($task));
+    }
 }
 
 #[AsDeployTask(description: 'from attribute')]
@@ -94,6 +101,20 @@ final class EmptyDescriptionNoAttributeTask implements DeployTaskInterface
 
 #[AsDeployTask(id: 'empty_null_attr')]
 final class EmptyDescriptionNullAttributeTask implements DeployTaskInterface
+{
+    public function getDescription(): string
+    {
+        return '';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return TaskResult::SUCCESS;
+    }
+}
+
+#[AsDeployTask(id: 'empty_empty_attr', description: '')]
+final class EmptyDescriptionEmptyAttributeTask implements DeployTaskInterface
 {
     public function getDescription(): string
     {
