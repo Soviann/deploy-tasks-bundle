@@ -335,6 +335,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 $this,
                 'Lock enabled but symfony/lock not available — concurrent execution protection disabled.',
             );
+
+            if ($container->hasDefinition('soviann_deploy_tasks.command.run')) {
+                $container->getDefinition('soviann_deploy_tasks.command.run')
+                    ->setArgument('$lockUnavailable', true);
+            }
         }
 
         // Clean up internal parameters

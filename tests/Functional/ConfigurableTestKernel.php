@@ -30,12 +30,16 @@ final class ConfigurableTestKernel extends AbstractTestKernel
     /**
      * @param array<string, mixed>       $extensionConfig config for the `soviann_deploy_tasks` extension
      * @param array<string, ServiceSpec> $services        extra service definitions, keyed by service id
+     * @param array<string, mixed>       $frameworkConfig overrides merged onto the base `framework` config
+     *                                                    (e.g. `['lock' => false]` to simulate symfony/lock
+     *                                                    being unavailable even though it's installed)
      */
     public function __construct(
         string $environment,
         bool $debug,
         private readonly array $extensionConfig = [],
         private readonly array $services = [],
+        private readonly array $frameworkConfig = [],
     ) {
         parent::__construct($environment, $debug);
     }
@@ -62,6 +66,11 @@ final class ConfigurableTestKernel extends AbstractTestKernel
     {
         // Unused: getCacheDir()/getLogDir() are overridden with config-hash keys.
         return 'configurable';
+    }
+
+    protected function frameworkConfig(): array
+    {
+        return $this->frameworkConfig + parent::frameworkConfig();
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
@@ -98,6 +107,6 @@ final class ConfigurableTestKernel extends AbstractTestKernel
 
     private function configHash(): string
     {
-        return 'configurable-'.\substr(\sha1(\serialize([$this->extensionConfig, $this->services])), 0, 12);
+        return 'configurable-'.\substr(\sha1(\serialize([$this->extensionConfig, $this->services, $this->frameworkConfig])), 0, 12);
     }
 }
