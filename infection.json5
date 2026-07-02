@@ -4,8 +4,8 @@
         directories: ["src"]
     },
     timeout: 30,
-    minMsi: 85,
-    minCoveredMsi: 88,
+    minMsi: 90,
+    minCoveredMsi: 90,
     mutators: {
         "@default": true
     }
