@@ -4,6 +4,7 @@
          cacheDirectory="var/cache/phpunit"
          bootstrap="vendor/autoload.php"
          colors="true"
+         executionOrder="random"
          failOnNotice="true"
          failOnRisky="true"
          failOnWarning="true"

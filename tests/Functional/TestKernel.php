@@ -15,9 +15,12 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\Filesystem\Filesystem;
 
 final class TestKernel extends AbstractTestKernel
 {
+    private readonly string $optionsHash;
+
     /**
      * @param list<class-string<DeployTaskInterface>> $extraTasks
      */
@@ -28,17 +31,30 @@ final class TestKernel extends AbstractTestKernel
         private readonly bool $lockEnabled = false,
         private readonly array $extraTasks = [],
     ) {
+        // Symfony's debug freshness check tracks file resources, not
+        // constructor args: name-keyed dirs would let kernels with different
+        // options silently reuse one compiled container. Hash every
+        // constructor argument so that can never happen, whatever args are
+        // added later. Same rationale as ConfigurableTestKernel::configHash().
+        $this->optionsHash = \substr(\sha1(\serialize(\func_get_args())), 0, 12);
+
         parent::__construct($environment, $debug);
     }
 
     public function getCacheDir(): string
     {
-        return \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-cache-'.\getmypid().'/'.$this->environment;
+        $cacheDir = \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.$this->optionsHash.'-cache-'.\getmypid().'/'.$this->environment;
+
+        if (!\is_dir($cacheDir)) {
+            (new Filesystem())->mkdir($cacheDir);
+        }
+
+        return $cacheDir;
     }
 
     public function getLogDir(): string
     {
-        return \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-logs-'.\getmypid();
+        return \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.$this->optionsHash.'-logs-'.\getmypid();
     }
 
     protected static function kernelName(): string
@@ -64,7 +80,7 @@ final class TestKernel extends AbstractTestKernel
     {
         $container->extension('framework', $this->frameworkConfig());
 
-        $storagePath = \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.\getmypid().'-'.$this->environment;
+        $storagePath = \sys_get_temp_dir().'/deploy-tasks-'.$this->variant().'-'.$this->optionsHash.'-'.\getmypid().'-'.$this->environment;
 
         $container->extension('soviann_deploy_tasks', [
             'storage' => [
