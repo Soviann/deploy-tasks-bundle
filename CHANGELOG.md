@@ -90,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generate commands reject `--dir` values that resolve outside the project directory, including absolute paths and sibling-directory escapes.
 - Filesystem storage produces a clear error for malformed JSON records and detects public-web-root segments on both POSIX and Windows paths.
 - Filesystem storage skips unrelated JSON files in the storage directory and works on paths containing glob metacharacters.
+- Flex recipe (endpoint `Soviann/flex-recipes`) — registers the bundle, publishes the config file and host runner, and maintains `.gitignore` entries.
 - Setting `deploy_tasks.logger` to a custom service no longer has the value silently rewritten by Monolog's channel pass.
 - `deploytasks:run --id=…` honors the task's `env` constraint, refusing to force-run a `prod`-only task in `dev`.
 - A throwing event listener no longer marks the task it observed as failed.

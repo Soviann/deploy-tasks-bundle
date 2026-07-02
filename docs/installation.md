@@ -19,6 +19,16 @@ With Symfony Flex, the bundle is registered automatically. Otherwise, add it to 
 Soviann\DeployTasksBundle\SoviannDeployTasksBundle::class => ['all' => true],
 ```
 
+### Flex recipe
+
+Until the bundle is on Packagist, enable the recipe endpoint:
+
+```bash
+composer config extra.symfony.endpoint --json '["https://api.github.com/repos/Soviann/flex-recipes/contents/index.json", "flex://defaults"]'
+```
+
+The endpoint repo (`Soviann/flex-recipes`) is private pre-release, so this requires `composer` GitHub auth; it becomes public at release. With the endpoint enabled, `composer require soviann/deploy-tasks-bundle` publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and maintains the host-task `.gitignore` entries automatically — see [`docs/host-tasks.md`](host-tasks.md) for the manual-install fallback.
+
 ## Optional packages
 
 | Package | Purpose |
@@ -61,4 +71,4 @@ See [storage.md](storage.md) for the full storage configuration reference.
 
 ## Host-scope tasks
 
-Host-scope tasks run as plain bash scripts outside the container, invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. See [`docs/host-tasks.md`](host-tasks.md) for installation, task generation, execution, and the `.env` cascade.
+Host-scope tasks run as plain bash scripts outside the container, invoked through `bin/deploy-tasks-host.sh` rather than `bin/console deploytasks:run`. The host runner is installed automatically by the Flex recipe (see above); see [`docs/host-tasks.md`](host-tasks.md) for the manual-install fallback, task generation, execution, and the `.env` cascade.
