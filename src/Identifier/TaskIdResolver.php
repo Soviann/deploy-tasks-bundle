@@ -32,7 +32,7 @@ final class TaskIdResolver
      */
     public function resolve(DeployTaskInterface $task): string
     {
-        $attributeId = $this->readAttributeId($task);
+        $attributeId = AsDeployTask::idOf($task);
         $providerId = $task instanceof TaskIdProviderInterface ? $task->getTaskId() : '';
 
         // Warn on mismatch when both are non-empty
@@ -57,41 +57,5 @@ final class TaskIdResolver
 
         // 3. Auto-deduce from FQCN via generator
         return $this->generator->generate($task::class);
-    }
-
-    /**
-     * Resolves a task ID from class metadata only (no instance needed).
-     *
-     * Compile-time safe subset: checks #[AsDeployTask] attribute via reflection,
-     * then falls back to FQCN auto-deduction via generator. Cannot check
-     * TaskIdProviderInterface since that requires an instantiated task.
-     *
-     * @param class-string $className
-     *
-     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
-     */
-    public function resolveFromClass(string $className): string
-    {
-        $attributeId = $this->readAttributeId($className);
-
-        if ('' !== $attributeId) {
-            return $attributeId;
-        }
-
-        return $this->generator->generate($className);
-    }
-
-    /**
-     * Reads the #[AsDeployTask] attribute id from a class or task instance, or '' if absent/empty.
-     *
-     * @param class-string|DeployTaskInterface $classOrTask
-     *
-     * @throws \ReflectionException
-     */
-    private function readAttributeId(string|DeployTaskInterface $classOrTask): string
-    {
-        $attribute = AsDeployTask::of($classOrTask);
-
-        return null !== $attribute ? $attribute->id : '';
     }
 }

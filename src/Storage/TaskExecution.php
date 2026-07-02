@@ -24,4 +24,13 @@ final readonly class TaskExecution
         public ?string $group = null,
     ) {
     }
+
+    /**
+     * Composite array key identifying a (task id, group) slot. Uses the NUL byte as
+     * separator — IDs and group names are user-facing identifiers that never contain NUL.
+     */
+    public static function slotKey(string $taskId, ?string $group): string
+    {
+        return $taskId."\0".($group ?? '');
+    }
 }

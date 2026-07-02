@@ -96,22 +96,9 @@ final class TaskRunner
                     return $this->dryRun($sorted, $output, $effectiveGroups, $force);
                 }
 
-                if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
-                    try {
-                        return $this->storage->transactional(
-                            fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock),
-                        );
-                    } catch (\Throwable $e) {
-                        $this->logger->error(
-                            'Deploy tasks run failed — transaction rolled back.',
-                            $this->buildExceptionLogContext($e),
-                        );
-
-                        throw $e;
-                    }
-                }
-
-                return $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock);
+                return $this->withAllOrNothingTransaction(
+                    fn (): RunResult => $this->executeAll($sorted, $output, $force, $effectiveGroups, $lock),
+                );
             });
 
         $final = $result ?? new RunResult(ran: 0, skipped: 0, failed: 0, locked: true);
@@ -166,15 +153,10 @@ final class TaskRunner
             function (?LockInterface $lock) use ($taskId, $output, $force, $groups, $dryRun): TaskResult {
                 $task = $this->registry->get($taskId);
 
-                $attribute = AsDeployTask::of($task);
-                $taskEnv = $attribute?->env;
+                $envs = AsDeployTask::envsOf($task);
 
-                if (null !== $taskEnv && null !== $this->environment) {
-                    $envs = \is_array($taskEnv) ? $taskEnv : [$taskEnv];
-
-                    if (!\in_array($this->environment, $envs, true)) {
-                        throw new TaskEnvironmentMismatchException($taskId, \is_array($taskEnv) ? \implode('|', $taskEnv) : $taskEnv, $this->environment);
-                    }
+                if (null !== $envs && null !== $this->environment && !\in_array($this->environment, $envs, true)) {
+                    throw new TaskEnvironmentMismatchException($taskId, \implode('|', $envs), $this->environment);
                 }
 
                 $slots = $this->resolveSlotsForRunOne($taskId, $task, $groups);
@@ -189,35 +171,15 @@ final class TaskRunner
 
                 if ($dryRun) {
                     foreach ($pendingSlots as $slot) {
-                        $label = null === $slot ? $taskId : $taskId.'@'.$slot;
-                        $output->writeln(\sprintf(
-                            '  [would run] %s - %s',
-                            $label,
-                            $this->descriptionResolver->resolve($task),
-                        ));
+                        $this->writeWouldRunLine($output, $taskId, $slot, $task);
                     }
 
                     return TaskResult::SUCCESS;
                 }
 
-                if ($this->allOrNothing && $this->storage instanceof TransactionalStorageInterface) {
-                    try {
-                        return $this->storage->transactional(
-                            fn (): TaskResult => $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result,
-                        );
-                    } catch (\Throwable $e) {
-                        $this->logger->error(
-                            'Deploy tasks run failed — transaction rolled back.',
-                            $this->buildExceptionLogContext($e),
-                        );
-
-                        throw $e;
-                    }
-                }
-
-                $outcome = $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots);
-
-                return $outcome->result;
+                return $this->withAllOrNothingTransaction(
+                    fn (): TaskResult => $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result,
+                );
             });
 
         return $result ?? TaskResult::LOCKED;
@@ -247,7 +209,6 @@ final class TaskRunner
         $lock = $this->lockFactory?->createLock('soviann_deploy_tasks_run', $this->lockTtl);
 
         if (null !== $lock && !$lock->acquire()) {
-            $output->writeln('<error>Another deploytasks:run process is already running.</error>');
             $this->logger->warning('Deploy tasks run skipped: another process is already running');
 
             return null;
@@ -279,23 +240,57 @@ final class TaskRunner
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
             $slots = self::computeSlots($task, $effectiveGroups);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $force);
 
-            foreach ($slots as $slot) {
-                $execution = $force ? null : $this->storage->get($taskId, $slot);
+            $skipped += \count($slots) - \count($pendingSlots);
+            $pending += \count($pendingSlots);
 
-                if (!$this->isPendingSlot($execution)) {
-                    ++$skipped;
-
-                    continue;
-                }
-
-                ++$pending;
-                $label = null === $slot ? $taskId : $taskId.'@'.$slot;
-                $output->writeln(\sprintf('  [would run] %s - %s', $label, $this->descriptionResolver->resolve($task)));
+            foreach ($pendingSlots as $slot) {
+                $this->writeWouldRunLine($output, $taskId, $slot, $task);
             }
         }
 
         return new RunResult(ran: $pending, skipped: $skipped, failed: 0);
+    }
+
+    /**
+     * Runs the operation inside a single run-wide transaction when `all_or_nothing`
+     * is enabled and the storage backend supports it; runs it directly otherwise.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $operation
+     *
+     * @return T
+     *
+     * @throws \Throwable Rethrown after logging when the transaction rolled back
+     */
+    private function withAllOrNothingTransaction(\Closure $operation): mixed
+    {
+        if (!$this->allOrNothing || !$this->storage instanceof TransactionalStorageInterface) {
+            return $operation();
+        }
+
+        try {
+            return $this->storage->transactional($operation);
+        } catch (\Throwable $e) {
+            $this->logger->error(
+                'Deploy tasks run failed — transaction rolled back.',
+                $this->buildExceptionLogContext($e),
+            );
+
+            throw $e;
+        }
+    }
+
+    private function writeWouldRunLine(
+        OutputInterface $output,
+        string $taskId,
+        ?string $slot,
+        DeployTaskInterface $task,
+    ): void {
+        $label = null === $slot ? $taskId : $taskId.'@'.$slot;
+        $output->writeln(\sprintf('  [would run] %s - %s', $label, $this->descriptionResolver->resolve($task)));
     }
 
     /**
@@ -438,14 +433,7 @@ final class TaskRunner
             $duration = \microtime(true) - $start;
 
             $outcome = $this->buildSuccessOutcome($taskId, $result, $duration, $timeout, $output);
-
-            if (!$output->isQuiet()) {
-                $output->writeln(\sprintf(
-                    '   → %s (%dms)',
-                    $outcome->status->value,
-                    (int) \round($outcome->durationSeconds * 1000),
-                ));
-            }
+            $this->writeCompletionLine($output, $outcome);
 
             $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
 
@@ -464,14 +452,7 @@ final class TaskRunner
             }
 
             $outcome = $this->buildFailureOutcome($taskId, $e, $duration, $output);
-
-            if (!$output->isQuiet()) {
-                $output->writeln(\sprintf(
-                    '   → %s (%dms)',
-                    $outcome->status->value,
-                    (int) \round($outcome->durationSeconds * 1000),
-                ));
-            }
+            $this->writeCompletionLine($output, $outcome);
 
             $this->persistOutcome($taskId, $outcome, $pendingSlots);
 
@@ -484,6 +465,22 @@ final class TaskRunner
 
             return $outcome;
         }
+    }
+
+    /**
+     * Emits the `→ status (ms)` completion line shared by the success and failure paths.
+     */
+    private function writeCompletionLine(OutputInterface $output, TaskOutcome $outcome): void
+    {
+        if ($output->isQuiet()) {
+            return;
+        }
+
+        $output->writeln(\sprintf(
+            '   → %s (%dms)',
+            $outcome->status->value,
+            (int) \round($outcome->durationSeconds * 1000),
+        ));
     }
 
     private function buildSuccessOutcome(

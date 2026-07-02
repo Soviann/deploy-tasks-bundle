@@ -700,10 +700,8 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testCustomTemplateReplacesNamespaceToken(): void
     {
-        // Kills ArrayItemRemoval (#13, line 150): mutation removes '{{ namespace }}' entry from
-        // the merge array — the namespace placeholder would survive raw in the generated file.
-        // Kills UnwrapArrayMerge (#14-15, line 150): mutations remove $replacements from the merge
-        // so custom __TASK_ID__ / __DESCRIPTION__ tokens survive raw.
+        // Kills ArrayItemRemoval on the custom-template replacement map: removing any
+        // '{{ … }}' entry lets that placeholder survive raw in the generated file.
         $template = \sys_get_temp_dir().'/generate-ns-tpl-'.\uniqid().'.tpl';
         \file_put_contents(
             $template,

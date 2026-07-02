@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Shared confirmation guard for commands that destroy stored execution state.
@@ -47,6 +48,21 @@ trait DestructiveCommandTrait
 
             return true;
         }
+
+        return false;
+    }
+
+    /**
+     * Asks the destructive-action confirmation (defaulting to no), emitting the
+     * shared abort notice on decline. Returns true when the caller may proceed.
+     */
+    private function confirmOrAbort(SymfonyStyle $io, string $prompt): bool
+    {
+        if ($io->confirm($prompt, false)) {
+            return true;
+        }
+
+        $io->note('Aborted.');
 
         return false;
     }

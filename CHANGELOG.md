@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Custom `deploytasks:generate:container` templates now substitute only the documented `{{ namespace }}` / `{{ className }}` / `{{ taskId }}` / `{{ description }}` placeholders — the internal `__TASK_ID__` / `__DESCRIPTION__` tokens of the built-in stub are no longer also replaced in custom templates.
+- `deploytasks:generate:container` and `deploytasks:generate:host` now report every invalid `--dir` value as a uniform `Invalid --dir value "…": …` console error with exit code 1 — a value resolving outside the project directory previously surfaced as an uncaught exception.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** The bundle class is now `SoviannDeployTasksBundle` and the whole config surface is vendor-prefixed per the Symfony bundle naming standard: config root `deploy_tasks` → `soviann_deploy_tasks`, service IDs/parameters `deploy_tasks.*` → `soviann_deploy_tasks.*`, task tag `deploy_tasks.task` → `soviann_deploy_tasks.task`, Monolog channel `deploy_tasks` → `soviann_deploy_tasks`, run-lock key `deploy_tasks_run` → `soviann_deploy_tasks_run`. Update `config/bundles.php` and rename the config root key. Command names (`deploytasks:*`), the package name, PHP namespaces, the storage table name, and `DEPLOY_TASKS_HOST_*` env vars are unchanged.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** The `deploytasks:rollup` confirmation prompt now defaults to "no" (matching `deploytasks:reset`) — pressing Enter aborts instead of clearing all execution history.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** The database storage backend now requires `doctrine/dbal: ^4.3` (was `^3.6 || ^4.0`). `DbalStorage` builds its table with the `PrimaryKeyConstraint` schema API introduced in DBAL 4.3, which does not exist on DBAL 3.x or 4.0–4.2 — installing the bundle's DBAL storage against those versions previously failed at runtime with `Call to undefined method Doctrine\DBAL\Schema\Table::addPrimaryKeyConstraint()`. The `composer.json` `conflict` and `suggest` entries are updated to match. Projects on the filesystem or a custom storage backend are unaffected (DBAL is an optional dependency).
@@ -120,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `deploytasks:run` no longer reports "another process is already running" twice when the run lock is held — the runner returns the locked sentinel (and logs a warning) and only the command prints the user-facing message.
 - The "requires doctrine/dbal" error now tells users to install `^4.3` — following the old `^3.6 || ^4.0` instruction produced an unsolvable dependency conflict.
 - The default ID generator no longer mangles class names that merely start with "Task" (`Tasking` → `tasking`, not `ing`).
 - The container no longer fails to build when two `TaskIdProviderInterface` tasks share a short class name across namespaces — compile-time duplicate/length checks now skip provider tasks (whose real ID only exists at runtime) and defer to the registry's boot-time check.

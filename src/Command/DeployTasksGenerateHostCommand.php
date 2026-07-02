@@ -75,51 +75,23 @@ final class DeployTasksGenerateHostCommand extends Command
         $dirInput = $input->getOption('dir');
         $userProvidedDir = $input->hasParameterOption('--dir');
 
-        if ($userProvidedDir && \str_starts_with($dirInput, '/')) {
-            $io->error('The --dir option must be a relative path.');
-
-            return Command::FAILURE;
-        }
-
         if (!$userProvidedDir && \str_starts_with($dirInput, '/')) {
             // The configured host_directory default is an absolute path injected via DI.
             // Use it directly; apply only the boundary check.
             $resolvedDir = PathNormalizer::normalize($dirInput);
 
             if (null !== $this->projectDir) {
-                $boundary = \rtrim($this->projectDir, '/').'/';
-
-                if (!\str_starts_with($resolvedDir.'/', $boundary)) {
-                    throw new \InvalidArgumentException(\sprintf('The --dir option resolves to "%s", which is outside the project directory "%s".', $resolvedDir, $this->projectDir));
-                }
+                PathNormalizer::assertWithin($resolvedDir, $this->projectDir);
             }
 
             $dir = $resolvedDir.'/';
         } else {
-            $dirInput = \rtrim($dirInput, '/').'/';
-
-            $canonical = PathNormalizer::normalize($dirInput);
-
-            if (\str_starts_with($canonical, '..') || 1 !== \preg_match('#^[A-Za-z0-9/_\-]+$#', $canonical)) {
-                $io->error(\sprintf(
-                    'Invalid --dir value "%s": must be a relative path using only letters, digits, slash, underscore, dash, and must not traverse above its starting point.',
-                    $dirInput,
-                ));
+            try {
+                $dir = PathNormalizer::resolveRelativeDirWithin($dirInput, $this->projectDir);
+            } catch (\InvalidArgumentException $e) {
+                $io->error(\sprintf('Invalid --dir value "%s": %s', $dirInput, $e->getMessage()));
 
                 return Command::FAILURE;
-            }
-
-            if (null !== $this->projectDir) {
-                $resolvedDir = PathNormalizer::normalize($this->projectDir.'/'.$dirInput);
-                $boundary = \rtrim($this->projectDir, '/').'/';
-
-                if (!\str_starts_with($resolvedDir.'/', $boundary)) {
-                    throw new \InvalidArgumentException(\sprintf('The --dir option resolves to "%s", which is outside the project directory "%s".', $resolvedDir, $this->projectDir));
-                }
-
-                $dir = $resolvedDir.'/';
-            } else {
-                $dir = $dirInput;
             }
         }
 

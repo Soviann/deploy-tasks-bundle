@@ -133,9 +133,7 @@ final class DeployTasksRollupCommand extends Command
                 \implode(', ', $groupFilter),
             );
 
-        if (!$force && !$io->confirm($prompt, false)) {
-            $io->note('Aborted.');
-
+        if (!$force && !$this->confirmOrAbort($io, $prompt)) {
             return Command::FAILURE;
         }
 
