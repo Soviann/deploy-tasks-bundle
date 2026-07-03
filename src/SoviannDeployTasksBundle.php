@@ -8,10 +8,13 @@ use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksResetHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksRollupHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksShowCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksSkipHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\EventsConfigNode;
@@ -304,6 +307,32 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->args([
                 '$hostDirectory' => $generateConfig['host_directory'],
                 '$projectDir' => param('kernel.project_dir'),
+            ])
+            ->tag('console.command')
+        ;
+
+        // Host ops-plane parity commands — same $hostTasksDir/$hostLogPath wiring as the
+        // status bridge above; they manipulate the completion log only, never the runner.
+        $services->set('soviann_deploy_tasks.command.skip.host', DeployTasksSkipHostCommand::class)
+            ->args([
+                '$hostTasksDir' => $generateConfig['host_directory'],
+                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
+            ])
+            ->tag('console.command')
+        ;
+
+        $services->set('soviann_deploy_tasks.command.reset.host', DeployTasksResetHostCommand::class)
+            ->args([
+                '$hostTasksDir' => $generateConfig['host_directory'],
+                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
+            ])
+            ->tag('console.command')
+        ;
+
+        $services->set('soviann_deploy_tasks.command.rollup.host', DeployTasksRollupHostCommand::class)
+            ->args([
+                '$hostTasksDir' => $generateConfig['host_directory'],
+                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
             ])
             ->tag('console.command')
         ;
