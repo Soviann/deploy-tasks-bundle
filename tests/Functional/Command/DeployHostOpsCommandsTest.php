@@ -160,6 +160,31 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame([], $this->logLines());
     }
 
+    public function testResetHostRemovesDuplicateLines(): void
+    {
+        $this->makeScript('a');
+        $this->makeScript('b');
+        \file_put_contents($this->logPath, "a\na\nb\n");
+
+        $tester = $this->tester('deploytasks:reset:host');
+        $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame("b\n", \file_get_contents($this->logPath));
+    }
+
+    public function testResetHostYesAliasSkipsConfirmation(): void
+    {
+        $this->makeScript('a');
+        \file_put_contents($this->logPath, "a\n");
+
+        $tester = $this->tester('deploytasks:reset:host');
+        $exitCode = $tester->execute(['id' => 'a', '--yes' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame([], $this->logLines());
+    }
+
     public function testResetHostRefusesNonInteractiveWithoutForce(): void
     {
         $this->makeScript('a');
@@ -224,6 +249,23 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertSame(['a'], $this->logLines());
+    }
+
+    public function testRollupHostAllDoneSkipsConfirmationPrompt(): void
+    {
+        $this->makeScript('a');
+        $this->makeScript('b');
+        \file_put_contents($this->logPath, "a\nb\n");
+
+        $tester = $this->tester('deploytasks:rollup:host');
+        // No setInputs(): the command must resolve to SUCCESS without ever
+        // reading from stdin, proving the confirmation prompt was skipped
+        // because the all-done check runs before it.
+        $exitCode = $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Every host task is already marked as done — nothing to roll up.', $tester->getDisplay());
+        self::assertSame(['a', 'b'], $this->logLines());
     }
 
     // --- host dir missing (all three) ---
