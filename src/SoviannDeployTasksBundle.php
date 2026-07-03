@@ -242,11 +242,16 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
+        /** @var GenerateConfig $generateConfig */
+        $generateConfig = $config['generate'];
+
         $services->set('soviann_deploy_tasks.command.status', DeployTasksStatusCommand::class)
             ->args([
-                service('soviann_deploy_tasks.registry'),
-                service('soviann_deploy_tasks.storage'),
-                service('soviann_deploy_tasks.description_resolver'),
+                '$registry' => service('soviann_deploy_tasks.registry'),
+                '$storage' => service('soviann_deploy_tasks.storage'),
+                '$descriptionResolver' => service('soviann_deploy_tasks.description_resolver'),
+                '$hostTasksDir' => $generateConfig['host_directory'],
+                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
             ])
             ->tag('console.command')
         ;
@@ -283,9 +288,6 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ])
             ->tag('console.command')
         ;
-
-        /** @var GenerateConfig $generateConfig */
-        $generateConfig = $config['generate'];
 
         $services->set('soviann_deploy_tasks.command.generate', DeployTasksGenerateCommand::class)
             ->args([

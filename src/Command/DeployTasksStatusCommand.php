@@ -33,6 +33,10 @@ final class DeployTasksStatusCommand extends Command
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
         private readonly TaskDescriptionResolver $descriptionResolver,
+        /** Directory scanned for host-scope `*.sh` tasks (mirrors deploytasks:generate:host's host_directory). */
+        private readonly string $hostTasksDir,
+        /** Host runner's append-only completion log (bin/deploy-tasks-host.sh's default `.deploy-tasks-host.log`). */
+        private readonly string $hostLogPath,
     ) {
         parent::__construct();
     }
@@ -141,7 +145,44 @@ final class DeployTasksStatusCommand extends Command
         $io->newLine();
         $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), \count($rows)));
 
+        $this->renderHostTasks($io);
+
         return Command::SUCCESS;
+    }
+
+    /**
+     * Read-only bridge onto bin/deploy-tasks-host.sh's state: PHP never writes to
+     * $hostTasksDir or $hostLogPath, it only reads them for display. "Done" mirrors the
+     * runner's `grep -Fxq` semantics — an exact, full-line match of the task ID in the log.
+     */
+    private function renderHostTasks(SymfonyStyle $io): void
+    {
+        if (!\is_dir($this->hostTasksDir)) {
+            return;
+        }
+
+        $globbed = \glob($this->hostTasksDir.'/*.sh');
+        $scripts = false !== $globbed ? $globbed : [];
+        if ([] === $scripts) {
+            return;
+        }
+
+        $done = [];
+        if (\is_file($this->hostLogPath)) {
+            $lines = \file($this->hostLogPath, \FILE_IGNORE_NEW_LINES | \FILE_SKIP_EMPTY_LINES);
+            $done = false !== $lines ? \array_flip($lines) : [];
+        }
+
+        $io->section('Host tasks');
+        $io->text(\sprintf('From <comment>%s</comment>:', $this->hostTasksDir));
+
+        $table = $io->createTable();
+        $table->setHeaders(['ID', 'Status']);
+        foreach ($scripts as $script) {
+            $id = \basename($script, '.sh');
+            $table->addRow([$id, isset($done[$id]) ? '<info>done</info>' : '<comment>pending</comment>']);
+        }
+        $table->render();
     }
 
     /**
