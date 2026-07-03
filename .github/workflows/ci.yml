@@ -32,6 +32,25 @@ jobs:
       - name: Validate composer.json
         run: composer validate --strict
 
+  shellcheck:
+    name: Shellcheck host runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # shellcheck ships preinstalled on ubuntu-latest. Scoped to the runner
+      # itself and any real *.sh files under src/tests — none exist today
+      # (deploytasks:generate:host writes its stub at runtime, from a PHP
+      # template, not a committed .sh file), so the find is a no-op guard
+      # against future additions rather than dead weight.
+      - name: shellcheck runner + host-task scripts
+        run: |
+          shellcheck bin/deploy-tasks-host.sh.dist
+          find src tests -name '*.sh' -print0 | xargs -0 -r shellcheck
+
   phpstan:
     name: PHPStan
     runs-on: ubuntu-latest
