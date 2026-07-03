@@ -96,6 +96,8 @@ bin/console deploytasks:rollup:host --no-interaction --force
 - **`reset:host <id>`** removes every exact-match line for the id, so the task runs again on the next `bin/deploy-tasks-host.sh`. An id with no log entry is reported as already pending (`SUCCESS`, no-op). Destructive: requires confirmation or `--force`/`--yes` under `--no-interaction`, mirroring `deploytasks:reset`. The rewrite is atomic (temp file + rename), matching `FilesystemStorage`'s write discipline.
 - **`rollup:host`** appends every pending script id in one pass and reports the count. An empty host directory (or one where every script is already done) warns and exits successfully without prompting. Destructive: same confirmation/`--force` convention as `deploytasks:rollup`.
 
+**Concurrency:** the ops commands do not take the runner's `.deploy-tasks-host.lock` `flock`. Don't run them while `bin/deploy-tasks-host.sh` is executing on the same machine — a `reset:host` rewrite racing the runner's own append can drop a just-completed record, and that task would run again on the next deploy.
+
 All three refuse with `Command::INVALID` and a pointer back to this document when the host tasks directory doesn't exist. See [`docs/commands.md`](commands.md) for full options and exit codes.
 
 ## Non-goals — the host runner stays small
