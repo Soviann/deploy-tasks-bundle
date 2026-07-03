@@ -472,10 +472,12 @@ final class DeployStatusCommandTest extends FunctionalTestCase
             self::assertSame(Command::SUCCESS, $exitCode);
             $display = $tester->getDisplay();
             self::assertStringContainsString('Host tasks', $display);
-            self::assertStringContainsString('a', $display);
-            self::assertStringContainsString('done', $display);
-            self::assertStringContainsString('b', $display);
-            self::assertStringContainsString('pending', $display);
+            // Row-scoped: bind each id to the status on its own table row so a done/pending
+            // inversion between "a" and "b" would fail the assertion (plain substring checks
+            // for 'a' / 'pending' are vacuous — 'a' matches almost anything, and 'pending'
+            // would still be found elsewhere in the display even if the rows were swapped).
+            self::assertMatchesRegularExpression('/\ba\b[^\n]*done/', $display);
+            self::assertMatchesRegularExpression('/\bb\b[^\n]*pending/', $display);
         } finally {
             FilesystemTestHelper::cleanup($projectDir);
         }
