@@ -2,6 +2,17 @@
 
 Host tasks run outside the Symfony container — useful for operations that must execute on the host (Docker restarts, SSH-driven commands, infrastructure prep). They live as shell files under `deploy/host-tasks/`.
 
+## Which scope do I need?
+
+| Your task… | Scope |
+|---|---|
+| Touches the app: DB migrations/data, cache, framework services | **Container** (`#[AsDeployTask]` PHP class) |
+| Shells out but can run inside the app container (asset build, CLI tool) | **Container** + `ProcessRunnerTrait` |
+| Needs the host: Docker/systemd restarts, mounts, packages, root | **Host** (`deploy/host-tasks/*.sh`) |
+| Must run even when the app cannot boot (broken kernel, pre-install) | **Host** |
+
+Default to container tasks: they get storage backends, groups, env filtering, events, and status tooling. Host tasks get none of that by design (see Non-goals).
+
 ## Install the runner
 
 The Flex recipe installs the runner automatically (see [`installation.md`](installation.md#flex-recipe)): it copies `bin/deploy-tasks-host.sh`, publishes the config file, and adds the `.gitignore` entries below.
@@ -70,3 +81,40 @@ Paths are resolved relative to the runner's current working directory (the repo 
 `deploytasks:status` appends a "Host tasks" section listing each `deploy/host-tasks/*.sh` script as `done` (its ID is a full line in `.deploy-tasks-host.log`) or `pending`. This is a read-only bridge: PHP only reads the host directory and the log, it never writes to them, and the bash runner above is unaffected.
 
 **Limitation:** the `DEPLOY_TASKS_HOST_DIR` and `DEPLOY_TASKS_HOST_STORAGE` env var overrides described above are read by the bash runner at execution time — they are **not** visible to the PHP side. `deploytasks:status` always reads from `generate.host_directory` (bundle config, default `deploy/host-tasks`) and `<kernel.project_dir>/.deploy-tasks-host.log`. If you run the host runner with either variable overridden, `deploytasks:status` will show stale or empty state until the config is updated to match.
+
+## Non-goals — the host runner stays small
+
+The host runner is intentionally a flat, ordered, once-per-machine script runner
+(~100 lines of bash). The following are **non-goals** and will not be added:
+
+- groups / stages, env-based task filtering, priorities
+- lifecycle events, per-task timeouts
+- storage backends beyond the append-only log
+- richer `.env` parsing (expansion, inline comments, multiline) — use
+  `deploy-tasks-host.local.sh` for anything the parser can't express
+
+If a deploy needs more than this on the host side, prefer a container task
+shelling out via `ProcessRunnerTrait`, or real configuration management
+(Ansible & co).
+
+Splitting the host runner into its own package was evaluated and **decided
+against** (2026-07-02, pre-release): the coupling between the halves is a
+small set of conventions (log format, directory layout, id = script
+basename), and a split would turn those into a cross-package contract with
+no good home for the bridging commands, doubling release overhead for no
+identified standalone audience. The bundle stays single — but structured
+for extraction-readiness: the contract below is explicit and pinned by
+tests, and host assets live under bounded paths, so the decision can be
+revisited cheaply if the host side ever grows a genuine second feature
+axis AND a standalone audience.
+
+## The host contract (pinned by tests)
+
+- Task id = script basename without `.sh`; scripts live in
+  `deploy/host-tasks/` (`DEPLOY_TASKS_HOST_DIR` override).
+- Completion log = one id per line, exact-line match
+  (`.deploy-tasks-host.log`, `DEPLOY_TASKS_HOST_STORAGE` override);
+  append-only from the runner's side.
+- Env cascade: `.env` → `.env.local` → `.env.$APP_ENV` →
+  `.env.$APP_ENV.local` → `deploy-tasks-host.local.sh`; real environment
+  always wins. Parser subset per the contract tests.
