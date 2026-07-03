@@ -71,6 +71,8 @@ Multi-group tasks are displayed once per declared slot. The `Group` column shows
 | `failed` | Execution failed; will be retried on the next `deploytasks:run` |
 | `skipped` | Manually marked as skipped via `deploytasks:skip`, or returned by a task as `TaskResult::SKIPPED` |
 
+**Host tasks:** when `generate.host_directory` exists and contains at least one `*.sh` script, a separate "Host tasks" section is appended listing each script as `done` or `pending`. This is a read-only view onto [host-scope tasks](host-tasks.md) — `done` means the script's basename appears as a full line in the host runner's completion log, mirroring `bin/deploy-tasks-host.sh`'s own `grep -Fxq` check. The section is omitted entirely when the host directory doesn't exist. See [host-tasks.md](host-tasks.md#status-visibility) for the env-override caveat.
+
 ---
 
 ## deploytasks:show

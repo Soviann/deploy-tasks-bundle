@@ -64,3 +64,9 @@ The runner honours three environment variables for path overrides (useful for CI
 | `DEPLOY_TASKS_HOST_LOCK` | `.deploy-tasks-host.lock` | `flock` file guarding against concurrent runs. |
 
 Paths are resolved relative to the runner's current working directory (the repo root by convention). Set them via shell environment, CI secrets, or the `deploy-tasks-host.local.sh` override file.
+
+## Status visibility
+
+`deploytasks:status` appends a "Host tasks" section listing each `deploy/host-tasks/*.sh` script as `done` (its ID is a full line in `.deploy-tasks-host.log`) or `pending`. This is a read-only bridge: PHP only reads the host directory and the log, it never writes to them, and the bash runner above is unaffected.
+
+**Limitation:** the `DEPLOY_TASKS_HOST_DIR` and `DEPLOY_TASKS_HOST_STORAGE` env var overrides described above are read by the bash runner at execution time — they are **not** visible to the PHP side. `deploytasks:status` always reads from `generate.host_directory` (bundle config, default `deploy/host-tasks`) and `<kernel.project_dir>/.deploy-tasks-host.log`. If you run the host runner with either variable overridden, `deploytasks:status` will show stale or empty state until the config is updated to match.
