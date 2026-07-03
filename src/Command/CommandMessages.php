@@ -15,6 +15,9 @@ final class CommandMessages
 {
     public const UNKNOWN_TASK = 'Task "%s" is not registered. Run deploytasks:status to see available tasks.';
 
+    /** Shared by the three host-scope ops commands (skip:host, reset:host, rollup:host). */
+    public const HOST_DIR_MISSING = 'Host tasks directory "%s" not found. See docs/host-tasks.md to set it up.';
+
     /**
      * Renders a task status as its colour-tagged console label.
      */

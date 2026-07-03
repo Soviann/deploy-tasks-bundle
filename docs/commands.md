@@ -154,6 +154,54 @@ If the task has no execution record, the command reports it is already pending a
 
 ---
 
+## deploytasks:skip:host
+
+Host-scope equivalent of [`deploytasks:skip`](#deploytasksskip): marks a host task as done in the completion log without running its script. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state) for the full contract.
+
+```bash
+bin/console deploytasks:skip:host deploy_task_20260418_143022
+```
+
+**Arguments:**
+
+| Argument | Description |
+|---|---|
+| `id` | The host task ID to skip — the script's basename without `.sh` (required) |
+
+You are prompted for confirmation before proceeding (same convention as `deploytasks:skip`: reversible via `deploytasks:reset:host`, so it proceeds under `--no-interaction` without requiring `--force`).
+
+**Exit codes:** `0` on success (including the already-done no-op); `2` (`Command::INVALID`) when the host tasks directory or the `<id>.sh` script does not exist; `1` when the confirmation is declined.
+
+---
+
+## deploytasks:reset:host
+
+Host-scope equivalent of [`deploytasks:reset`](#deploytasksreset): removes a host task's completion-log entry so it is treated as pending and runs again on the next `bin/deploy-tasks-host.sh`. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state).
+
+```bash
+bin/console deploytasks:reset:host deploy_task_20260418_143022
+bin/console deploytasks:reset:host deploy_task_20260418_143022 --no-interaction --force
+```
+
+**Arguments:**
+
+| Argument | Description |
+|---|---|
+| `id` | The host task ID to reset (required) |
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
+| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
+
+If the task has no completion-log entry, the command reports it is already pending and exits successfully without error.
+
+**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
+
+---
+
 ## deploytasks:generate:container
 
 Generate a new container-scope deploy task class with a timestamp-based ID.
@@ -218,6 +266,28 @@ bin/console deploytasks:rollup --group=predeploy --group=postdeploy
 You are prompted for confirmation before proceeding. In CI, pass `--no-interaction --force` (a non-interactive run is refused without `--force`/`--yes`).
 
 If the storage backend implements `TransactionalStorageInterface`, the reset and re-mark operations are wrapped in a single transaction.
+
+---
+
+## deploytasks:rollup:host
+
+Host-scope equivalent of [`deploytasks:rollup`](#deploytasksrollup): appends every pending host task's id to the completion log, marking them all as done without running their scripts. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state).
+
+```bash
+bin/console deploytasks:rollup:host
+bin/console deploytasks:rollup:host --no-interaction --force
+```
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
+| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
+
+An empty host tasks directory, or a directory where every script is already marked done, produces a warning/note and exits successfully without prompting.
+
+**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
 
 ---
 

@@ -82,6 +82,22 @@ Paths are resolved relative to the runner's current working directory (the repo 
 
 **Limitation:** the `DEPLOY_TASKS_HOST_DIR` and `DEPLOY_TASKS_HOST_STORAGE` env var overrides described above are read by the bash runner at execution time — they are **not** visible to the PHP side. `deploytasks:status` always reads from `generate.host_directory` (bundle config, default `deploy/host-tasks`) and `<kernel.project_dir>/.deploy-tasks-host.log`. If you run the host runner with either variable overridden, `deploytasks:status` will show stale or empty state until the config is updated to match.
 
+## Managing host task state
+
+`deploytasks:skip:host`, `deploytasks:reset:host` and `deploytasks:rollup:host` give host tasks the same ops tooling as container tasks — [`deploytasks:skip`](commands.md#deploytasksskip), [`deploytasks:reset`](commands.md#deploytasksreset), [`deploytasks:rollup`](commands.md#deploytasksrollup) — while the execution plane (the bash runner) stays untouched. All three operate on `.deploy-tasks-host.log` only, using the exact-line semantics described in [the host contract](#the-host-contract-pinned-by-tests) below (`grep -Fxq`):
+
+```bash
+bin/console deploytasks:skip:host deploy_task_20260418_143022
+bin/console deploytasks:reset:host deploy_task_20260418_143022 --no-interaction --force
+bin/console deploytasks:rollup:host --no-interaction --force
+```
+
+- **`skip:host <id>`** appends the id to the log, marking the task done without running its script. The id must have a matching `<id>.sh` in the host directory. Already-done ids are a no-op (`SUCCESS`, no duplicate line). Prompts for confirmation like `deploytasks:skip` — reversible via `reset:host`, so it proceeds under `--no-interaction` without `--force`.
+- **`reset:host <id>`** removes every exact-match line for the id, so the task runs again on the next `bin/deploy-tasks-host.sh`. An id with no log entry is reported as already pending (`SUCCESS`, no-op). Destructive: requires confirmation or `--force`/`--yes` under `--no-interaction`, mirroring `deploytasks:reset`. The rewrite is atomic (temp file + rename), matching `FilesystemStorage`'s write discipline.
+- **`rollup:host`** appends every pending script id in one pass and reports the count. An empty host directory (or one where every script is already done) warns and exits successfully without prompting. Destructive: same confirmation/`--force` convention as `deploytasks:rollup`.
+
+All three refuse with `Command::INVALID` and a pointer back to this document when the host tasks directory doesn't exist. See [`docs/commands.md`](commands.md) for full options and exit codes.
+
 ## Non-goals — the host runner stays small
 
 The host runner is intentionally a flat, ordered, once-per-machine script runner
