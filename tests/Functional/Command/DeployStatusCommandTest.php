@@ -5,22 +5,17 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
-use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
+use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use Symfony\Component\HttpKernel\Kernel;
 
 #[CoversClass(DeployTasksStatusCommand::class)]
 final class DeployStatusCommandTest extends FunctionalTestCase
@@ -463,7 +458,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         \file_put_contents($projectDir.'/.deploy-tasks-host.log', "a\n");
 
         $tester = new CommandTester(
-            (new Application($this->bootHostTasksKernel($projectDir)))->find('deploytasks:status'),
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
         );
 
         try {
@@ -480,6 +475,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
             self::assertMatchesRegularExpression('/\bb\b[^\n]*pending/', $display);
         } finally {
             FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
         }
     }
 
@@ -489,7 +485,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         // No deploy/host-tasks directory created.
 
         $tester = new CommandTester(
-            (new Application($this->bootHostTasksKernel($projectDir)))->find('deploytasks:status'),
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
         );
 
         try {
@@ -499,85 +495,12 @@ final class DeployStatusCommandTest extends FunctionalTestCase
             self::assertStringNotContainsString('Host tasks', $tester->getDisplay());
         } finally {
             FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
         }
     }
 
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
-    }
-
-    /**
-     * Boots a throwaway kernel whose kernel.project_dir is $projectDir, so
-     * generate.host_directory's default (%kernel.project_dir%/deploy/host-tasks) and
-     * the status command's default host log path (%kernel.project_dir%/.deploy-tasks-host.log)
-     * resolve into the disposable temp tree instead of the bundle's own root.
-     */
-    private function bootHostTasksKernel(string $projectDir): Kernel
-    {
-        $kernel = new class('test', true, $projectDir) extends Kernel {
-            use MicroKernelTrait;
-
-            public function __construct(
-                string $environment,
-                bool $debug,
-                private readonly string $fakeProjectDir,
-            ) {
-                parent::__construct($environment, $debug);
-            }
-
-            public function registerBundles(): iterable
-            {
-                yield new FrameworkBundle();
-                yield new SoviannDeployTasksBundle();
-            }
-
-            public function getProjectDir(): string
-            {
-                return $this->fakeProjectDir;
-            }
-
-            public function getCacheDir(): string
-            {
-                // Keyed on fakeProjectDir: %kernel.project_dir% is baked into the compiled
-                // container (host_directory, log path), so two kernels with different fake
-                // project dirs must never share a cache — that would serve one test's
-                // container (and its baked-in paths) to the other.
-                return \sys_get_temp_dir().'/status-host-tasks-cache-'.\substr(\sha1($this->fakeProjectDir), 0, 12).'-'.\getmypid().'/'.$this->environment;
-            }
-
-            public function getLogDir(): string
-            {
-                return \sys_get_temp_dir().'/status-host-tasks-logs-'.\substr(\sha1($this->fakeProjectDir), 0, 12).'-'.\getmypid();
-            }
-
-            protected function configureContainer(ContainerConfigurator $container): void
-            {
-                $container->extension('framework', [
-                    'test' => true,
-                    'secret' => 'test',
-                    'http_method_override' => false,
-                    'handle_all_throwables' => true,
-                    'php_errors' => ['log' => true],
-                ]);
-
-                $container->extension('soviann_deploy_tasks', [
-                    'storage' => [
-                        'type' => 'filesystem',
-                        'filesystem' => ['path' => $this->fakeProjectDir.'/var/deploy-tasks-storage'],
-                    ],
-                    'events' => ['enabled' => false],
-                    'lock' => ['enabled' => false],
-                    // No generate.host_directory override — defaults resolve under fakeProjectDir.
-                ]);
-
-                $container->services()
-                    ->set('logger', NullLogger::class)->public();
-            }
-        };
-
-        $kernel->boot();
-
-        return $kernel;
     }
 }

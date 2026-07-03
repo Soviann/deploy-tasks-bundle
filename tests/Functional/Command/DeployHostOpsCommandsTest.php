@@ -5,20 +5,16 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipHostCommand;
-use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
+use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
 
 /**
@@ -42,13 +38,14 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->hostDir = $this->projectDir.'/deploy/host-tasks';
         $this->logPath = $this->projectDir.'/.deploy-tasks-host.log';
 
-        $this->hostKernel = $this->bootHostTasksKernel($this->projectDir);
+        $this->hostKernel = HostTasksKernelFactory::boot($this->projectDir);
         $this->application = new Application($this->hostKernel);
     }
 
     protected function tearDown(): void
     {
         FilesystemTestHelper::cleanup($this->projectDir);
+        HostTasksKernelFactory::cleanupAll();
         parent::tearDown();
     }
 
@@ -379,74 +376,5 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $lines = \file($this->logPath, \FILE_IGNORE_NEW_LINES | \FILE_SKIP_EMPTY_LINES);
 
         return false !== $lines ? $lines : [];
-    }
-
-    /**
-     * Boots a throwaway kernel whose kernel.project_dir is $projectDir, so
-     * generate.host_directory's default and the host ops commands' default log path
-     * resolve into the disposable temp tree instead of the bundle's own root.
-     * Mirrors DeployStatusCommandTest::bootHostTasksKernel.
-     */
-    private function bootHostTasksKernel(string $projectDir): Kernel
-    {
-        $kernel = new class('test', true, $projectDir) extends Kernel {
-            use MicroKernelTrait;
-
-            public function __construct(
-                string $environment,
-                bool $debug,
-                private readonly string $fakeProjectDir,
-            ) {
-                parent::__construct($environment, $debug);
-            }
-
-            public function registerBundles(): iterable
-            {
-                yield new FrameworkBundle();
-                yield new SoviannDeployTasksBundle();
-            }
-
-            public function getProjectDir(): string
-            {
-                return $this->fakeProjectDir;
-            }
-
-            public function getCacheDir(): string
-            {
-                return \sys_get_temp_dir().'/host-ops-cache-'.\substr(\sha1($this->fakeProjectDir), 0, 12).'-'.\getmypid().'/'.$this->environment;
-            }
-
-            public function getLogDir(): string
-            {
-                return \sys_get_temp_dir().'/host-ops-logs-'.\substr(\sha1($this->fakeProjectDir), 0, 12).'-'.\getmypid();
-            }
-
-            protected function configureContainer(ContainerConfigurator $container): void
-            {
-                $container->extension('framework', [
-                    'test' => true,
-                    'secret' => 'test',
-                    'http_method_override' => false,
-                    'handle_all_throwables' => true,
-                    'php_errors' => ['log' => true],
-                ]);
-
-                $container->extension('soviann_deploy_tasks', [
-                    'storage' => [
-                        'type' => 'filesystem',
-                        'filesystem' => ['path' => $this->fakeProjectDir.'/var/deploy-tasks-storage'],
-                    ],
-                    'events' => ['enabled' => false],
-                    'lock' => ['enabled' => false],
-                ]);
-
-                $container->services()
-                    ->set('logger', NullLogger::class)->public();
-            }
-        };
-
-        $kernel->boot();
-
-        return $kernel;
     }
 }
