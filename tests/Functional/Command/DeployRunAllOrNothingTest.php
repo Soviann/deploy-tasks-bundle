@@ -69,7 +69,9 @@ final class DeployRunAllOrNothingTest extends FunctionalTestCase
         $this->tester->execute([]);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
-        $display = $this->tester->getDisplay();
+        // Normalized: SymfonyStyle wraps the error block at the terminal width,
+        // which splits multi-word phrases on narrow CI runners.
+        $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay()) ?? '';
         self::assertStringContainsString('test.failing', $display);
         self::assertStringContainsString('rolled back', $display);
         self::assertStringContainsString('no changes were persisted', $display);
