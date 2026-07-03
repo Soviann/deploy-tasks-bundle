@@ -245,6 +245,20 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertSame(TaskResult::SUCCESS, $result);
     }
 
+    public function testZeroAttributeTimeoutLeavesProcessOwnTimeoutUntouched(): void
+    {
+        // #[AsDeployTask(timeout: 0)] means the attribute has no opinion — runProcess()
+        // must not call setTimeout(0.0), which Symfony normalizes to NULL (no timeout at
+        // all). The Process's own short timeout must still fire.
+        $output = self::createRawOutput();
+        $caller = new ProcessRunnerTraitZeroAttributeTimeoutCaller();
+
+        $result = $caller->run($output);
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        self::assertStringContainsString('timed out', $output->fetch());
+    }
+
     private static function createRawOutput(): BufferedOutput
     {
         $output = new BufferedOutput();
@@ -325,5 +339,24 @@ final class ProcessRunnerTraitAttributeTimeoutOverrideCaller implements DeployTa
     public function run(OutputInterface $output): TaskResult
     {
         return $this->runProcessWithTimeout(new Process(['php', '-r', 'echo 1;']), 10, $output);
+    }
+}
+
+/**
+ * @internal
+ */
+#[AsDeployTask(id: 'test.attr_timeout_zero', timeout: 0)]
+final class ProcessRunnerTraitZeroAttributeTimeoutCaller implements DeployTaskInterface
+{
+    use ProcessRunnerTrait;
+
+    public function getDescription(): string
+    {
+        return '';
+    }
+
+    public function run(OutputInterface $output): TaskResult
+    {
+        return $this->runProcess(new Process(['php', '-r', 'sleep(5);'], timeout: 1), $output);
     }
 }

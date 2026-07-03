@@ -45,7 +45,8 @@ final class AsDeployTask
      *                                            AsDeployTask::TASK_ID_PATTERN.
      * @param int                  $priority      Execution priority (higher runs first, default 0)
      * @param string|string[]|null $env           Restrict to specific environment(s), null for all
-     * @param int|null             $timeout       Max execution time in seconds, null for default
+     * @param int|null             $timeout       Max execution time in seconds, null for default. 0 disables the
+     *                                            runner's soft timeout check. Must be >= 0.
      * @param bool|null            $transactional Wrap execution in a database transaction. Null = use global config
      *                                            default.
      * @param string|null          $description   Human-readable description (overrides
@@ -58,6 +59,7 @@ final class AsDeployTask
      * @throws \InvalidArgumentException When groups is an empty array
      * @throws \InvalidArgumentException When groups contains a non-string entry
      * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
+     * @throws \InvalidArgumentException When timeout is negative
      */
     public function __construct(
         public readonly string $id = '',
@@ -95,6 +97,10 @@ final class AsDeployTask
 
         if ('' !== $id && 1 !== \preg_match(self::TASK_ID_PATTERN, $id)) {
             throw new \InvalidArgumentException(\sprintf('Invalid task id "%s" in #[AsDeployTask]: must match %s.', $id, self::TASK_ID_PATTERN));
+        }
+
+        if (null !== $timeout && $timeout < 0) {
+            throw new \InvalidArgumentException(\sprintf('Invalid timeout %d in #[AsDeployTask]: must be >= 0.', $timeout));
         }
     }
 

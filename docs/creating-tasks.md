@@ -193,3 +193,4 @@ Behavior notes:
 - **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, overriding any timeout set on the `Process` instance. Use `runProcessWithTimeout()` to apply a different explicit limit per call.
 - **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
 - **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.
+- A hard-killed process will typically also trip the runner's post-run soft-timeout warning in the log (same run — the two are redundant, not contradictory).

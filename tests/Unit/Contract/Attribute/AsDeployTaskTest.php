@@ -242,6 +242,19 @@ final class AsDeployTaskTest extends TestCase
         new AsDeployTask(id: 'task.mixed', groups: ['predeploy', 'a/b']);
     }
 
+    public function testRejectsNegativeTimeout(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid timeout/');
+
+        new AsDeployTask(id: 'task.bad-timeout', timeout: -1);
+    }
+
+    public function testAcceptsZeroTimeoutAsLegalValue(): void
+    {
+        self::assertSame(0, (new AsDeployTask(id: 'task.zero-timeout', timeout: 0))->timeout);
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

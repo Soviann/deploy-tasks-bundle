@@ -20,10 +20,12 @@ use Symfony\Component\Process\Process;
  * own timeout, and maps the outcome to a TaskResult.
  *
  * Timeout precedence: when the using class implements DeployTaskInterface and
- * declares `#[AsDeployTask(timeout: N)]`, runProcess() sets the Process's hard
- * timeout to N, overriding any timeout already set on the Process instance.
- * Use runProcessWithTimeout() to apply an explicit, different limit — it
- * bypasses attribute resolution entirely.
+ * declares `#[AsDeployTask(timeout: N)]` with N > 0, runProcess() sets the
+ * Process's hard timeout to N, overriding any timeout already set on the
+ * Process instance. `timeout: 0` (or no attribute) means the attribute has no
+ * opinion on the hard timeout — the Process's own timeout, if any, is left
+ * untouched. Use runProcessWithTimeout() to apply an explicit, different
+ * limit — it bypasses attribute resolution entirely.
  *
  * Requires symfony/process (listed under "suggest" in composer.json).
  */
@@ -34,7 +36,7 @@ trait ProcessRunnerTrait
         if ($this instanceof DeployTaskInterface) {
             $attributeTimeout = AsDeployTask::timeoutOf($this);
 
-            if (null !== $attributeTimeout) {
+            if (null !== $attributeTimeout && $attributeTimeout > 0) {
                 $process->setTimeout((float) $attributeTimeout);
             }
         }
