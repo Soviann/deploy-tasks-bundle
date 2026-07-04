@@ -245,9 +245,13 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $exitCode = $tester->execute(['id' => 'ghost', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
-        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        // Whitespace stripped from both sides (per the 4fd7865 normalization pattern):
+        // SymfonyStyle wraps the warning block at the terminal width, and a collapse-to-space
+        // normalization still fails when the long host-dir path splits mid-token on narrow
+        // CI runners.
+        $display = (string) \preg_replace('/\s+/', '', $tester->getDisplay());
         self::assertStringContainsString(
-            \sprintf('No ghost.sh in %s — removing the stale completion record anyway.', $this->hostDir),
+            (string) \preg_replace('/\s+/', '', \sprintf('No ghost.sh in %s — removing the stale completion record anyway.', $this->hostDir)),
             $display,
         );
         self::assertSame([], $this->logLines());
@@ -397,7 +401,10 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
             $exitCode = $tester->execute(['id' => 'a'], ['interactive' => false]);
 
             self::assertSame(75, $exitCode);
-            self::assertStringContainsString('.deploy-tasks-host.lock', $tester->getDisplay());
+            // Whitespace stripped (per the 4fd7865 normalization pattern): SymfonyStyle wraps
+            // the warning block at the terminal width, splitting the long lock path mid-token
+            // on narrow CI runners.
+            self::assertStringContainsString('.deploy-tasks-host.lock', (string) \preg_replace('/\s+/', '', $tester->getDisplay()));
             self::assertSame([], $this->logLines());
         } finally {
             \flock($lock, \LOCK_UN);
@@ -417,7 +424,10 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
             $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
             self::assertSame(75, $exitCode);
-            self::assertStringContainsString('.deploy-tasks-host.lock', $tester->getDisplay());
+            // Whitespace stripped (per the 4fd7865 normalization pattern): SymfonyStyle wraps
+            // the warning block at the terminal width, splitting the long lock path mid-token
+            // on narrow CI runners.
+            self::assertStringContainsString('.deploy-tasks-host.lock', (string) \preg_replace('/\s+/', '', $tester->getDisplay()));
             self::assertSame([], $this->logLines());
         } finally {
             \flock($lock, \LOCK_UN);
