@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `deploytasks:host:config` command renders the `DEPLOY_TASKS_HOST_DIR`/`DEPLOY_TASKS_HOST_STORAGE`/`DEPLOY_TASKS_HOST_LOCK` exports matching the bundle's `host.*` config (project-relative when possible, so they survive differing container/host mount paths) and can `--write` them to `deploy-tasks-host.local.sh`, which `bin/deploy-tasks-host.sh` already sources — customized host paths no longer rely on the operator hand-syncing two sources of truth.
+
 ### Security
 
 - Host task ids are now validated against the shared identifier allowlist (`^[a-zA-Z0-9._-]+\z`) before any filesystem or log access: `deploytasks:skip:host` and `deploytasks:reset:host` reject an invalid `id` argument (e.g. `../evil`) with `Command::INVALID`, and `deploytasks:rollup:host` excludes scripts with hostile basenames (e.g. embedded newlines that would split the completion log's one-id-per-line contract) from the rollup, warning about the ignored count. Host task ids rendered by `deploytasks:status` and the rollup confirmation prompt are stripped of terminal control characters and formatter tags, so a script name embedding ANSI escape sequences can no longer poison the deployer's terminal.

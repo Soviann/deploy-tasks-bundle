@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksHostConfigCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
@@ -359,6 +360,16 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
                 '$hostLockPath' => $hostConfig['lock_path'],
+            ])
+            ->tag('console.command')
+        ;
+
+        $services->set('soviann_deploy_tasks.command.host.config', DeployTasksHostConfigCommand::class)
+            ->args([
+                '$hostTasksDir' => $hostConfig['directory'],
+                '$hostLogPath' => $hostConfig['log_path'],
+                '$hostLockPath' => $hostConfig['lock_path'],
+                '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')
         ;
