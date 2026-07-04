@@ -62,7 +62,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
     {
         $this->tester->execute(['id' => 'nonexistent']);
 
-        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
         self::assertStringContainsString(
             \sprintf(CommandMessages::UNKNOWN_TASK, 'nonexistent'),
             (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay()),

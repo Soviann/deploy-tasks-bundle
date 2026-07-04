@@ -86,7 +86,7 @@ final class DeployTasksSkipCommand extends Command
         if (!$this->registry->has($id)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));
 
-            return Command::FAILURE;
+            return Command::INVALID;
         }
 
         $task = $this->registry->get($id);

@@ -124,6 +124,8 @@ bin/console deploytasks:skip task_20260412143000_seed_categories --group=predepl
 
 Use `deploytasks:reset` to re-enable a skipped task.
 
+**Exit codes:** `0` on success; `2` (`Command::INVALID`) when the task ID is not registered, or when `--group` is missing for a grouped task, undeclared, or supplied for an ungrouped task; `1` when the confirmation is declined.
+
 ---
 
 ## deploytasks:reset
@@ -151,6 +153,8 @@ bin/console deploytasks:reset task_20260412143000_seed_categories --group=predep
 | `--group=<name>` | Reset only the given group slot; without this flag every slot recorded for the task is cleared |
 
 If the task has no execution record, the command reports it is already pending and exits successfully without error.
+
+**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the task ID is not registered, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
 
 ---
 
@@ -196,9 +200,9 @@ bin/console deploytasks:reset:host deploy_task_20260418_143022 --no-interaction 
 | `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
 | `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
 
-If the task has no completion-log entry, the command reports it is already pending and exits successfully without error.
+If the script exists but has no completion-log entry, the command reports it is already pending and exits successfully without error. An id matching neither a `<id>.sh` script nor a completion-log entry is rejected as unknown; a completion-log entry whose script has been deleted is removed anyway, with a warning.
 
-**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
+**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, when the id matches neither a `<id>.sh` script nor a completion-log entry, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 
@@ -266,6 +270,8 @@ bin/console deploytasks:rollup --group=predeploy --group=postdeploy
 You are prompted for confirmation before proceeding. In CI, pass `--no-interaction --force` (a non-interactive run is refused without `--force`/`--yes`).
 
 If the storage backend implements `TransactionalStorageInterface`, the reset and re-mark operations are wrapped in a single transaction.
+
+**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
 
 ---
 

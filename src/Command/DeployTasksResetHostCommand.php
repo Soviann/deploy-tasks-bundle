@@ -50,7 +50,7 @@ final class DeployTasksResetHostCommand extends Command
 
                     <info>%command.full_name% deploy_task_20260418_143022 --no-interaction --force</info>
 
-                If the task has no completion record, the command reports it is already pending and exits successfully without error.
+                If the script exists but has no completion record, the command reports it is already pending and exits successfully without error. An ID matching neither a script nor a completion record is rejected as unknown; a completion record whose script has been deleted is removed anyway, with a warning.
                 EOT)
         ;
 
@@ -82,10 +82,23 @@ final class DeployTasksResetHostCommand extends Command
             return Command::INVALID;
         }
 
-        if (!$this->hostLogHas($this->hostLogPath, $id)) {
+        $scriptExists = \is_file($this->hostTasksDir.'/'.$id.'.sh');
+        $hasLogEntry = $this->hostLogHas($this->hostLogPath, $id);
+
+        if (!$scriptExists && !$hasLogEntry) {
+            $io->error(\sprintf('Host task "%s" not found (no %s.sh in %s and no completion record).', $id, $id, $this->hostTasksDir));
+
+            return Command::INVALID;
+        }
+
+        if (!$hasLogEntry) {
             $io->note(\sprintf('Host task "%s" has no completion record — already pending.', $id));
 
             return Command::SUCCESS;
+        }
+
+        if (!$scriptExists) {
+            $io->warning(\sprintf('No %s.sh in %s — removing the stale completion record anyway.', $id, $this->hostTasksDir));
         }
 
         if (!$force && !$this->confirmOrAbort($io, \sprintf(

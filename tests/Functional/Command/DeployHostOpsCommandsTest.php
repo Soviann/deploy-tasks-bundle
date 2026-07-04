@@ -222,6 +222,37 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame(['a'], $this->logLines());
     }
 
+    public function testResetHostUnknownScriptIsInvalid(): void
+    {
+        \mkdir($this->hostDir, 0o755, true);
+
+        $tester = $this->tester('deploytasks:reset:host');
+        $exitCode = $tester->execute(['id' => 'ghost', '--force' => true], ['interactive' => false]);
+
+        self::assertSame(Command::INVALID, $exitCode);
+        self::assertStringContainsString('ghost', $tester->getDisplay());
+        self::assertSame([], $this->logLines());
+    }
+
+    public function testResetHostStaleLogEntryWarnsAndStillResets(): void
+    {
+        \mkdir($this->hostDir, 0o755, true);
+        // Completion record survives its script's deletion — reset must clean it up, not
+        // pretend the id is unknown, but it must say so.
+        \file_put_contents($this->logPath, "ghost\n");
+
+        $tester = $this->tester('deploytasks:reset:host');
+        $exitCode = $tester->execute(['id' => 'ghost', '--force' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString(
+            \sprintf('No ghost.sh in %s — removing the stale completion record anyway.', $this->hostDir),
+            $display,
+        );
+        self::assertSame([], $this->logLines());
+    }
+
     public function testResetHostRejectsInvalidId(): void
     {
         \mkdir($this->hostDir, 0o755, true);

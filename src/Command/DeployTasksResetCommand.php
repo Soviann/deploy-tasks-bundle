@@ -83,7 +83,7 @@ final class DeployTasksResetCommand extends Command
         if (!$this->registry->has($id)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));
 
-            return Command::FAILURE;
+            return Command::INVALID;
         }
 
         if (null !== $group) {
