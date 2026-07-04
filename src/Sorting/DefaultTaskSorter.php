@@ -14,7 +14,7 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
  * Sorting rules (applied in order):
  *  1. Priority DESC (higher priority runs first)
  *  2. Date extracted from ID (8 consecutive digits, YYYYMMDD) ASC (older tasks run first)
- *  3. Original registration order preserved for ties (stable sort)
+ *  3. Original registration order preserved for ties (usort() is stable since PHP 8.0)
  *
  * @internal
  */
@@ -36,17 +36,16 @@ final readonly class DefaultTaskSorter implements TaskSorterInterface
      */
     public function sort(array $tasks): array
     {
-        /** @var list<array{task: DeployTaskInterface, priority: int, date: string|null, index: int}> $indexed */
+        /** @var list<array{task: DeployTaskInterface, priority: int, date: string|null}> $indexed */
         $indexed = [];
 
-        foreach ($tasks as $index => $task) {
+        foreach ($tasks as $task) {
             $attribute = AsDeployTask::of($task);
 
             $indexed[] = [
                 'task' => $task,
                 'priority' => null !== $attribute ? $attribute->priority : 0,
                 'date' => $this->extractDate($this->idResolver->resolve($task)),
-                'index' => $index,
             ];
         }
 
@@ -57,14 +56,9 @@ final readonly class DefaultTaskSorter implements TaskSorterInterface
                 return $priorityDiff;
             }
 
-            // 2. Date ASC (tasks without date sort after tasks with date)
-            $dateCompare = $this->compareDates($a['date'], $b['date']);
-            if (0 !== $dateCompare) {
-                return $dateCompare;
-            }
-
-            // 3. Original order (stable sort)
-            return $a['index'] <=> $b['index'];
+            // 2. Date ASC (tasks without date sort after tasks with date).
+            // Ties keep registration order — usort() is stable since PHP 8.0.
+            return $this->compareDates($a['date'], $b['date']);
         });
 
         return \array_map(static fn (array $entry): DeployTaskInterface => $entry['task'], $indexed);

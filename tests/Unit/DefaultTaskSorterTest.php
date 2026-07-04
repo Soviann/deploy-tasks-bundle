@@ -121,6 +121,19 @@ final class DefaultTaskSorterTest extends TestCase
         self::assertSame($gamma, $sorted[2]);
     }
 
+    public function testSameDateTasksPreserveRegistrationOrder(): void
+    {
+        // Same priority (0) and same extracted date: nothing left to break the tie but
+        // registration order — pins usort()'s native stability (PHP >= 8.0).
+        $first = new SimpleTask('task_20260410_alpha');
+        $second = new SimpleTask('task_20260410_beta');
+
+        $sorted = $this->sorter->sort([$first, $second]);
+
+        self::assertSame($first, $sorted[0]);
+        self::assertSame($second, $sorted[1]);
+    }
+
     public function testEmptyCollection(): void
     {
         self::assertSame([], $this->sorter->sort([]));
