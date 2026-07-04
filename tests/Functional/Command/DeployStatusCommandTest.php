@@ -505,6 +505,114 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testNoStateSuppressesHostSection(): void
+    {
+        $projectDir = $this->createHostProjectDir();
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            // The host section's whole content is execution state (done/pending),
+            // so --no-state must suppress it entirely.
+            $exitCode = $tester->execute(['--no-state' => true]);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            self::assertStringNotContainsString('Host tasks', $tester->getDisplay());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
+    public function testGroupFilterSuppressesHostSection(): void
+    {
+        $projectDir = $this->createHostProjectDir();
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            // Host tasks have no group concept: a --group filtered view must not
+            // append unfiltered host rows.
+            $exitCode = $tester->execute(['--group' => ['whatever']]);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            self::assertStringNotContainsString('Host tasks', $tester->getDisplay());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
+    public function testFilterStatusPendingKeepsOnlyPendingHostRows(): void
+    {
+        $projectDir = $this->createHostProjectDir();
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            $exitCode = $tester->execute(['--filter-status' => 'PENDING']);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            $display = $tester->getDisplay();
+            self::assertStringContainsString('Host tasks', $display);
+            self::assertStringContainsString('bbb.todo', $display);
+            self::assertStringNotContainsString('aaa.done', $display);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
+    public function testFilterStatusOtherThanPendingSuppressesHostSection(): void
+    {
+        $projectDir = $this->createHostProjectDir();
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            // Host tasks are only ever done or pending — they can never satisfy a
+            // RAN/FAILED/SKIPPED filter, so the section must disappear.
+            $exitCode = $tester->execute(['--filter-status' => 'FAILED']);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            self::assertStringNotContainsString('Host tasks', $tester->getDisplay());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
+    public function testHostTasksListedWhenProjectDirContainsGlobMetacharacters(): void
+    {
+        // glob() treats [, ], ?, * in the *path* as pattern metacharacters, so a
+        // project dir like "releases/app[blue]" silently produced no host section.
+        $base = FilesystemTestHelper::tempDir('deploy-tasks-status-host-');
+        $projectDir = $base.'/app[blue]';
+        $hostDir = $projectDir.'/deploy/host-tasks';
+        \mkdir($hostDir, 0o755, true);
+        \touch($hostDir.'/bracketed_task.sh');
+
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            $exitCode = $tester->execute([]);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            $display = $tester->getDisplay();
+            self::assertStringContainsString('Host tasks', $display);
+            self::assertStringContainsString('bracketed_task', $display);
+        } finally {
+            FilesystemTestHelper::cleanup($base);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
     public function testStatusOmitsHostSectionWhenHostDirectoryAbsent(): void
     {
         $projectDir = FilesystemTestHelper::tempDir('deploy-tasks-status-host-');
@@ -528,5 +636,21 @@ final class DeployStatusCommandTest extends FunctionalTestCase
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
+    }
+
+    /**
+     * Disposable project dir with one done ("aaa.done") and one pending ("bbb.todo")
+     * host task; the completion log records only "aaa.done".
+     */
+    private function createHostProjectDir(): string
+    {
+        $projectDir = FilesystemTestHelper::tempDir('deploy-tasks-status-host-');
+        $hostDir = $projectDir.'/deploy/host-tasks';
+        \mkdir($hostDir, 0o755, true);
+        \touch($hostDir.'/aaa.done.sh');
+        \touch($hostDir.'/bbb.todo.sh');
+        \file_put_contents($projectDir.'/.deploy-tasks-host.log', "aaa.done\n");
+
+        return $projectDir;
     }
 }

@@ -73,6 +73,13 @@ Multi-group tasks are displayed once per declared slot. The `Group` column shows
 
 **Host tasks:** when the `host.directory` config path exists and contains at least one `*.sh` script, a separate "Host tasks" section is appended listing each script as `done` or `pending`. This is a read-only view onto [host-scope tasks](host-tasks.md) — `done` means the script's basename appears as a full line in the host runner's completion log (`host.log_path`), mirroring `bin/deploy-tasks-host.sh`'s own `grep -Fxq` check. The section is omitted entirely when the host directory doesn't exist. See [host-tasks.md](host-tasks.md#status-visibility) for the env-override caveat.
 
+The host section obeys the display flags:
+
+- `--no-state` suppresses it — its done/pending content *is* execution state.
+- `--group` (any value) suppresses it — host tasks have no group concept.
+- `--filter-status=PENDING` (alone) keeps it, restricted to pending rows.
+- Any other `--filter-status` value (including lists like `PENDING,FAILED`) suppresses it — host tasks are only ever done or pending, so no other status can match.
+
 ---
 
 ## deploytasks:show

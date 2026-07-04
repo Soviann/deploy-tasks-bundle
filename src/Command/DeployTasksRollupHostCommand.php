@@ -11,6 +11,7 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Finder\Finder;
 
 /** @internal */
 #[AsCommand(name: 'deploytasks:rollup:host', description: 'Mark every pending host-scope deploy task as done.')]
@@ -65,17 +66,21 @@ final class DeployTasksRollupHostCommand extends Command
             return Command::INVALID;
         }
 
-        $globbed = \glob($this->hostTasksDir.'/*.sh');
-        $scripts = false !== $globbed ? $globbed : [];
+        // Finder instead of glob(): glob() treats [?* in the *directory path* as
+        // pattern metacharacters, silently finding nothing for a project dir like
+        // "app[blue]". sortByName() preserves the alphabetical listing.
+        $ids = [];
+        foreach ((new Finder())->files()->in($this->hostTasksDir)->name('*.sh')->depth(0)->sortByName() as $script) {
+            $ids[] = $script->getBasename('.sh');
+        }
 
-        if ([] === $scripts) {
+        if ([] === $ids) {
             $io->warning(\sprintf('No host tasks found in "%s" — nothing to roll up.', $this->hostTasksDir));
 
             return Command::SUCCESS;
         }
 
         $done = $this->readHostLog($this->hostLogPath);
-        $ids = \array_map(static fn (string $script): string => \basename($script, '.sh'), $scripts);
 
         // A hostile basename (e.g. one embedding a newline) would corrupt the log's
         // one-id-per-line contract or the terminal, so it never reaches the confirm

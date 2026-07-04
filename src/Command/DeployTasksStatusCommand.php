@@ -18,6 +18,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Finder\Finder;
 
 use function Symfony\Component\String\u;
 
@@ -25,6 +26,8 @@ use function Symfony\Component\String\u;
 #[AsCommand(name: 'deploytasks:status', description: 'View the status of all registered deploy tasks.')]
 final class DeployTasksStatusCommand extends Command
 {
+    use HostLogManipulationTrait;
+
     private const DEFAULT_SLOT_LABEL = '—';
     private const ERROR_COLUMN_MAX_WIDTH = 60;
     private const PENDING_FILTER_VALUE = 'PENDING';
@@ -146,7 +149,7 @@ final class DeployTasksStatusCommand extends Command
         $io->newLine();
         $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), \count($rows)));
 
-        $this->renderHostTasks($io);
+        $this->renderHostTasks($io, $noState, $groupFilter, [] === $filterStatus ? null : \implode(',', $filterStatus));
 
         return Command::SUCCESS;
     }
@@ -155,23 +158,55 @@ final class DeployTasksStatusCommand extends Command
      * Read-only bridge onto bin/deploy-tasks-host.sh's state: PHP never writes to
      * $hostTasksDir or $hostLogPath, it only reads them for display. "Done" mirrors the
      * runner's `grep -Fxq` semantics — an exact, full-line match of the task ID in the log.
+     *
+     * The section obeys the display flags: --no-state suppresses it (done/pending IS
+     * execution state), --group suppresses it (host tasks have no group concept), and
+     * --filter-status keeps it only for a plain PENDING filter, restricted to pending
+     * rows — host tasks are never RAN/FAILED/SKIPPED, so no other filter can match.
+     *
+     * @param list<string> $groups       normalized --group values
+     * @param string|null  $filterStatus normalized --filter-status values, comma-joined (null = no filter)
      */
-    private function renderHostTasks(SymfonyStyle $io): void
+    private function renderHostTasks(SymfonyStyle $io, bool $noState, array $groups, ?string $filterStatus): void
     {
+        if ($noState || [] !== $groups) {
+            return;
+        }
+
+        if (null !== $filterStatus && self::PENDING_FILTER_VALUE !== $filterStatus) {
+            return;
+        }
+
+        $pendingOnly = null !== $filterStatus;
+
         if (!\is_dir($this->hostTasksDir)) {
             return;
         }
 
-        $globbed = \glob($this->hostTasksDir.'/*.sh');
-        $scripts = false !== $globbed ? $globbed : [];
-        if ([] === $scripts) {
-            return;
+        $done = \array_flip($this->readHostLog($this->hostLogPath));
+
+        // Finder instead of glob(): glob() treats [?* in the *directory path* as
+        // pattern metacharacters, silently dropping the section for a project dir
+        // like "app[blue]". sortByName() preserves the alphabetical listing.
+        $rows = [];
+        foreach ((new Finder())->files()->in($this->hostTasksDir)->name('*.sh')->depth(0)->sortByName() as $script) {
+            $id = $script->getBasename('.sh');
+            $isDone = isset($done[$id]);
+
+            if ($pendingOnly && $isDone) {
+                continue;
+            }
+
+            // Script basenames are attacker-influencable filesystem input: strip control
+            // bytes (ANSI injection) and escape formatter tags before rendering.
+            $rows[] = [
+                OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
+                $isDone ? '<info>done</info>' : '<comment>pending</comment>',
+            ];
         }
 
-        $done = [];
-        if (\is_file($this->hostLogPath)) {
-            $lines = \file($this->hostLogPath, \FILE_IGNORE_NEW_LINES | \FILE_SKIP_EMPTY_LINES);
-            $done = false !== $lines ? \array_flip($lines) : [];
+        if ([] === $rows) {
+            return;
         }
 
         $io->section('Host tasks');
@@ -179,15 +214,7 @@ final class DeployTasksStatusCommand extends Command
 
         $table = $io->createTable();
         $table->setHeaders(['ID', 'Status']);
-        foreach ($scripts as $script) {
-            $id = \basename($script, '.sh');
-            // Script basenames are attacker-influencable filesystem input: strip control
-            // bytes (ANSI injection) and escape formatter tags before rendering.
-            $table->addRow([
-                OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
-                isset($done[$id]) ? '<info>done</info>' : '<comment>pending</comment>',
-            ]);
-        }
+        $table->setRows($rows);
         $table->render();
     }
 
