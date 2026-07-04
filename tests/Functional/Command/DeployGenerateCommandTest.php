@@ -892,6 +892,49 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testMissingConfiguredTemplateFailsInsteadOfSilentStubFallback(): void
+    {
+        // See testAbsoluteConfiguredGenerateDirectoryWithinProjectWorks() above: self::projectDir()
+        // resolves to the real bundle repo root for this test kernel, so the same residue-safety
+        // guard applies even though the fixed code is not expected to write anything here.
+        $generatedDir = self::projectDir().'/src/DeployTasks';
+        $preExisting = \is_dir($generatedDir);
+
+        if ($preExisting) {
+            $entries = \scandir($generatedDir, \SCANDIR_SORT_NONE);
+            self::assertNotFalse($entries);
+
+            if ([] !== \array_diff($entries, ['.', '..'])) {
+                self::markTestSkipped('src/DeployTasks exists in this checkout — refusing to touch it.');
+            }
+        }
+
+        try {
+            self::useConfigurableKernel([
+                'generate' => ['template' => '/nonexistent/deploy-task.tpl.php'],
+            ]);
+            self::bootKernel();
+
+            $tester = $this->runCommand('deploytasks:generate:container');
+
+            self::assertSame(Command::FAILURE, $tester->getStatusCode());
+            self::assertStringContainsString('/nonexistent/deploy-task.tpl.php', $tester->getDisplay());
+            $files = \glob($generatedDir.'/Task/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(0, $files, 'No file must be generated from the silent stub fallback.');
+        } finally {
+            $generatedFiles = \glob($generatedDir.'/Task/DeployTask*.php');
+            foreach (false === $generatedFiles ? [] : $generatedFiles as $generatedFile) {
+                \unlink($generatedFile);
+            }
+
+            if (!$preExisting) {
+                @\rmdir($generatedDir.'/Task');
+                @\rmdir($generatedDir);
+            }
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

@@ -160,7 +160,13 @@ final class DeployTasksGenerateCommand extends Command
         $taskIdExport = \var_export($taskId, true);
         $descriptionExport = \var_export($description, true);
 
-        if (null !== $this->templatePath && \is_file($this->templatePath)) {
+        if (null !== $this->templatePath) {
+            if (!\is_file($this->templatePath)) {
+                $io->error(\sprintf('Configured template "%s" does not exist (soviann_deploy_tasks.generate.template). Fix the path or remove the option to use the built-in stub.', $this->templatePath));
+
+                return Command::FAILURE;
+            }
+
             $fileContent = (string) \file_get_contents($this->templatePath);
             $fileContent = \strtr($fileContent, [
                 '{{ namespace }}' => $namespace,
