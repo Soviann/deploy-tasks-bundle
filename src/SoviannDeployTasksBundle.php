@@ -268,6 +268,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         $generateConfig = $config['generate'];
         /** @var HostConfig $hostConfig */
         $hostConfig = $config['host'];
+        $hostConfig = \array_map(self::anchorToProjectDir(...), $hostConfig);
 
         $services->set('soviann_deploy_tasks.command.status', DeployTasksStatusCommand::class)
             ->args([
@@ -434,7 +435,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 break;
             case 'filesystem':
                 $services->set('soviann_deploy_tasks.storage', FilesystemStorage::class)
-                    ->args([$storageConfig['filesystem']['path']])
+                    ->args([self::anchorToProjectDir($storageConfig['filesystem']['path'])])
                 ;
 
                 break;
@@ -515,5 +516,22 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         // resolves to the app logger when present (monolog's LoggerChannelPass then rewrites the
         // literal 'logger' reference to the channel-scoped logger via the runner's monolog.logger tag),
         // and TaskRunner falls back to a NullLogger when the app has no logger service.
+    }
+
+    /**
+     * Anchors a config-supplied path to the project dir when it is relative.
+     *
+     * Consumers (FilesystemStorage, the host-scope commands) use these values
+     * raw — is_dir(), fopen(), file paths — which would otherwise resolve
+     * against the process CWD, making deploy state depend on the directory the
+     * console command happens to be launched from.
+     */
+    private static function anchorToProjectDir(string $path): string
+    {
+        if (\str_starts_with($path, '/') || \str_starts_with($path, '%')) {
+            return $path;
+        }
+
+        return '%kernel.project_dir%/'.$path;
     }
 }
