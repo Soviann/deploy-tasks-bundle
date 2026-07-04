@@ -73,6 +73,34 @@ trait HostLogManipulationTrait
     }
 
     /**
+     * Non-blocking take of the runner's own flock file so PHP-side log mutations
+     * never interleave with a live bin/deploy-tasks-host.sh run.
+     *
+     * @return resource|null null when a host run currently holds the lock
+     */
+    private function acquireHostLock(string $lockPath)
+    {
+        $handle = @\fopen($lockPath, 'c');
+        if (false === $handle) {
+            throw new IOException(\sprintf('Cannot open host lock file "%s".', $lockPath), path: $lockPath);
+        }
+        if (!\flock($handle, \LOCK_EX | \LOCK_NB)) {
+            \fclose($handle);
+
+            return null;
+        }
+
+        return $handle;
+    }
+
+    /** @param resource $handle */
+    private function releaseHostLock($handle): void
+    {
+        \flock($handle, \LOCK_UN);
+        \fclose($handle);
+    }
+
+    /**
      * Removes every exact-match line for $id via a temp-file + rename (matching
      * FilesystemStorage's atomicity discipline), so concurrent readers never observe
      * a partially-written log.

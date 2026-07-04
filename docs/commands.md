@@ -170,7 +170,7 @@ bin/console deploytasks:skip:host deploy_task_20260418_143022
 
 You are prompted for confirmation before proceeding (same convention as `deploytasks:skip`: reversible via `deploytasks:reset:host`, so it proceeds under `--no-interaction` without requiring `--force`).
 
-**Exit codes:** `0` on success (including the already-done no-op); `2` (`Command::INVALID`) when the host tasks directory or the `<id>.sh` script does not exist; `1` when the confirmation is declined.
+**Exit codes:** `0` on success (including the already-done no-op); `2` (`Command::INVALID`) when the host tasks directory or the `<id>.sh` script does not exist; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 
@@ -198,7 +198,7 @@ bin/console deploytasks:reset:host deploy_task_20260418_143022 --no-interaction 
 
 If the task has no completion-log entry, the command reports it is already pending and exits successfully without error.
 
-**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
+**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 
@@ -287,7 +287,7 @@ bin/console deploytasks:rollup:host --no-interaction --force
 
 An empty host tasks directory, or a directory where every script is already marked done, produces a warning/note and exits successfully without prompting.
 
-**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
+**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 

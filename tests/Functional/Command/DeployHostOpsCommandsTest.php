@@ -288,6 +288,68 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $tester->execute(['--force' => true], ['interactive' => false]);
     }
 
+    // --- lock contention (the runner's flock) ---
+
+    public function testResetHostRefusesWhileHostRunHoldsTheLock(): void
+    {
+        $this->makeScript('a');
+        \file_put_contents($this->logPath, "a\n");
+        $lock = \fopen($this->projectDir.'/.deploy-tasks-host.lock', 'c');
+        self::assertNotFalse($lock);
+        self::assertTrue(\flock($lock, \LOCK_EX | \LOCK_NB));
+
+        try {
+            $tester = $this->tester('deploytasks:reset:host');
+            $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
+
+            self::assertSame(75, $exitCode);
+            self::assertSame(['a'], $this->logLines());
+        } finally {
+            \flock($lock, \LOCK_UN);
+            \fclose($lock);
+        }
+    }
+
+    public function testSkipHostRefusesWhileHostRunHoldsTheLock(): void
+    {
+        $this->makeScript('a');
+        $lock = \fopen($this->projectDir.'/.deploy-tasks-host.lock', 'c');
+        self::assertNotFalse($lock);
+        self::assertTrue(\flock($lock, \LOCK_EX | \LOCK_NB));
+
+        try {
+            $tester = $this->tester('deploytasks:skip:host');
+            $exitCode = $tester->execute(['id' => 'a'], ['interactive' => false]);
+
+            self::assertSame(75, $exitCode);
+            self::assertStringContainsString('.deploy-tasks-host.lock', $tester->getDisplay());
+            self::assertSame([], $this->logLines());
+        } finally {
+            \flock($lock, \LOCK_UN);
+            \fclose($lock);
+        }
+    }
+
+    public function testRollupHostRefusesWhileHostRunHoldsTheLock(): void
+    {
+        $this->makeScript('a');
+        $lock = \fopen($this->projectDir.'/.deploy-tasks-host.lock', 'c');
+        self::assertNotFalse($lock);
+        self::assertTrue(\flock($lock, \LOCK_EX | \LOCK_NB));
+
+        try {
+            $tester = $this->tester('deploytasks:rollup:host');
+            $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
+
+            self::assertSame(75, $exitCode);
+            self::assertStringContainsString('.deploy-tasks-host.lock', $tester->getDisplay());
+            self::assertSame([], $this->logLines());
+        } finally {
+            \flock($lock, \LOCK_UN);
+            \fclose($lock);
+        }
+    }
+
     // --- host dir missing (all three) ---
 
     public function testSkipHostMissingDirIsInvalidWithDocsPointer(): void

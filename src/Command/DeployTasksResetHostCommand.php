@@ -23,6 +23,8 @@ final class DeployTasksResetHostCommand extends Command
         private readonly string $hostTasksDir,
         /** Host runner's append-only completion log (bin/deploy-tasks-host.sh's default `.deploy-tasks-host.log`). */
         private readonly string $hostLogPath,
+        /** Host runner's flock file (the host.lock_path bundle config) — taken before any log mutation. */
+        private readonly string $hostLockPath,
     ) {
         parent::__construct();
     }
@@ -86,7 +88,18 @@ final class DeployTasksResetHostCommand extends Command
             return Command::FAILURE;
         }
 
-        $this->rewriteHostLogWithout($this->hostLogPath, $id);
+        $lock = $this->acquireHostLock($this->hostLockPath);
+        if (null === $lock) {
+            $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $this->hostLockPath));
+
+            return DeployTasksRunCommand::EX_TEMPFAIL;
+        }
+
+        try {
+            $this->rewriteHostLogWithout($this->hostLogPath, $id);
+        } finally {
+            $this->releaseHostLock($lock);
+        }
 
         $io->success(\sprintf(
             'Host task "%s" has been reset and will run again on the next bin/deploy-tasks-host.sh.',

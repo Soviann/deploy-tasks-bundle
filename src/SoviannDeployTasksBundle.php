@@ -333,11 +333,13 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         ;
 
         // Host ops-plane parity commands — same $hostTasksDir/$hostLogPath wiring as the
-        // status bridge above; they manipulate the completion log only, never the runner.
+        // status bridge above; they manipulate the completion log only, never the runner,
+        // and take the runner's own flock ($hostLockPath) around every mutation.
         $services->set('soviann_deploy_tasks.command.skip.host', DeployTasksSkipHostCommand::class)
             ->args([
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
+                '$hostLockPath' => $hostConfig['lock_path'],
             ])
             ->tag('console.command')
         ;
@@ -346,6 +348,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->args([
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
+                '$hostLockPath' => $hostConfig['lock_path'],
             ])
             ->tag('console.command')
         ;
@@ -354,6 +357,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->args([
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
+                '$hostLockPath' => $hostConfig['lock_path'],
             ])
             ->tag('console.command')
         ;

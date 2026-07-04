@@ -18,6 +18,9 @@ final class CommandMessages
     /** Shared by the three host-scope ops commands (skip:host, reset:host, rollup:host). */
     public const HOST_DIR_MISSING = 'Host tasks directory "%s" not found. See docs/host-tasks.md to set it up.';
 
+    /** Shared by the three host-scope ops commands (skip:host, reset:host, rollup:host). */
+    public const HOST_LOCK_HELD = 'A host run holds the lock (%s) — retry when bin/deploy-tasks-host.sh finishes.';
+
     /**
      * Renders a task status as its colour-tagged console label.
      */

@@ -22,6 +22,8 @@ final class DeployTasksRollupHostCommand extends Command
         private readonly string $hostTasksDir,
         /** Host runner's append-only completion log (bin/deploy-tasks-host.sh's default `.deploy-tasks-host.log`). */
         private readonly string $hostLogPath,
+        /** Host runner's flock file (the host.lock_path bundle config) — taken before any log mutation. */
+        private readonly string $hostLockPath,
     ) {
         parent::__construct();
     }
@@ -88,7 +90,18 @@ final class DeployTasksRollupHostCommand extends Command
             return Command::FAILURE;
         }
 
-        $this->appendManyToHostLog($this->hostLogPath, $pending);
+        $lock = $this->acquireHostLock($this->hostLockPath);
+        if (null === $lock) {
+            $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $this->hostLockPath));
+
+            return DeployTasksRunCommand::EX_TEMPFAIL;
+        }
+
+        try {
+            $this->appendManyToHostLog($this->hostLogPath, $pending);
+        } finally {
+            $this->releaseHostLock($lock);
+        }
 
         $io->success(\sprintf('Rolled up: marked %d host task(s) as done.', \count($pending)));
 
