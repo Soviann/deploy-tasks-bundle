@@ -10,6 +10,7 @@ use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
+use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -170,6 +171,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * @throws \LogicException              When two tagged tasks resolve to the same ID
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
+     * @throws \LogicException              When a filesystem-backed task's record file name exceeds 255 bytes
      * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails
      */
     private function validateTaggedTasks(ContainerBuilder $container): void
@@ -234,6 +236,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 throw new \LogicException(\sprintf('Deploy task ID "%s" (service "%s") is %d characters, exceeding the configured id_column_length of %d. Increase soviann_deploy_tasks.storage.database.id_column_length or shorten the task ID.', $taskId, $serviceId, \strlen($taskId), $idColumnLength));
             }
 
+            if (null !== $storageClass && \is_a($storageClass, FilesystemStorage::class, true)) {
+                $this->validateRecordFileNameLengths($class, $serviceId, $taskId);
+            }
+
             if (isset($seenIds[$taskId])) {
                 throw new \LogicException(\sprintf('Duplicate deploy task ID "%s" found in services "%s" and "%s".', $taskId, $seenIds[$taskId], $serviceId));
             }
@@ -255,6 +261,28 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         foreach (AsDeployTask::groupsOf($class) ?? [] as $group) {
             if (\strlen($group) > $groupColumnLength) {
                 throw new \LogicException(\sprintf('Deploy task group "%s" (service "%s") is %d characters, exceeding the configured group_column_length of %d. Increase soviann_deploy_tasks.storage.database.group_column_length or shorten the group name.', $group, $serviceId, \strlen($group), $groupColumnLength));
+            }
+        }
+    }
+
+    /**
+     * Filesystem storage turns "<id>[@<group>].json" into an OS file name, capped
+     * at 255 bytes on ext4/APFS/NTFS. Checked at compile time for attribute/
+     * generator ids (provider tasks are covered by FilesystemStorage's runtime
+     * guard, which fires before execution).
+     *
+     * @param class-string $class
+     *
+     * @throws \LogicException      When any slot's record file name exceeds 255 bytes
+     * @throws \ReflectionException
+     */
+    private function validateRecordFileNameLengths(string $class, string $serviceId, string $taskId): void
+    {
+        foreach (AsDeployTask::groupsOf($class) ?? [null] as $group) {
+            $fileName = null === $group ? $taskId.'.json' : $taskId.'@'.$group.'.json';
+
+            if (\strlen($fileName) > 255) {
+                throw new \LogicException(\sprintf('Deploy task "%s" (service "%s") produces the record file name "%s" (%d bytes), exceeding the 255-byte filesystem limit. Shorten the task ID or group name.', $taskId, $serviceId, $fileName, \strlen($fileName)));
             }
         }
     }

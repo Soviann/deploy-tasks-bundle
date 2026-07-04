@@ -10,9 +10,11 @@ use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompiler
 use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
+use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\NoAttributeSeedCategoriesTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\NullStaticTaskIdGenerator;
+use Soviann\DeployTasksBundle\Tests\Fixtures\OverlongIdTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\A\ClashTask as ClashTaskA;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\B\ClashTask as ClashTaskB;
@@ -541,7 +543,7 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $container = $this->baseContainer();
         $container->setDefinition(
             'soviann_deploy_tasks.storage',
-            new Definition(\Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage::class),
+            new Definition(FilesystemStorage::class),
         );
 
         $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask::class);
@@ -593,7 +595,7 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $container = $this->baseContainer();
         $container->setDefinition(
             'soviann_deploy_tasks.storage',
-            new Definition(\Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage::class),
+            new Definition(FilesystemStorage::class),
         );
 
         $def = new Definition(AttributeOnlyTask::class);
@@ -654,6 +656,25 @@ final class RegisterTasksCompilerPassTest extends TestCase
 
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessageMatches('/stdClass.*must implement/');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    // -------------------------------------------------------------------------
+    // validateTaggedTasks — filesystem storage record-filename length
+    // -------------------------------------------------------------------------
+
+    public function testFilesystemStorageRejectsOverlongRecordFileNamesAtCompileTime(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition(FilesystemStorage::class));
+        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(DefaultTaskIdGenerator::class));
+        $task = new Definition(OverlongIdTask::class);
+        $task->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('app.overlong_task', $task);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/255-byte filesystem limit/');
 
         (new RegisterTasksCompilerPass())->process($container);
     }

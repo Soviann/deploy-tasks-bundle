@@ -34,6 +34,14 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     private const RECORD_NAME_PATTERN = '/^'.AsDeployTask::IDENTIFIER_CHAR.'+(@'.AsDeployTask::IDENTIFIER_CHAR.'+)?\.json$/';
 
+    /**
+     * ext4/APFS/NTFS cap file names at 255 bytes. Enforced in filePath() so an
+     * over-long id fails during the pending check — before the task has run —
+     * instead of in dumpFile() after its side effects were applied (which would
+     * leave the task unrecorded and re-run it on the next deploy).
+     */
+    private const MAX_RECORD_FILENAME_BYTES = 255;
+
     private readonly Filesystem $fs;
 
     /**
@@ -56,6 +64,7 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \InvalidArgumentException When the group name fails validation
+     * @throws StorageException          When the record file name exceeds the filesystem limit
      */
     public function has(string $taskId, ?string $group = null): bool
     {
@@ -65,6 +74,7 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \InvalidArgumentException When the group name fails validation
+     * @throws StorageException          When the record file name exceeds the filesystem limit
      * @throws StorageException          When the file cannot be read
      * @throws StorageException          When the file contains an invalid or undecodable record
      */
@@ -82,6 +92,7 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \InvalidArgumentException When the group name fails validation
+     * @throws StorageException          When the record file name exceeds the filesystem limit
      * @throws StorageException          When the execution payload cannot be encoded
      * @throws StorageException          When the storage directory cannot be created
      * @throws StorageException          When the storage file cannot be written
@@ -130,6 +141,7 @@ final class FilesystemStorage implements TaskStorageInterface
     /**
      * @throws \InvalidArgumentException When the task id fails validation
      * @throws \InvalidArgumentException When the group name fails validation
+     * @throws StorageException          When the record file name exceeds the filesystem limit
      * @throws StorageException          When the storage file cannot be removed
      */
     public function remove(string $taskId, ?string $group = null): void
@@ -264,19 +276,25 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException When the task id or group name fails validation
+     * @throws StorageException          When the record file name exceeds the filesystem limit
      */
     private function filePath(string $taskId, ?string $group): string
     {
         $this->validateTaskId($taskId);
 
         if (null === $group) {
-            return $this->storagePath.'/'.$taskId.'.json';
+            $fileName = $taskId.'.json';
+        } else {
+            $this->validateGroup($group);
+            $fileName = $taskId.'@'.$group.'.json';
         }
 
-        $this->validateGroup($group);
+        if (\strlen($fileName) > self::MAX_RECORD_FILENAME_BYTES) {
+            throw new StorageException(\sprintf('Record file name "%s" is %d bytes, exceeding the %d-byte filesystem limit. Shorten the task id%s.', $fileName, \strlen($fileName), self::MAX_RECORD_FILENAME_BYTES, null === $group ? '' : ' or group name'));
+        }
 
-        return $this->storagePath.'/'.$taskId.'@'.$group.'.json';
+        return $this->storagePath.'/'.$fileName;
     }
 
     /**

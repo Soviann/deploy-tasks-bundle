@@ -701,6 +701,26 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         self::assertContains('task.1', $ids);
     }
 
+    public function testOverlongTaskIdIsRejectedBeforeAnyFilesystemAccess(): void
+    {
+        $id = \str_repeat('a', 251); // 251 + '.json' = 256 bytes > 255
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/255/');
+
+        $this->storage->has($id);
+    }
+
+    public function testOverlongIdGroupCombinationIsRejected(): void
+    {
+        $id = \str_repeat('a', 200);
+        $group = \str_repeat('b', 60); // 200 + 1 + 60 + 5 = 266 bytes
+
+        $this->expectException(StorageException::class);
+
+        $this->storage->has($id, $group);
+    }
+
     protected function createStorage(): TaskStorageInterface
     {
         return $this->storage;
