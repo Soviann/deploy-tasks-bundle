@@ -342,4 +342,18 @@ jobs:
         # Explicit --threads=4 (ubuntu-latest has 4 vCPUs): --threads=max fails to
         # detect the core count on the runner and falls back to a single thread,
         # which pushed the run to ~18 min — close to the job timeout.
-        run: vendor/bin/infection --threads=4 --logger-github
+        #
+        # --show-mutations=0: Infection's console diff colorizer crashes with
+        # "Incorrectly nested style tag" whenever an escaped mutant's inline diff
+        # boundary lands right after a backslash (its own `\<` escaping defeats the
+        # style tag it inserts next). Escaped mutants stay visible as GitHub
+        # annotations (--logger-github) and in the uploaded infection.log.
+        run: vendor/bin/infection --threads=4 --logger-github --show-mutations=0
+
+      - name: Upload mutation log
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: infection-log
+          path: infection.log
+          retention-days: 14

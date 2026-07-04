@@ -4,6 +4,9 @@
         directories: ["src"]
     },
     timeout: 30,
+    logs: {
+        text: "infection.log"
+    },
     minMsi: 90,
     minCoveredMsi: 90,
     mutators: {
