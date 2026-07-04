@@ -278,6 +278,8 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$descriptionResolver' => service('soviann_deploy_tasks.description_resolver'),
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
+                '$hostLockPath' => $hostConfig['lock_path'],
+                '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')
         ;

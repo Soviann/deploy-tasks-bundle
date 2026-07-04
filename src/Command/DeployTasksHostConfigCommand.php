@@ -68,11 +68,7 @@ final class DeployTasksHostConfigCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $values = [
-            'DEPLOY_TASKS_HOST_DIR' => HostRunnerConfig::runnerPath($this->hostTasksDir, $this->projectDir),
-            'DEPLOY_TASKS_HOST_STORAGE' => HostRunnerConfig::runnerPath($this->hostLogPath, $this->projectDir),
-            'DEPLOY_TASKS_HOST_LOCK' => HostRunnerConfig::runnerPath($this->hostLockPath, $this->projectDir),
-        ];
+        $values = HostRunnerConfig::envValues($this->hostTasksDir, $this->hostLogPath, $this->hostLockPath, $this->projectDir);
 
         foreach ($values as $envVar => $value) {
             if (\str_contains($value, "'") || \str_contains($value, "\n")) {

@@ -27,6 +27,23 @@ final class HostRunnerConfigTest extends TestCase
         );
     }
 
+    public function testEnvValuesDerivesFromEnvVarsInOrder(): void
+    {
+        self::assertSame(
+            [
+                'DEPLOY_TASKS_HOST_DIR' => 'deploy/host-tasks',
+                'DEPLOY_TASKS_HOST_STORAGE' => 'deploy/host-tasks.log',
+                'DEPLOY_TASKS_HOST_LOCK' => '/srv/shared/host-tasks.lock',
+            ],
+            HostRunnerConfig::envValues(
+                '/app/deploy/host-tasks',
+                '/app/deploy/host-tasks.log',
+                '/srv/shared/host-tasks.lock',
+                '/app',
+            ),
+        );
+    }
+
     public function testReadGeneratedLocalShIgnoresHandWrittenFiles(): void
     {
         $path = \tempnam(\sys_get_temp_dir(), 'dt-localsh-');

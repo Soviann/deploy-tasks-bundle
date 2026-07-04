@@ -76,6 +76,20 @@ The runner honours three environment variables for path overrides (useful for CI
 
 Paths are resolved relative to the runner's own project root — the script `cd`s to `bin/..` before resolving any path (`bin/deploy-tasks-host.sh.dist` lines 6-7), so this is guaranteed regardless of the working directory the runner is invoked from, not merely a convention. Set the overrides via shell environment, CI secrets, or the `deploy-tasks-host.local.sh` override file.
 
+## Keeping the runner and the PHP config in sync
+
+`soviann_deploy_tasks.host.*` and the runner's `DEPLOY_TASKS_HOST_*` env vars must
+point at the same files. Instead of syncing them by hand, generate the runner side
+from the bundle config:
+
+    bin/console deploytasks:host:config --write
+
+This writes `deploy-tasks-host.local.sh` at the project root — sourced by
+`bin/deploy-tasks-host.sh` on every run — with project-relative paths, so it stays
+correct even when the PHP container mounts the project at a different absolute path
+than the host. Re-run it after changing any `host.*` value; `deploytasks:status`
+warns whenever the generated file drifts from the current config.
+
 ## Status visibility
 
 `deploytasks:status` appends a "Host tasks" section listing each `deploy/host-tasks/*.sh` script as `done` (its ID is a full line in `.deploy-tasks-host.log`) or `pending`. This is a read-only bridge: PHP only reads the host directory and the log, it never writes to them, and the bash runner above is unaffected.

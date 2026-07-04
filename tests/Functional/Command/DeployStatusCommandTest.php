@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
+use Soviann\DeployTasksBundle\Helper\HostRunnerConfig;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
@@ -654,6 +655,42 @@ final class DeployStatusCommandTest extends FunctionalTestCase
             FilesystemTestHelper::cleanup($projectDir);
             HostTasksKernelFactory::cleanupAll();
         }
+    }
+
+    // --- Host runner-config drift ---
+
+    public function testStatusWarnsWhenGeneratedRunnerConfigDriftsFromBundleConfig(): void
+    {
+        self::useConfigurableKernel([
+            'host' => ['log_path' => '%kernel.project_dir%/var/deploy/host.log'],
+        ]);
+        self::bootKernel();
+
+        $localSh = self::projectDir().'/deploy-tasks-host.local.sh';
+
+        if (\file_exists($localSh)) {
+            self::markTestSkipped(\sprintf('Refusing to overwrite pre-existing "%s".', $localSh));
+        }
+
+        \file_put_contents($localSh, HostRunnerConfig::GENERATED_MARKER." — regenerate after changing soviann_deploy_tasks.host.*\nexport DEPLOY_TASKS_HOST_DIR='deploy/host-tasks'\nexport DEPLOY_TASKS_HOST_STORAGE='.deploy-tasks-host.log'\nexport DEPLOY_TASKS_HOST_LOCK='.deploy-tasks-host.lock'\n");
+
+        try {
+            $tester = $this->runCommand('deploytasks:status');
+
+            self::assertStringContainsString('deploy-tasks-host.local.sh no longer matches', $tester->getDisplay());
+            self::assertStringContainsString('DEPLOY_TASKS_HOST_STORAGE', $tester->getDisplay());
+        } finally {
+            \unlink($localSh);
+        }
+    }
+
+    public function testStatusStaysSilentWithoutAGeneratedLocalSh(): void
+    {
+        self::bootKernel();
+
+        $tester = $this->runCommand('deploytasks:status');
+
+        self::assertStringNotContainsString('deploy-tasks-host.local.sh', $tester->getDisplay());
     }
 
     protected static function getKernelClass(): string
