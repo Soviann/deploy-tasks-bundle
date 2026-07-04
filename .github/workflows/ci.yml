@@ -308,6 +308,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # By far the slowest job — keep it off pull requests; MSI regressions are
+    # still caught on every push to main and on the weekly scheduled run.
+    if: github.event_name != 'pull_request'
+
     env:
       COLUMNS: 120
 
