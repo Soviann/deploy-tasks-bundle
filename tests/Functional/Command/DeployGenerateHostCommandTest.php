@@ -429,23 +429,26 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         );
     }
 
-    public function testAbsoluteDefaultDirBoundaryCheckThrowsWhenOutsideProject(): void
+    public function testAbsoluteDefaultDirOutsideProjectIsAccepted(): void
     {
-        // Kills NotIdentical→Identical mutation (#21, line 82): mutation flips null !== projectDir
-        // to null === projectDir, so the boundary check is skipped when projectDir IS set.
-        // We verify the boundary IS enforced: an absolute default dir outside the projectDir throws.
+        // The configured host.directory is operator-trusted DI input and may legitimately
+        // live outside the project dir (the DEPLOY_TASKS_HOST_DIR contract) — no boundary
+        // check applies here, unlike the --dir user-input path.
         $projectDir = \sys_get_temp_dir().'/generate-host-boundary-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        // Host directory is completely outside projectDir — boundary check must fire.
         $outsideDir = \sys_get_temp_dir().'/generate-host-outside-'.\uniqid();
+        \mkdir($outsideDir, 0o755, true);
 
         $command = $this->makeCommand(projectDir: $projectDir, hostDirectory: $outsideDir);
         $tester = new CommandTester($command);
 
         try {
-            $this->expectException(\InvalidArgumentException::class);
-            $tester->execute([]);
+            $exitCode = $tester->execute([]);
+            self::assertSame(Command::SUCCESS, $exitCode, $tester->getDisplay());
+            $files = \glob($outsideDir.'/deploy_task_*.sh');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
         } finally {
             FilesystemTestHelper::cleanup($projectDir);
             FilesystemTestHelper::cleanup($outsideDir);
@@ -468,25 +471,6 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         try {
             $tester->execute([]);
             self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        } finally {
-            FilesystemTestHelper::cleanup($projectDir);
-        }
-    }
-
-    public function testAbsoluteDefaultDirBoundaryCheckStrStartsWithSlashOnResolvedDir(): void
-    {
-        // Kills ConcatOperandRemoval (#25, line 85): mutation removes the trailing '/' appended to
-        // $resolvedDir in str_starts_with($resolvedDir.'/', $boundary), allowing a sibling dir that
-        // merely shares a prefix to bypass the boundary check.
-        $projectDir = \sys_get_temp_dir().'/generate-host-sibling-'.\uniqid();
-        $siblingDir = $projectDir.'sibling'; // shares /tmp/generate-host-sibling-XXX prefix but is outside
-
-        $command = $this->makeCommand(projectDir: $projectDir, hostDirectory: $siblingDir);
-        $tester = new CommandTester($command);
-
-        try {
-            $this->expectException(\InvalidArgumentException::class);
-            $tester->execute([]);
         } finally {
             FilesystemTestHelper::cleanup($projectDir);
         }

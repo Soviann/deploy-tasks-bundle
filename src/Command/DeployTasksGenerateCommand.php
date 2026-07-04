@@ -93,16 +93,30 @@ final class DeployTasksGenerateCommand extends Command
 
         /** @var string $dir */
         $dir = $input->getOption('dir');
+        $userProvidedDir = $input->hasParameterOption('--dir');
 
-        try {
-            $absoluteDir = PathNormalizer::resolveRelativeDirWithin($dir, $this->projectDir);
-        } catch (\InvalidArgumentException $e) {
-            $io->error(\sprintf('Invalid --dir value "%s": %s', $dir, $e->getMessage()));
+        if (!$userProvidedDir && \str_starts_with($dir, '/')) {
+            // Absolute configured generate.directory (typically
+            // '%kernel.project_dir%/…' resolved by DI) — operator-trusted. The
+            // namespace is derived from the project-relative remainder when the
+            // directory sits under the project dir; outside it, --namespace is
+            // required because no PSR-4 mapping can be inferred.
+            $absoluteDir = PathNormalizer::normalize($dir).'/';
+            $projectBase = null !== $this->projectDir ? \rtrim(PathNormalizer::normalize($this->projectDir), '/').'/' : null;
+            $canonical = null !== $projectBase && \str_starts_with($absoluteDir, $projectBase)
+                ? \rtrim(\substr($absoluteDir, \strlen($projectBase)), '/')
+                : null;
+        } else {
+            try {
+                $absoluteDir = PathNormalizer::resolveRelativeDirWithin($dir, $this->projectDir);
+            } catch (\InvalidArgumentException $e) {
+                $io->error(\sprintf('Invalid --dir value "%s": %s', $dir, $e->getMessage()));
 
-            return Command::FAILURE;
+                return Command::FAILURE;
+            }
+
+            $canonical = PathNormalizer::normalize($dir);
         }
-
-        $canonical = PathNormalizer::normalize($dir);
 
         $filePath = $absoluteDir.$className.'.php';
 
@@ -128,6 +142,12 @@ final class DeployTasksGenerateCommand extends Command
 
             $namespace = $namespaceOverride;
         } else {
+            if (null === $canonical) {
+                $io->error(\sprintf('Cannot derive a namespace from "%s" (outside the project directory); pass --namespace explicitly.', $absoluteDir));
+
+                return Command::FAILURE;
+            }
+
             try {
                 $namespace = $this->dirToNamespace($canonical);
             } catch (\InvalidArgumentException $e) {

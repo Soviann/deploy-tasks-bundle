@@ -75,15 +75,12 @@ final class DeployTasksGenerateHostCommand extends Command
         $userProvidedDir = $input->hasParameterOption('--dir');
 
         if (!$userProvidedDir && \str_starts_with($dirInput, '/')) {
-            // The configured host.directory default is an absolute path injected via DI.
-            // Use it directly; apply only the boundary check.
-            $resolvedDir = PathNormalizer::normalize($dirInput);
-
-            if (null !== $this->projectDir) {
-                PathNormalizer::assertWithin($resolvedDir, $this->projectDir);
-            }
-
-            $dir = $resolvedDir.'/';
+            // The configured host.directory is operator-trusted DI input and may
+            // legitimately live outside the project (the runner's
+            // DEPLOY_TASKS_HOST_DIR contract allows e.g. a shared /srv directory) —
+            // status/skip:host/reset:host/rollup:host already accept it unchecked,
+            // so no project-boundary assertion here.
+            $dir = PathNormalizer::normalize($dirInput).'/';
         } else {
             try {
                 $dir = PathNormalizer::resolveRelativeDirWithin($dirInput, $this->projectDir);

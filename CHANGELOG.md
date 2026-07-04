@@ -170,5 +170,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run summaries no longer under-count skipped slots when a multi-group task is only partially pending.
 - Database storage now creates its table before opening the `all_or_nothing` transaction (MySQL DDL implicitly commits, which voided the rollback guarantee on first run) and tolerates losing a concurrent table-create race.
 - Filesystem storage no longer leaves one orphaned `.lock` sidecar per record behind after `remove`/`removeAll`/`reset`.
+- `deploytasks:generate:host` no longer crashes with an uncaught exception when `host.directory` is configured to an absolute path outside the project directory (a setup the other host commands already accept), and `deploytasks:generate:container` now accepts an absolute configured `generate.directory` (deriving the namespace from the project-relative remainder, or requiring `--namespace` when the directory is outside the project).
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/74d55c7...HEAD

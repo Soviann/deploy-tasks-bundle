@@ -846,6 +846,52 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testAbsoluteConfiguredGenerateDirectoryWithinProjectWorks(): void
+    {
+        // self::projectDir() resolves to the real bundle repo root for this test kernel
+        // (AbstractTestKernel::getProjectDir() returns dirname(__DIR__, 2)) — never run
+        // FilesystemTestHelper::cleanup() (recursive delete) on anything under it. Only
+        // the file(s) this test itself generates may be removed, and only the directories
+        // this test itself creates.
+        $generatedDir = self::projectDir().'/src/DeployTasks';
+        $preExisting = \is_dir($generatedDir);
+
+        if ($preExisting) {
+            $entries = \scandir($generatedDir, \SCANDIR_SORT_NONE);
+            self::assertNotFalse($entries);
+
+            if ([] !== \array_diff($entries, ['.', '..'])) {
+                self::markTestSkipped('src/DeployTasks exists in this checkout — refusing to touch it.');
+            }
+        }
+
+        try {
+            self::useConfigurableKernel([
+                'generate' => ['directory' => '%kernel.project_dir%/src/DeployTasks/Task/'],
+            ]);
+            self::bootKernel();
+
+            $tester = $this->runCommand('deploytasks:generate:container');
+
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+            $files = \glob($generatedDir.'/Task/DeployTask*.php');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+            $content = (string) \file_get_contents($files[0]);
+            self::assertStringContainsString('namespace App\DeployTasks\Task;', $content);
+        } finally {
+            $generatedFiles = \glob($generatedDir.'/Task/DeployTask*.php');
+            foreach (false === $generatedFiles ? [] : $generatedFiles as $generatedFile) {
+                \unlink($generatedFile);
+            }
+
+            if (!$preExisting) {
+                @\rmdir($generatedDir.'/Task');
+                @\rmdir($generatedDir);
+            }
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

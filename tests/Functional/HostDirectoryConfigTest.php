@@ -77,4 +77,25 @@ final class HostDirectoryConfigTest extends KernelTestCase
 
         $kernel->shutdown();
     }
+
+    public function testConfiguredHostDirectoryOutsideProjectDirIsAccepted(): void
+    {
+        // Legitimate per the DEPLOY_TASKS_HOST_DIR contract; status/skip:host/
+        // reset:host/rollup:host already accept it — generate:host must too.
+        $outsideDir = FilesystemTestHelper::tempDir('deploy-tasks-outside-host-');
+
+        try {
+            $kernel = HostTasksKernelFactory::boot($this->projectDir, $outsideDir);
+            $tester = new CommandTester((new Application($kernel))->find('deploytasks:generate:host'));
+            $exitCode = $tester->execute([]);
+
+            self::assertSame(Command::SUCCESS, $exitCode, $tester->getDisplay());
+            $files = \glob($outsideDir.'/deploy_task_*.sh');
+            self::assertNotFalse($files);
+            self::assertCount(1, $files);
+            $kernel->shutdown();
+        } finally {
+            FilesystemTestHelper::cleanup($outsideDir);
+        }
+    }
 }
