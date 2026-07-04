@@ -290,6 +290,18 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertSame([], $this->storage->all());
     }
 
+    public function testMalformedGroupNameIsRejectedCleanly(): void
+    {
+        $this->tester->execute(
+            ['id' => 'test.simple', '--group' => 'pre deploy', '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('Invalid group name', $this->tester->getDisplay());
+        self::assertStringContainsString('pre deploy', $this->tester->getDisplay());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

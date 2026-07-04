@@ -74,6 +74,16 @@ final class DeployTasksResetCommand extends Command
         /** @var string|null $group */
         $group = $input->getOption('group');
 
+        if (null !== $group && 1 !== \preg_match(AsDeployTask::GROUP_NAME_PATTERN, $group)) {
+            // Reject before any storage access: FilesystemStorage would otherwise
+            // throw an uncaught InvalidArgumentException from filePath(), while DBAL
+            // storage would exit cleanly — same input must behave the same on every
+            // backend.
+            $io->error(\sprintf('Invalid group name "%s": must match %s.', $group, AsDeployTask::GROUP_NAME_PATTERN));
+
+            return Command::INVALID;
+        }
+
         if ($this->refusesNonInteractive($input, $output)) {
             return Command::INVALID;
         }
