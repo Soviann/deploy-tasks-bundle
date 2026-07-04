@@ -102,7 +102,12 @@ final class DeployTasksGenerateCommand extends Command
             // directory sits under the project dir; outside it, --namespace is
             // required because no PSR-4 mapping can be inferred.
             $absoluteDir = PathNormalizer::normalize($dir).'/';
+            // @infection-ignore-all UnwrapRtrim is equivalent here: normalize()
+            // never returns a trailing slash, so the rtrim only guards the
+            // filesystem-root edge case ('/' as project dir).
             $projectBase = null !== $this->projectDir ? \rtrim(PathNormalizer::normalize($this->projectDir), '/').'/' : null;
+            // @infection-ignore-all UnwrapRtrim is equivalent here: the only
+            // consumer, dirToNamespace(), rtrims its argument again.
             $canonical = null !== $projectBase && \str_starts_with($absoluteDir, $projectBase)
                 ? \rtrim(\substr($absoluteDir, \strlen($projectBase)), '/')
                 : null;
