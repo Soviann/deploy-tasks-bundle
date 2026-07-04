@@ -128,6 +128,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Non-tty runners report an 80-column terminal, so SymfonyStyle wraps long
+    # literals out of display assertions that pass locally. Pin the width every
+    # PHPUnit-running job uses to a realistic terminal.
+    env:
+      COLUMNS: 120
+
     strategy:
       fail-fast: false
       matrix:
@@ -196,6 +202,7 @@ jobs:
     # `if:` expressions — referencing it there fails the whole workflow at startup.
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      COLUMNS: 120
 
     steps:
       - name: Checkout
@@ -281,6 +288,9 @@ jobs:
     name: Mutation testing
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    env:
+      COLUMNS: 120
 
     steps:
       - name: Checkout
