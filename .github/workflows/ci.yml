@@ -51,6 +51,34 @@ jobs:
           shellcheck bin/deploy-tasks-host.sh.dist
           find src tests -name '*.sh' -print0 | xargs -0 -r shellcheck
 
+  changelog:
+    name: Changelog structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Keep a Changelog discipline: [Unreleased] holds at most one section per
+      # change type, and only the six canonical types. Duplicate sections have
+      # already drifted in once (two independent "### Changed" blocks).
+      - name: Lint the [Unreleased] section structure
+        run: |
+          awk '
+            /^## / { in_unreleased = ($0 ~ /^## \[Unreleased\]/) }
+            in_unreleased && /^### / {
+              type = substr($0, 5)
+              sub(/[ \t]+$/, "", type)
+              if (type !~ /^(Added|Changed|Deprecated|Removed|Fixed|Security)$/) {
+                printf "CHANGELOG.md line %d: unknown section \"%s\"\n", NR, type; bad = 1
+              } else if (seen[type]++) {
+                printf "CHANGELOG.md line %d: duplicate section \"%s\"\n", NR, type; bad = 1
+              }
+            }
+            END { if (bad) exit 1; print "CHANGELOG [Unreleased] structure OK" }
+          ' CHANGELOG.md
+
   phpstan:
     name: PHPStan
     runs-on: ubuntu-latest
