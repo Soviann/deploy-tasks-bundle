@@ -9,27 +9,30 @@ use Soviann\DeployTasksBundle\Command\DeployTasksHostConfigCommand;
 use Soviann\DeployTasksBundle\Helper\HostRunnerConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[CoversClass(DeployTasksHostConfigCommand::class)]
 final class DeployHostConfigCommandTest extends FunctionalTestCase
 {
+    private string $tempProjectDir;
     private string $localShPath;
 
     protected function setUp(): void
     {
-        self::bootKernel();
-        $this->localShPath = self::projectDir().'/deploy-tasks-host.local.sh';
+        // Isolated per-test project dir: this test's --write option writes
+        // deploy-tasks-host.local.sh, which must never land in (or race on) the
+        // real checkout's project root under parallel Infection mutant runs.
+        $this->tempProjectDir = \sys_get_temp_dir().'/dtb-generate-'.\uniqid('', true);
+        \mkdir($this->tempProjectDir, 0o755, true);
 
-        // This test writes to the real bundle repo root (see FunctionalTestCase::projectDir()) —
-        // the file must not pre-exist; guard + finally-cleanup keeps the tree clean either way.
-        self::assertFileDoesNotExist($this->localShPath, 'deploy-tasks-host.local.sh must not pre-exist before this test.');
+        self::useConfigurableKernel([], projectDir: $this->tempProjectDir);
+        self::bootKernel();
+        $this->localShPath = $this->tempProjectDir.'/deploy-tasks-host.local.sh';
     }
 
     protected function tearDown(): void
     {
-        if (\is_file($this->localShPath)) {
-            \unlink($this->localShPath);
-        }
+        (new Filesystem())->remove($this->tempProjectDir);
 
         parent::tearDown();
     }

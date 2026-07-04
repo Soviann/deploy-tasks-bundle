@@ -848,91 +848,77 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
 
     public function testAbsoluteConfiguredGenerateDirectoryWithinProjectWorks(): void
     {
-        // self::projectDir() resolves to the real bundle repo root for this test kernel
-        // (AbstractTestKernel::getProjectDir() returns dirname(__DIR__, 2)) — never run
-        // FilesystemTestHelper::cleanup() (recursive delete) on anything under it. Only
-        // the file(s) this test itself generates may be removed, and only the directories
-        // this test itself creates.
-        $generatedDir = self::projectDir().'/src/DeployTasks';
-        $preExisting = \is_dir($generatedDir);
-
-        if ($preExisting) {
-            $entries = \scandir($generatedDir, \SCANDIR_SORT_NONE);
-            self::assertNotFalse($entries);
-
-            if ([] !== \array_diff($entries, ['.', '..'])) {
-                self::markTestSkipped('src/DeployTasks exists in this checkout — refusing to touch it.');
-            }
-        }
+        // Isolated per-test project dir: parallel Infection mutant runs must never write into
+        // (or race on) the real checkout's src/DeployTasks — see the ConfigurableTestKernel
+        // projectDir override.
+        $tempProjectDir = \sys_get_temp_dir().'/dtb-generate-'.\uniqid('', true);
+        \mkdir($tempProjectDir, 0o755, true);
 
         try {
-            self::useConfigurableKernel([
-                'generate' => ['directory' => '%kernel.project_dir%/src/DeployTasks/Task/'],
-            ]);
+            self::useConfigurableKernel(
+                ['generate' => ['directory' => '%kernel.project_dir%/src/DeployTasks/Task/']],
+                projectDir: $tempProjectDir,
+            );
             self::bootKernel();
 
             $tester = $this->runCommand('deploytasks:generate:container');
 
             self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
-            $files = \glob($generatedDir.'/Task/DeployTask*.php');
+            $files = \glob($tempProjectDir.'/src/DeployTasks/Task/DeployTask*.php');
             self::assertNotFalse($files);
             self::assertCount(1, $files);
             $content = (string) \file_get_contents($files[0]);
             self::assertStringContainsString('namespace App\DeployTasks\Task;', $content);
         } finally {
-            $generatedFiles = \glob($generatedDir.'/Task/DeployTask*.php');
-            foreach (false === $generatedFiles ? [] : $generatedFiles as $generatedFile) {
-                \unlink($generatedFile);
-            }
-
-            if (!$preExisting) {
-                @\rmdir($generatedDir.'/Task');
-                @\rmdir($generatedDir);
-            }
+            (new Filesystem())->remove($tempProjectDir);
         }
     }
 
     public function testMissingConfiguredTemplateFailsInsteadOfSilentStubFallback(): void
     {
-        // See testAbsoluteConfiguredGenerateDirectoryWithinProjectWorks() above: self::projectDir()
-        // resolves to the real bundle repo root for this test kernel, so the same residue-safety
-        // guard applies even though the fixed code is not expected to write anything here.
-        $generatedDir = self::projectDir().'/src/DeployTasks';
-        $preExisting = \is_dir($generatedDir);
-
-        if ($preExisting) {
-            $entries = \scandir($generatedDir, \SCANDIR_SORT_NONE);
-            self::assertNotFalse($entries);
-
-            if ([] !== \array_diff($entries, ['.', '..'])) {
-                self::markTestSkipped('src/DeployTasks exists in this checkout — refusing to touch it.');
-            }
-        }
+        // Isolated per-test project dir: see testAbsoluteConfiguredGenerateDirectoryWithinProjectWorks() above.
+        $tempProjectDir = \sys_get_temp_dir().'/dtb-generate-'.\uniqid('', true);
+        \mkdir($tempProjectDir, 0o755, true);
 
         try {
-            self::useConfigurableKernel([
-                'generate' => ['template' => '/nonexistent/deploy-task.tpl.php'],
-            ]);
+            self::useConfigurableKernel(
+                ['generate' => ['template' => '/nonexistent/deploy-task.tpl.php']],
+                projectDir: $tempProjectDir,
+            );
             self::bootKernel();
 
             $tester = $this->runCommand('deploytasks:generate:container');
 
             self::assertSame(Command::FAILURE, $tester->getStatusCode());
             self::assertStringContainsString('/nonexistent/deploy-task.tpl.php', $tester->getDisplay());
-            $files = \glob($generatedDir.'/Task/DeployTask*.php');
+            $files = \glob($tempProjectDir.'/src/DeployTasks/Task/DeployTask*.php');
             self::assertNotFalse($files);
             self::assertCount(0, $files, 'No file must be generated from the silent stub fallback.');
         } finally {
-            $generatedFiles = \glob($generatedDir.'/Task/DeployTask*.php');
-            foreach (false === $generatedFiles ? [] : $generatedFiles as $generatedFile) {
-                \unlink($generatedFile);
-            }
-
-            if (!$preExisting) {
-                @\rmdir($generatedDir.'/Task');
-                @\rmdir($generatedDir);
-            }
+            (new Filesystem())->remove($tempProjectDir);
         }
+    }
+
+    public function testAbsoluteConfiguredDirectoryWithoutProjectDirFailsWithBoundaryMessage(): void
+    {
+        // Kills LogicalAnd on line 106 (`null !== $projectBase && …` -> `… || …`): with no
+        // projectDir, $projectBase stays null and the boundary check must short-circuit to
+        // null (yielding the "pass --namespace explicitly" message below) rather than
+        // falling through to dirToNamespace() with a stray leading slash, which produces a
+        // different failure message ("cannot be turned into a valid PHP namespace").
+        $idGenerator = self::getContainer()->get('soviann_deploy_tasks.id_generator');
+        self::assertInstanceOf(TaskIdGeneratorInterface::class, $idGenerator);
+
+        $command = $this->makeCommand($idGenerator, defaultDirectory: '/configured/absolute/tasks/');
+        $tester = new CommandTester($command);
+
+        $tester->execute([]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString(
+            'pass --namespace explicitly',
+            \preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '',
+        );
     }
 
     protected static function getKernelClass(): string
@@ -946,10 +932,11 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
         ?string $projectDir = null,
         ClockInterface $clock = new SystemClock(),
         string $rootNamespace = 'App',
+        string $defaultDirectory = self::DEFAULT_DIR,
     ): DeployTasksGenerateCommand {
         return new DeployTasksGenerateCommand(
             idGenerator: $idGenerator,
-            defaultDirectory: self::DEFAULT_DIR,
+            defaultDirectory: $defaultDirectory,
             rootNamespace: $rootNamespace,
             templatePath: $templatePath,
             projectDir: $projectDir,

@@ -17,6 +17,7 @@ use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[CoversClass(DeployTasksStatusCommand::class)]
 final class DeployStatusCommandTest extends FunctionalTestCase
@@ -661,16 +662,18 @@ final class DeployStatusCommandTest extends FunctionalTestCase
 
     public function testStatusWarnsWhenGeneratedRunnerConfigDriftsFromBundleConfig(): void
     {
-        self::useConfigurableKernel([
-            'host' => ['log_path' => '%kernel.project_dir%/var/deploy/host.log'],
-        ]);
+        // Isolated per-test project dir: parallel Infection mutant runs must never write into
+        // (or race on) the real checkout's deploy-tasks-host.local.sh.
+        $tempProjectDir = \sys_get_temp_dir().'/dtb-generate-'.\uniqid('', true);
+        \mkdir($tempProjectDir, 0o755, true);
+
+        self::useConfigurableKernel(
+            ['host' => ['log_path' => '%kernel.project_dir%/var/deploy/host.log']],
+            projectDir: $tempProjectDir,
+        );
         self::bootKernel();
 
-        $localSh = self::projectDir().'/deploy-tasks-host.local.sh';
-
-        if (\file_exists($localSh)) {
-            self::markTestSkipped(\sprintf('Refusing to overwrite pre-existing "%s".', $localSh));
-        }
+        $localSh = $tempProjectDir.'/deploy-tasks-host.local.sh';
 
         \file_put_contents($localSh, HostRunnerConfig::GENERATED_MARKER." — regenerate after changing soviann_deploy_tasks.host.*\nexport DEPLOY_TASKS_HOST_DIR='deploy/host-tasks'\nexport DEPLOY_TASKS_HOST_STORAGE='.deploy-tasks-host.log'\nexport DEPLOY_TASKS_HOST_LOCK='.deploy-tasks-host.lock'\n");
 
@@ -680,17 +683,28 @@ final class DeployStatusCommandTest extends FunctionalTestCase
             self::assertStringContainsString('deploy-tasks-host.local.sh no longer matches', $tester->getDisplay());
             self::assertStringContainsString('DEPLOY_TASKS_HOST_STORAGE', $tester->getDisplay());
         } finally {
-            \unlink($localSh);
+            (new Filesystem())->remove($tempProjectDir);
         }
     }
 
     public function testStatusStaysSilentWithoutAGeneratedLocalSh(): void
     {
-        self::bootKernel();
+        // Isolated per-test project dir: reads the real checkout's project root otherwise,
+        // which a concurrent Infection mutant worker could transiently be writing
+        // deploy-tasks-host.local.sh into (see the drift test above).
+        $tempProjectDir = \sys_get_temp_dir().'/dtb-generate-'.\uniqid('', true);
+        \mkdir($tempProjectDir, 0o755, true);
 
-        $tester = $this->runCommand('deploytasks:status');
+        try {
+            self::useConfigurableKernel([], projectDir: $tempProjectDir);
+            self::bootKernel();
 
-        self::assertStringNotContainsString('deploy-tasks-host.local.sh', $tester->getDisplay());
+            $tester = $this->runCommand('deploytasks:status');
+
+            self::assertStringNotContainsString('deploy-tasks-host.local.sh', $tester->getDisplay());
+        } finally {
+            (new Filesystem())->remove($tempProjectDir);
+        }
     }
 
     protected static function getKernelClass(): string

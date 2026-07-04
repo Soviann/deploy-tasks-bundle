@@ -33,6 +33,11 @@ final class ConfigurableTestKernel extends AbstractTestKernel
      * @param array<string, mixed>       $frameworkConfig overrides merged onto the base `framework` config
      *                                                    (e.g. `['lock' => false]` to simulate symfony/lock
      *                                                    being unavailable even though it's installed)
+     * @param ?string                    $projectDir      overrides {@see AbstractTestKernel::getProjectDir()}
+     *                                                    (e.g. an isolated temp directory) instead of resolving
+     *                                                    to the real checkout root — needed by tests that write
+     *                                                    into `%kernel.project_dir%` so parallel Infection runners
+     *                                                    never see each other's in-flight files
      */
     public function __construct(
         string $environment,
@@ -40,8 +45,14 @@ final class ConfigurableTestKernel extends AbstractTestKernel
         private readonly array $extensionConfig = [],
         private readonly array $services = [],
         private readonly array $frameworkConfig = [],
+        private readonly ?string $projectDir = null,
     ) {
         parent::__construct($environment, $debug);
+    }
+
+    public function getProjectDir(): string
+    {
+        return $this->projectDir ?? parent::getProjectDir();
     }
 
     public function getCacheDir(): string
@@ -107,6 +118,6 @@ final class ConfigurableTestKernel extends AbstractTestKernel
 
     private function configHash(): string
     {
-        return 'configurable-'.\substr(\sha1(\serialize([$this->extensionConfig, $this->services, $this->frameworkConfig])), 0, 12);
+        return 'configurable-'.\substr(\sha1(\serialize([$this->extensionConfig, $this->services, $this->frameworkConfig, $this->projectDir])), 0, 12);
     }
 }

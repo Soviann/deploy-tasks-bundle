@@ -24,7 +24,7 @@ abstract class FunctionalTestCase extends KernelTestCase
     protected static array $testKernelOptions = [];
 
     /**
-     * @var array{extensionConfig: array<string, mixed>, services: array<string, ServiceSpec>, frameworkConfig: array<string, mixed>}|null
+     * @var array{extensionConfig: array<string, mixed>, services: array<string, ServiceSpec>, frameworkConfig: array<string, mixed>, projectDir: ?string}|null
      */
     private static ?array $configurableKernelConfig = null;
 
@@ -54,14 +54,20 @@ abstract class FunctionalTestCase extends KernelTestCase
      * @param array<string, mixed>       $frameworkConfig overrides merged onto the base `framework` config
      *                                                    (e.g. `['lock' => false]` to simulate symfony/lock
      *                                                    being unavailable even though it's installed)
+     * @param ?string                    $projectDir      overrides `kernel.project_dir` with an isolated
+     *                                                    directory (e.g. a per-test temp dir) instead of the
+     *                                                    real checkout root — use for any test that writes
+     *                                                    files under `%kernel.project_dir%`, so parallel
+     *                                                    Infection runners never see each other's output
      */
-    protected static function useConfigurableKernel(array $extensionConfig, array $services = [], array $frameworkConfig = []): void
+    protected static function useConfigurableKernel(array $extensionConfig, array $services = [], array $frameworkConfig = [], ?string $projectDir = null): void
     {
         static::$class = ConfigurableTestKernel::class;
         self::$configurableKernelConfig = [
             'extensionConfig' => $extensionConfig,
             'services' => $services,
             'frameworkConfig' => $frameworkConfig,
+            'projectDir' => $projectDir,
         ];
     }
 
@@ -99,6 +105,7 @@ abstract class FunctionalTestCase extends KernelTestCase
                 extensionConfig: self::$configurableKernelConfig['extensionConfig'],
                 services: self::$configurableKernelConfig['services'],
                 frameworkConfig: self::$configurableKernelConfig['frameworkConfig'],
+                projectDir: self::$configurableKernelConfig['projectDir'],
             );
         }
 
