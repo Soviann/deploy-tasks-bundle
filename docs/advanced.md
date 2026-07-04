@@ -120,6 +120,7 @@ When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` i
 | `skipped` | `int` | Tasks the runner skipped — either already recorded, or returned `TaskResult::SKIPPED` from their `run()`. |
 | `failed` | `int` | Tasks whose `run()` threw or returned `TaskResult::FAILURE`, plus tasks a caller-built transaction rolled back. |
 | `locked` | `bool` | `true` when the run was short-circuited because another process held the runner lock. No tasks ran in that case (`ran`/`skipped`/`failed` are all `0`). |
+| `dryRun` | `bool` | `true` when this result describes a dry run — nothing was executed or persisted, and `ran` counts the slots that *would* run. Defaults to `false`. |
 
 Convenience method: `isSuccessful()` returns `true` iff `failed === 0 && !locked` — use it in custom CLI wrappers to map to process exit codes.
 

@@ -28,7 +28,7 @@ bin/console deploytasks:run --require-some --group=predeploy
 | `--group=<name>` | Restrict execution to the given group slot; repeatable for a union (e.g. `--group=a --group=b`). Without this flag, only default-slot tasks run. |
 | `--require-some` | Exit `64` (`EX_USAGE`) when no task matches the provided filters, distinguishing an empty selection from a successful noop. |
 
-**Exit codes:** `0` on success; `1` if at least one task failed; `2` (`Command::INVALID`) when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values; `64` (`EX_USAGE`) when `--require-some` is set and no task matched the filters; `75` (`EX_TEMPFAIL`) when the run lock is already held — CI pipelines should treat this as "retry recommended" rather than a genuine failure.
+**Exit codes:** `0` on success; `1` if at least one task failed; `2` (`Command::INVALID`) when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values, or when `--id` targets a task whose declared `env` excludes the current environment (without `--require-some`); `64` (`EX_USAGE`) when `--require-some` is set and no task matched the filters — this includes an unknown `--id` and an `--id` excluded by its declared `env`, both of which count as "no match" under `--require-some`; `75` (`EX_TEMPFAIL`) when the run lock is already held — CI pipelines should treat this as "retry recommended" rather than a genuine failure.
 
 **Group semantics:**
 
@@ -130,6 +130,8 @@ bin/console deploytasks:skip task_20260412143000_seed_categories --group=predepl
 | `--group=<name>` | Target a specific group slot. Required when the task declares groups; forbidden otherwise. |
 
 Use `deploytasks:reset` to re-enable a skipped task.
+
+You are prompted for confirmation before proceeding (same convention as `deploytasks:skip:host`: reversible via `deploytasks:reset`, so it proceeds under `--no-interaction` without requiring `--force`).
 
 **Exit codes:** `0` on success; `2` (`Command::INVALID`) when the task ID is not registered, or when `--group` is missing for a grouped task, undeclared, or supplied for an ungrouped task; `1` when the confirmation is declined.
 

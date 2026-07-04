@@ -28,7 +28,7 @@ $runner = new TaskRunner(
 );
 ```
 
-`TaskRunner`'s constructor takes nine required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $defaultTimeout`, `bool $transactional`, `bool $allOrNothing`, `int $lockTtl` — followed by four optional ones that all default to `null`: `?EventDispatcherInterface $dispatcher`, `?LockFactory $lockFactory`, `?string $environment`, `?LoggerInterface $logger` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed.
+`TaskRunner`'s constructor takes nine required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $defaultTimeout`, `bool $transactional`, `bool $allOrNothing`, `int $lockTtl` — followed by five optional ones, not all defaulting to `null`: `?EventDispatcherInterface $dispatcher = null`, `?LockFactory $lockFactory = null`, `?string $environment = null`, `ClockInterface $clock = new SystemClock()` (real wall-clock time unless overridden — inject a fake clock for deterministic timestamps in tests), and `?LoggerInterface $logger = null` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed.
 
 ## Functional Testing with a Test Kernel
 

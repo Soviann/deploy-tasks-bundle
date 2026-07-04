@@ -19,7 +19,7 @@ soviann_deploy_tasks:
 
 | Level | Message | Context keys |
 |---|---|---|
-| `info` | `Deploy tasks run starting` | `environment`, `dry_run`, `force`, `groups` |
+| `info` | `Deploy tasks run starting` | `environment`, `dry_run`, `rerun_all`, `groups` |
 | `info` | `Deploy task starting` | `task_id` |
 | `info` | `Deploy task executed` | `task_id`, `result`, `duration_ms` |
 | `info` | `Deploy task skipped (already executed)` | `task_id` |
@@ -27,9 +27,12 @@ soviann_deploy_tasks:
 | `warning` | `Deploy task exceeded timeout` | `task_id`, `duration_s`, `timeout_s` |
 | `warning` | `Deploy tasks run skipped: another process is already running` | — |
 | `warning` | `Deploy tasks runner has no lock factory — concurrent execution is not protected` | — |
-| `error` | `Deploy task failed` | `task_id`, `duration_ms`, `exception` |
+| `warning` | `Task requested transactional execution but the storage backend does not support transactions — running unwrapped.` | `task_id` |
+| `error` | `Deploy task failed` | `task_id`, `duration_ms`, plus either `exception` or, when a DBAL exception sits in the failure chain, `exception_class`/`exception_message`/`previous_message` (see below) |
+| `error` | `Deploy tasks run failed — transaction rolled back.` | same exception fields as `Deploy task failed` |
+| `error` | `Deploy task listener failed` | `event`, `task`, `exception` |
 
-`task_id` is always a string. `result` is an `int` — the backing value of the `TaskResult` enum (logger records `$result->value`). `duration_ms` is an int (rounded), `duration_s` a float. `exception` is the raw `\Throwable` per PSR-3 — Monolog's default formatter renders class, message, and trace.
+`task_id` is always a string. `result` is an `int` — the backing value of the `TaskResult` enum (logger records `$result->value`). `duration_ms` is an int (rounded), `duration_s` a float. `exception` is the raw `\Throwable` per PSR-3 — Monolog's default formatter renders class, message, and trace. When the failure chain contains a `Doctrine\DBAL\Exception`, the runner drops the raw throwable and substitutes `exception_class`, `exception_message`, and `previous_message` (all strings) instead, to avoid forwarding a DSN-bearing trace — see the credential-safety section below.
 
 ## Monolog Routing
 

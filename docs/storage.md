@@ -24,7 +24,7 @@ The directory is created automatically on the first write. Add it to `.gitignore
 
 Each file is named `<task-id>.json` for the default slot, or `<task-id>@<group>.json` for a group slot (e.g. `task_foo@predeploy.json`). Group names are constrained to `AsDeployTask::GROUP_NAME_PATTERN` (`^[a-zA-Z0-9._-]+$`); names containing slashes, whitespace, or other characters are rejected with `\InvalidArgumentException` at `#[AsDeployTask]` construct time and again at the storage boundary. The file contains the task ID, status, execution timestamp, group, and any error message.
 
-Files are written atomically (`Filesystem::dumpFile()` + `LOCK_EX`) at mode `0600`; the storage directory is created at mode `0700` on first use. Per-file permissions are re-applied on every `save()`, so existing slot files tighten themselves on the next write.
+Writes are made atomic and safe for concurrent writers through two separate mechanisms: a sidecar lock file (`<slot>.json.lock`) is `flock(LOCK_EX)`-held for the duration of the write to serialise concurrent writers, while the destination file itself is written via `Filesystem::dumpFile()` (temp-file-then-rename) and is deliberately **not** additionally `flock`-ed — locking the destination directly would defeat the rename's atomic-visibility guarantee for readers. The destination file is created at mode `0600`; the storage directory is created at mode `0700` on first use. Per-file permissions are re-applied on every `save()`, so existing slot files tighten themselves on the next write.
 
 ## Database
 
@@ -127,7 +127,7 @@ soviann_deploy_tasks:
 - **`transactional: true`** (database default): each task's `run()` and storage `save()` are wrapped in a database transaction. Individual tasks can override this via `#[AsDeployTask(transactional: false)]`. When `transactional` is `null` on the attribute, the storage setting applies.
 - **`all_or_nothing: true`** (database default): the entire run is wrapped in a single transaction — any failure rolls back all tasks. Per-task wrapping is skipped when this is enabled.
 
-Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). For `FilesystemStorage` they must stay `false` — `true` is rejected at container build.
+Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this).
 
 ## InMemoryStorage
 

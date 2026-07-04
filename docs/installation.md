@@ -37,7 +37,7 @@ The endpoint repo (`Soviann/flex-recipes`) is private pre-release, so this requi
 | `symfony/event-dispatcher` | Task lifecycle events (`BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent`) |
 | `symfony/lock` | Prevent concurrent execution of `deploytasks:run` |
 
-These packages are detected at runtime. If they are not installed, the corresponding features are disabled — silently for events and storage, but `deploytasks:run` prints a warning when `lock.enabled` is `true` and symfony/lock is missing, since that means concurrent-run protection is off.
+These packages are detected at runtime. If they are not installed, the corresponding features are disabled — silently for events and storage, but not for locking: `deploytasks:run` unconditionally prints a console warning when `lock.enabled` is `true` and symfony/lock is missing, since that means concurrent-run protection is off. Separately, whenever no lock factory ends up wired at all (package missing, or `lock.enabled: false`), the runner itself also logs a PSR-3 `warning` on every run (`Deploy tasks runner has no lock factory — concurrent execution is not protected`) and, only under `-v`/`--verbose`, prints its own additional console line to the same effect.
 
 ## Configuration
 

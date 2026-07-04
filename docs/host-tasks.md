@@ -11,7 +11,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 | Needs the host: Docker/systemd restarts, mounts, packages, root | **Host** (`deploy/host-tasks/*.sh`) |
 | Must run even when the app cannot boot (broken kernel, pre-install) | **Host** |
 
-Default to container tasks: they get storage backends, groups, env filtering, events, and status tooling. Host tasks get none of that by design (see Non-goals).
+Default to container tasks: they get storage backends, groups, env filtering, and lifecycle events. Host tasks get none of that by design (see Non-goals) — though they do get read-only status visibility and log-management commands (`skip:host`/`reset:host`/`rollup:host`), described below.
 
 ## Install the runner
 
@@ -74,7 +74,7 @@ The runner honours three environment variables for path overrides (useful for CI
 | `DEPLOY_TASKS_HOST_STORAGE` | `.deploy-tasks-host.log` | Append-only log of completed task IDs (one-shot per machine). |
 | `DEPLOY_TASKS_HOST_LOCK` | `.deploy-tasks-host.lock` | `flock` file guarding against concurrent runs. |
 
-Paths are resolved relative to the runner's current working directory (the repo root by convention). Set them via shell environment, CI secrets, or the `deploy-tasks-host.local.sh` override file.
+Paths are resolved relative to the runner's own project root — the script `cd`s to `bin/..` before resolving any path (`bin/deploy-tasks-host.sh.dist` lines 6-7), so this is guaranteed regardless of the working directory the runner is invoked from, not merely a convention. Set the overrides via shell environment, CI secrets, or the `deploy-tasks-host.local.sh` override file.
 
 ## Status visibility
 

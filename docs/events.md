@@ -15,8 +15,8 @@ All events are in the `Soviann\DeployTasksBundle\Event\` namespace.
 | Event | When | Properties |
 |---|---|---|
 | `BeforeTaskEvent` | Before each task runs | `string $taskId`, `DeployTaskInterface $task` |
-| `AfterTaskEvent` | After non-exceptional execution | `string $taskId`, `DeployTaskInterface $task`, `TaskResult $result`, `float $duration` |
-| `TaskFailedEvent` | On exception | `string $taskId`, `DeployTaskInterface $task`, `\Throwable $exception`, `float $duration` |
+| `AfterTaskEvent` | After a task's `run()` returns `TaskResult::SUCCESS` or `TaskResult::SKIPPED` | `string $taskId`, `DeployTaskInterface $task`, `TaskResult $result`, `float $duration` |
+| `TaskFailedEvent` | When the task throws, **or** when `run()` returns `TaskResult::FAILURE`/`TaskResult::LOCKED` — the latter is converted into a synthetic `TaskReturnedFailureException` so both paths dispatch the same event | `string $taskId`, `DeployTaskInterface $task`, `\Throwable $exception`, `float $duration` |
 
 ## Listener Example
 

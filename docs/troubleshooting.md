@@ -24,6 +24,10 @@ Fix it by setting an explicit `#[AsDeployTask(id: '...')]` on at least one of th
 
 Thrown by `deploytasks:run --id=<id>`, `deploytasks:show <id>`, `deploytasks:skip <id>`, `deploytasks:reset <id>` when the requested ID is not in the registry. Run `deploytasks:status` to see the resolved IDs as the bundle sees them — the printed value is the one you must pass on the CLI.
 
+## `deploytasks:run --id=<id>` exits `2` (`Command::INVALID`) for a task excluded by its `env`
+
+`--id=<id>` targeting a task whose `#[AsDeployTask(env: ...)]` excludes the runner's current environment throws `TaskEnvironmentMismatchException`, which the command reports as `Command::INVALID` (`2`) — the same code used for an `--id`/`--group` mismatch. Under `--require-some`, this case is treated as "no task matched the filters" instead, and exits `64` (`EX_USAGE`) — see [`deploytasks:run --require-some` exits 64](#deploytasksrun---require-some-exits-64-ex_usage) below.
+
 ## `IncompatibleStorageException` when enabling `transactional` / `all_or_nothing`
 
 The active storage backend does not implement `TransactionalStorageInterface`. The filesystem backend never does (no transactions on disk). The only built-in backend that supports transactions is `DbalStorage`. For a custom backend, implement `TransactionalStorageInterface` and the bundle will detect it automatically.
@@ -63,7 +67,7 @@ If the lock is stuck after a crashed run, inspect your lock store (file, Redis, 
 
 ## `deploytasks:run --require-some` exits 64 (`EX_USAGE`)
 
-You combined `--id`, `--group`, or both, but no task in the registry matched the filter. `EX_USAGE` (`64`) signals a usage error so CI scripts can fail loudly instead of treating "0 tasks ran" as success. Drop `--require-some` if "no match" is acceptable.
+You combined `--id`, `--group`, or both, but no task in the registry matched the filter — this also covers an `--id` that isn't registered at all, and an `--id` that resolves to a task excluded by its declared `env`. `EX_USAGE` (`64`) signals a usage error so CI scripts can fail loudly instead of treating "0 tasks ran" as success. Drop `--require-some` if "no match" is acceptable.
 
 ## `deploytasks:status --filter-status=...` rejects my value
 
