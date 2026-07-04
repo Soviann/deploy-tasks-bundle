@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
@@ -111,6 +112,29 @@ trait HostLogManipulationTrait
     {
         \flock($handle, \LOCK_UN);
         \fclose($handle);
+    }
+
+    /**
+     * Runs $operation under the host runner's flock, mapping contention to the
+     * warning + EX_TEMPFAIL exit shared by all host ops commands.
+     *
+     * @param \Closure(): int $operation returns the command exit code
+     */
+    private function withHostLock(string $lockPath, SymfonyStyle $io, \Closure $operation): int
+    {
+        $lock = $this->acquireHostLock($lockPath);
+
+        if (null === $lock) {
+            $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $lockPath));
+
+            return DeployTasksRunCommand::EX_TEMPFAIL;
+        }
+
+        try {
+            return $operation();
+        } finally {
+            $this->releaseHostLock($lock);
+        }
     }
 
     /**

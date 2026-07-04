@@ -94,21 +94,12 @@ final class DeployTasksSkipHostCommand extends Command
             }
         }
 
-        $lock = $this->acquireHostLock($this->hostLockPath);
-        if (null === $lock) {
-            $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $this->hostLockPath));
-
-            return DeployTasksRunCommand::EX_TEMPFAIL;
-        }
-
-        try {
+        return $this->withHostLock($this->hostLockPath, $io, function () use ($io, $id): int {
             $this->appendToHostLog($this->hostLogPath, $id);
-        } finally {
-            $this->releaseHostLock($lock);
-        }
 
-        $io->success(\sprintf('Host task "%s" marked as done.', $id));
+            $io->success(\sprintf('Host task "%s" marked as done.', $id));
 
-        return Command::SUCCESS;
+            return Command::SUCCESS;
+        });
     }
 }

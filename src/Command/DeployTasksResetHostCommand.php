@@ -108,24 +108,15 @@ final class DeployTasksResetHostCommand extends Command
             return Command::FAILURE;
         }
 
-        $lock = $this->acquireHostLock($this->hostLockPath);
-        if (null === $lock) {
-            $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $this->hostLockPath));
-
-            return DeployTasksRunCommand::EX_TEMPFAIL;
-        }
-
-        try {
+        return $this->withHostLock($this->hostLockPath, $io, function () use ($io, $id): int {
             $this->rewriteHostLogWithout($this->hostLogPath, $id);
-        } finally {
-            $this->releaseHostLock($lock);
-        }
 
-        $io->success(\sprintf(
-            'Host task "%s" has been reset and will run again on the next bin/deploy-tasks-host.sh.',
-            $id,
-        ));
+            $io->success(\sprintf(
+                'Host task "%s" has been reset and will run again on the next bin/deploy-tasks-host.sh.',
+                $id,
+            ));
 
-        return Command::SUCCESS;
+            return Command::SUCCESS;
+        });
     }
 }

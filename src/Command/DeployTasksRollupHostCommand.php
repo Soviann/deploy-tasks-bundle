@@ -105,21 +105,12 @@ final class DeployTasksRollupHostCommand extends Command
             return Command::FAILURE;
         }
 
-        $lock = $this->acquireHostLock($this->hostLockPath);
-        if (null === $lock) {
-            $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $this->hostLockPath));
-
-            return DeployTasksRunCommand::EX_TEMPFAIL;
-        }
-
-        try {
+        return $this->withHostLock($this->hostLockPath, $io, function () use ($io, $pending): int {
             $this->appendManyToHostLog($this->hostLogPath, $pending);
-        } finally {
-            $this->releaseHostLock($lock);
-        }
 
-        $io->success(\sprintf('Rolled up: marked %d host task(s) as done.', \count($pending)));
+            $io->success(\sprintf('Rolled up: marked %d host task(s) as done.', \count($pending)));
 
-        return Command::SUCCESS;
+            return Command::SUCCESS;
+        });
     }
 }
