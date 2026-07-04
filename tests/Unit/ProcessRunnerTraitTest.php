@@ -85,6 +85,24 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('2s', $output->fetch());
     }
 
+    public function testIdleTimeoutMessageReportsRealExceededTimeoutNotZero(): void
+    {
+        // With only an idle timeout set, Process::getTimeout() is null, so the old
+        // '$process->getTimeout() ?? "0"' fallback misreported the failure as "0s".
+        // ProcessTimedOutException::getExceededTimeout() knows which limit fired.
+        $output = self::createRawOutput();
+        $process = new Process(['php', '-r', 'sleep(5);']);
+        $process->setTimeout(null);
+        $process->setIdleTimeout(1);
+
+        $result = self::createCaller()->invoke($process, $output);
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        $rendered = $output->fetch();
+        self::assertStringContainsString('timed out after 1s', $rendered);
+        self::assertStringNotContainsString('0s', $rendered);
+    }
+
     public function testCwdIsRespected(): void
     {
         $output = self::createRawOutput();
@@ -220,6 +238,30 @@ final class ProcessRunnerTraitTest extends TestCase
         $result = $caller->invokeWithTimeout($process, 42, $output);
 
         self::assertSame(42, $process->capturedTimeout);
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('ok', $output->fetch());
+    }
+
+    public function testRunProcessWithTimeoutRejectsNegativeSeconds(): void
+    {
+        $output = self::createRawOutput();
+        $caller = new ProcessRunnerTraitWithTimeoutCaller();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid timeout -5 in runProcessWithTimeout(): must be >= 0.');
+
+        $caller->invokeWithTimeout(new Process(['php', '-r', 'echo 1;']), -5, $output);
+    }
+
+    public function testRunProcessWithTimeoutAcceptsZero(): void
+    {
+        // 0 stays legal: it disables the hard timeout (Process normalizes 0.0 to
+        // null), mirroring #[AsDeployTask(timeout: 0)]'s "no enforcement" meaning.
+        $output = self::createRawOutput();
+        $caller = new ProcessRunnerTraitWithTimeoutCaller();
+
+        $result = $caller->invokeWithTimeout(new Process(['php', '-r', 'echo "ok";']), 0, $output);
+
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertStringContainsString('ok', $output->fetch());
     }

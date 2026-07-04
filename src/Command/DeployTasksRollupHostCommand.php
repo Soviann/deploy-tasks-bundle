@@ -41,7 +41,7 @@ final class DeployTasksRollupHostCommand extends Command
 
                 This is the host-scope equivalent of <info>deploytasks:rollup</info> — useful for fresh environments where the current host state already incorporates all task effects.
 
-                You will be prompted for confirmation. To skip the prompt (e.g. in CI), use <comment>--no-interaction</comment>:
+                You will be prompted for confirmation — a bulk-operation guard: each individual append is reversible via <info>deploytasks:reset:host</info>, but appending every pending task in one pass deserves a stop. To skip the prompt (e.g. in CI), use <comment>--no-interaction</comment>:
 
                     <info>%command.full_name% --no-interaction --force</info>
                 EOT)

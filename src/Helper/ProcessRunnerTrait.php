@@ -44,11 +44,20 @@ trait ProcessRunnerTrait
         return $this->doRunProcess($process, $output);
     }
 
+    /**
+     * @param int $seconds Hard timeout in seconds; 0 disables it. Must be >= 0.
+     *
+     * @throws \InvalidArgumentException When $seconds is negative
+     */
     protected function runProcessWithTimeout(
         Process $process,
         int $seconds,
         OutputInterface $output,
     ): TaskResult {
+        if ($seconds < 0) {
+            throw new \InvalidArgumentException(\sprintf('Invalid timeout %d in runProcessWithTimeout(): must be >= 0.', $seconds));
+        }
+
         $process->setTimeout($seconds);
 
         return $this->doRunProcess($process, $output);
@@ -64,10 +73,12 @@ trait ProcessRunnerTrait
                     $output->write($buffer);
                 }
             });
-        } catch (ProcessTimedOutException) {
+        } catch (ProcessTimedOutException $e) {
+            // getExceededTimeout() reports the limit that actually fired (hard or
+            // idle) — getTimeout() is null for idle-only timeouts, misreporting "0s".
             $output->writeln(\sprintf(
                 '<error>Process timed out after %ss.</error>',
-                $process->getTimeout() ?? '0',
+                $e->getExceededTimeout() ?? '0',
             ));
 
             return TaskResult::FAILURE;
