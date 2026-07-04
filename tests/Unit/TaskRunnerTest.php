@@ -785,11 +785,14 @@ final class TaskRunnerTest extends TestCase
 
         try {
             $runner->runOne('test.failing', $this->output);
-            self::fail('Expected rollback to propagate the original throwable.');
+            self::fail('Expected rollback to surface as AllOrNothingFailureException.');
         } catch (\Throwable $e) {
-            // runOne rethrows the raw task exception — no AllOrNothingFailureException wrap.
-            self::assertSame(\RuntimeException::class, $e::class);
-            self::assertSame('Task failed!', $e->getMessage());
+            // Mirrors executeAll(): runOne wraps the raw task exception so the run command
+            // can render the rolled-back summary instead of an uncaught exception.
+            self::assertInstanceOf(AllOrNothingFailureException::class, $e);
+            self::assertSame('test.failing', $e->failedTaskId);
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            self::assertSame('Task failed!', $e->getPrevious()->getMessage());
         }
 
         // The failure record persisted inside the transaction must be rolled back.
@@ -798,7 +801,7 @@ final class TaskRunnerTest extends TestCase
         $rollback = $logger->recordsMatching('error', 'transaction rolled back');
         self::assertCount(1, $rollback);
         self::assertArrayHasKey('exception', $rollback[0]['context']);
-        self::assertInstanceOf(\RuntimeException::class, $rollback[0]['context']['exception']);
+        self::assertInstanceOf(AllOrNothingFailureException::class, $rollback[0]['context']['exception']);
     }
 
     public function testAllOrNothingWithNonTransactionalStorageRunsUnwrapped(): void

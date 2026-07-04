@@ -141,8 +141,10 @@ final readonly class TaskRunner
      *                                          persisting outcomes
      * @throws EventListenerException           When a Before/After listener throws — propagates even without
      *                                          `all_or_nothing`
-     * @throws \Throwable                       When `all_or_nothing` is enabled and the task throws — the exception
-     *                                          escapes after the transaction is rolled back
+     * @throws AllOrNothingFailureException     When `all_or_nothing` is enabled and the task throws — wraps the
+     *                                          cause after the transaction is rolled back
+     * @throws \Throwable                       When `all_or_nothing` is disabled and the task throws — the raw
+     *                                          exception escapes
      */
     public function runOne(string $taskId, OutputInterface $output, RunOptions $options = new RunOptions()): TaskResult
     {
@@ -175,9 +177,20 @@ final readonly class TaskRunner
                     return TaskResult::SUCCESS;
                 }
 
-                return $this->withAllOrNothingTransaction(
-                    fn (): TaskResult => $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result,
-                );
+                return $this->withAllOrNothingTransaction(function () use ($task, $output, $taskId, $pendingSlots): TaskResult {
+                    try {
+                        return $this->executeTask($task, $output, 1, 1, $taskId, $pendingSlots)->result;
+                    } catch (\Throwable $taskError) {
+                        if (!$this->allOrNothing) {
+                            throw $taskError;
+                        }
+
+                        // Mirror executeAll(): surface the abort as AllOrNothingFailureException
+                        // so the run command renders the rolled-back summary instead of letting
+                        // the raw task exception escape to the console.
+                        throw new AllOrNothingFailureException(new RunResult(ran: 0, skipped: 0, failed: 1), $taskId, $taskError);
+                    }
+                });
             });
 
         return $result ?? TaskResult::LOCKED;

@@ -142,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `deploytasks:run --id=<task>` under `all_or_nothing` now renders the same rolled-back summary as a full run ("the transaction was rolled back, no changes were persisted") instead of dumping an uncaught exception, and exits 1.
 - `deploytasks:status --filter-status=PENDING,FAILED` (the filter the command's own help recommends) no longer hides the Host tasks section — any filter list that includes `PENDING` now shows pending host tasks.
 - Relative `host.directory`/`host.log_path`/`host.lock_path` and `storage.filesystem.path` config values now resolve against `%kernel.project_dir%` instead of the process working directory, so `deploytasks:status`, the host ops commands, and filesystem storage read the same state regardless of where the console command is launched from (cron, CI, project root).
 - `ProcessRunnerTrait::runProcessWithTimeout()` now rejects negative timeouts with an `\InvalidArgumentException` at the call site, matching `#[AsDeployTask(timeout: …)]`'s validation instead of letting Symfony's `Process::setTimeout()` throw its generic message mid-deploy. `0` remains legal and disables the hard timeout.

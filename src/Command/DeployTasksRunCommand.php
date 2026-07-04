@@ -208,6 +208,10 @@ final class DeployTasksRunCommand extends Command
             $io->error($e->getMessage());
 
             return Command::INVALID;
+        } catch (AllOrNothingFailureException $e) {
+            $this->writeRolledBackSummary($io, $e);
+
+            return Command::FAILURE;
         }
 
         if (TaskResult::LOCKED === $taskResult) {

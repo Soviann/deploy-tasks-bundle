@@ -86,4 +86,21 @@ final class DeployRunAllOrNothingTest extends FunctionalTestCase
         \assert($storage instanceof TaskStorageInterface);
         self::assertSame([], $storage->all(), 'the rollback must void every record of the aborted run');
     }
+
+    public function testSingleTaskFailureRendersRolledBackSummary(): void
+    {
+        $this->tester->execute(['--id' => 'test.failing']);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        // Normalized: SymfonyStyle wraps the error block at the terminal width,
+        // which splits multi-word phrases on narrow CI runners.
+        $display = \preg_replace('/\s+/', ' ', $this->tester->getDisplay()) ?? '';
+        self::assertStringContainsString('test.failing', $display);
+        self::assertStringContainsString('rolled back', $display);
+        self::assertStringContainsString('no changes were persisted', $display);
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+        self::assertFalse($storage->has('test.failing'), 'Rollback must leave no execution record.');
+    }
 }
