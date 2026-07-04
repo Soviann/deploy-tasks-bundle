@@ -219,6 +219,19 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('<error>boom</error>', $rendered);
     }
 
+    public function testStreamedStdoutIsStrippedOfControlBytesAndFormatterTags(): void
+    {
+        $process = Process::fromShellCommandline('printf \'%b\' \'\033]0;pwn\007<error>x</error>\'');
+
+        $output = new BufferedOutput();
+        $result = self::createCaller()->invoke($process, $output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        $fetched = $output->fetch();
+        self::assertStringNotContainsString("\x1b", $fetched, 'ESC bytes must never reach the terminal.');
+        self::assertStringContainsString('<error>x</error>', $fetched, 'Formatter tags must render literally, not be interpreted.');
+    }
+
     public function testRunProcessWithTimeoutForwardsSecondsAndDelegates(): void
     {
         $output = self::createRawOutput();

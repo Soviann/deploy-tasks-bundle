@@ -67,10 +67,15 @@ trait ProcessRunnerTrait
     {
         try {
             $exitCode = $process->run(static function (string $type, string $buffer) use ($output): void {
+                // Child output is untrusted (it can embed attacker-influenced data):
+                // strip control bytes and escape formatter tags before the terminal —
+                // the same ConsoleSanitizer discipline as every other untrusted path.
+                $sanitized = OutputFormatter::escape(ConsoleSanitizer::sanitize($buffer));
+
                 if (Process::ERR === $type) {
-                    $output->write(\sprintf('<error>%s</error>', OutputFormatter::escape($buffer)));
+                    $output->write(\sprintf('<error>%s</error>', $sanitized));
                 } else {
-                    $output->write($buffer);
+                    $output->write($sanitized);
                 }
             });
         } catch (ProcessTimedOutException $e) {
