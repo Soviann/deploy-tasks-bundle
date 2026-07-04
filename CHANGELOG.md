@@ -140,6 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `deploytasks:skip:host` and `deploytasks:rollup:host` now throw an `IOException` when appending to the host completion log fails or is short-written, instead of printing a success message for state that was never persisted — a subsequent deploy would have re-run the task the operator believed was marked done.
 - `#[AsDeployTask(timeout: …)]` now rejects negative values at construction with an `\InvalidArgumentException`, matching the existing id/group validation. A negative timeout previously reached `Process::setTimeout()` unvalidated, where Symfony's own `validateTimeout()` throws mid-deploy; `timeout: 0` remains legal and keeps its documented meaning (disables the runner's soft timeout check).
 - `deploytasks:run --require-some` now honours the environment filter: when the only tasks matching the given group(s) (or `--id`) are restricted to another environment, the command exits 64 as documented instead of silently succeeding with zero tasks run — the exact CI failure the flag exists to catch. The check is derived from the run result, so already-executed (skipped) tasks still satisfy the gate.
 - An `all_or_nothing` abort is now rendered as a clean summary — failing task, "no changes were persisted", pre-failure counts, and the cause — with exit code 1, instead of an uncaught `AllOrNothingFailureException` stack trace.

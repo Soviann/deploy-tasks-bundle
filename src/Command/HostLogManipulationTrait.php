@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
 
 /**
@@ -63,7 +64,12 @@ trait HostLogManipulationTrait
             $chunk .= $id."\n";
         }
 
-        \file_put_contents($logPath, $chunk, \FILE_APPEND | \LOCK_EX);
+        // The native warning is suppressed because the return value is checked
+        // right below; the failure surfaces as an IOException instead.
+        $bytes = @\file_put_contents($logPath, $chunk, \FILE_APPEND | \LOCK_EX);
+        if (\strlen($chunk) !== $bytes) {
+            throw new IOException(\sprintf('Failed to append to host completion log "%s".', $logPath), path: $logPath);
+        }
     }
 
     /**

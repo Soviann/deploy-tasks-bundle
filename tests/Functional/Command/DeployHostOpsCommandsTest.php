@@ -15,6 +15,7 @@ use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\HttpKernel\Kernel;
 
 /**
@@ -101,6 +102,17 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame(Command::FAILURE, $exitCode);
         self::assertStringContainsString('Aborted', $tester->getDisplay());
         self::assertSame([], $this->logLines());
+    }
+
+    public function testSkipHostFailsLoudlyWhenLogIsUnwritable(): void
+    {
+        $this->makeScript('a');
+        \mkdir($this->logPath, 0o755, true); // a directory where the log file should be
+
+        $tester = $this->tester('deploytasks:skip:host');
+
+        $this->expectException(IOException::class);
+        $tester->execute(['id' => 'a'], ['interactive' => false]);
     }
 
     // --- reset:host ---
@@ -263,6 +275,17 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Every host task is already marked as done — nothing to roll up.', $tester->getDisplay());
         self::assertSame(['a', 'b'], $this->logLines());
+    }
+
+    public function testRollupHostFailsLoudlyWhenLogIsUnwritable(): void
+    {
+        $this->makeScript('a');
+        \mkdir($this->logPath, 0o755, true); // a directory where the log file should be
+
+        $tester = $this->tester('deploytasks:rollup:host');
+
+        $this->expectException(IOException::class);
+        $tester->execute(['--force' => true], ['interactive' => false]);
     }
 
     // --- host dir missing (all three) ---
