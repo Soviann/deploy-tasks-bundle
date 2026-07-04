@@ -205,14 +205,6 @@ jobs:
           composer global config --no-plugins allow-plugins.symfony/flex true
           composer global require --no-progress --no-scripts --no-plugins symfony/flex
 
-      # Suppress advisories that block Composer 2.9 resolution (audit.block-insecure default).
-      # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      # PKSA-b35n-565h-rs4q: symfony/http-foundation 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      # PKSA-rkkf-636k-qjb3: symfony/process 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      # PKSA-wws7-mr54-jsny: symfony/process 6.4.*/7.4.* — re-evaluate once Symfony ships a patched release.
-      - name: Ignore Symfony security advisories blocking resolution
-        run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
-
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress --no-scripts ${{ matrix.composer-flags }}
 
@@ -301,14 +293,8 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-scripts
 
-      # Same suppressions as the tests job — drop each entry once the matching Symfony release ships:
-      # PKSA-365x-2zjk-pt47: symfony/http-foundation 6.4.*/7.4.*.
-      # PKSA-b35n-565h-rs4q: symfony/http-foundation 6.4.*/7.4.*.
-      # PKSA-rkkf-636k-qjb3: symfony/process 6.4.*/7.4.*.
-      # PKSA-wws7-mr54-jsny: symfony/process 6.4.*/7.4.*.
-      - name: Ignore Symfony security advisories blocking resolution
-        run: composer config audit.ignore --json '["PKSA-365x-2zjk-pt47","PKSA-b35n-565h-rs4q","PKSA-rkkf-636k-qjb3","PKSA-wws7-mr54-jsny"]'
-
+      # The suppressed-advisory list (with drop conditions) lives in composer.json
+      # under config.audit.ignore — single source for CI and local runs.
       - name: Run composer audit
         run: composer audit --locked
 

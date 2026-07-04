@@ -71,6 +71,14 @@
         "allow-plugins": {
             "infection/extension-installer": true
         },
+        "audit": {
+            "ignore": {
+                "PKSA-365x-2zjk-pt47": "symfony/http-foundation 6.4.*/7.4.* — drop once Symfony ships a patched release",
+                "PKSA-b35n-565h-rs4q": "symfony/http-foundation 6.4.*/7.4.* — drop once Symfony ships a patched release",
+                "PKSA-rkkf-636k-qjb3": "symfony/process 6.4.*/7.4.* — drop once Symfony ships a patched release",
+                "PKSA-wws7-mr54-jsny": "symfony/process 6.4.*/7.4.* — drop once Symfony ships a patched release"
+            }
+        },
         "sort-packages": true
     },
     "scripts": {
