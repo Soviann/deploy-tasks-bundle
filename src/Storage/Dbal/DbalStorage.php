@@ -175,8 +175,6 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $this->upsertSql ??= $this->buildUpsertSql();
 
             $this->connection->executeStatement($this->upsertSql, $parameters, $types);
-        } catch (StorageException $e) {
-            throw $e;
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to save task "%s": %s', $execution->id, $e->getMessage()), 0, $e);
         }
