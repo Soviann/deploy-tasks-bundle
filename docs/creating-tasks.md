@@ -190,7 +190,17 @@ final class BuildAssetsTask implements DeployTaskInterface
 Behavior notes:
 
 - **You own the `Process` instance** — use array-form commands to avoid shell parsing, or `Process::fromShellCommandline()` if you deliberately need shell features.
-- **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, overriding any timeout set on the `Process` instance. Use `runProcessWithTimeout()` to apply a different explicit limit per call.
+- **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, but only when `N > 0` — in that case it overrides any timeout already set on the `Process` instance. When the attribute timeout is `null` or `0`, `runProcess()` leaves the `Process`'s own timeout untouched (see the trap below). Use `runProcessWithTimeout()` to apply a different explicit limit per call.
 - **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
 - **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.
 - A hard-killed process will typically also trip the runner's post-run soft-timeout warning in the log (same run — the two are redundant, not contradictory).
+
+### Timeout traps
+
+- **symfony/process has its own default timeout of 60 seconds**, independent of the bundle's `timeout` attribute and the [wall-clock soft-timeout warning](advanced.md#timeout-behavior). On the bundle side, `timeout: null` (the default) falls back to the configured `default_timeout` (300 seconds unless configured) and the soft check stays active with that value, while an explicit `timeout: 0` disables the soft check entirely. In **both** cases, though, `runProcess()` skips the automatic hard-timeout override and does not touch the `Process` instance's own timeout — a `Process` you construct without an explicit `timeout` argument will still be hard-killed by symfony/process after 60 seconds. For a genuinely unlimited process, pass `timeout: null` to the `Process` constructor (or call `$process->setTimeout(null)` before running it):
+
+  ```php
+  $process = new Process(['rsync', '-a', $src, $dest], timeout: null);
+  ```
+
+- **A hard kill (from either timeout) signals the direct child process only** — background children and pipeline stages it spawned (`&`, `|`, nested shells) are not reached and keep running. If your command forks background work, run it in its own process group (e.g. wrap it with `setsid …`) so it can be killed as a unit, or reap the children yourself. Left unmanaged, these orphans keep mutating state after the deploy has already recorded `TaskResult::FAILURE`.
