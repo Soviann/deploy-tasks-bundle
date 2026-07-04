@@ -239,6 +239,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$allOrNothing' => $allOrNothing,
                 '$logger' => null, // set below
                 '$lockTtl' => $lockConfig['ttl'],
+                '$lockDisabledByConfig' => !$lockConfig['enabled'],
             ])
         ;
 

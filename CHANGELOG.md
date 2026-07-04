@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DbalStorageConfiguration` now validates table/column names against the plain-identifier allowlist and rejects duplicate column names in its constructor, closing the gap where direct construction bypassed the config-tree validation and could feed hostile names into CREATE TABLE DDL.
 - Filesystem storage now also refuses `html`, `wwwroot`, and `httpdocs` path segments (covering `/var/www/html`, Apache's default docroot).
 
+### Fixed
+
+- The runner no longer logs "no lock factory — concurrent execution is not protected" on every run when locking was deliberately disabled via `lock: false`; the warning now fires only when locking is enabled but `symfony/lock` is unavailable.
+
 ### Changed
 
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** Ops commands now exit `2` (`Command::INVALID`) on an unknown task id instead of `1`: `deploytasks:skip`, `deploytasks:reset`, and `deploytasks:reset:host` (an id matching neither a script nor a completion-log entry). Exit `1` uniformly means a declined confirmation. `deploytasks:reset:host` still removes a completion record whose script has been deleted, with a warning about the stale entry.

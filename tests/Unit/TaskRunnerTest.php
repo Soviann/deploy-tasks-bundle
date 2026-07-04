@@ -1382,6 +1382,21 @@ final class TaskRunnerTest extends TestCase
         self::assertTrue($logger->has('warning', 'no lock factory'));
     }
 
+    public function testNoLockWarningWhenLockingIsDeliberatelyDisabled(): void
+    {
+        $logger = new ArrayLogger();
+
+        $runner = $this->createRunner(
+            [new SimpleTask('task.1', 'First')],
+            logger: $logger,
+            lockDisabledByConfig: true,
+        );
+
+        $runner->runAll($this->output);
+
+        self::assertFalse($logger->has('warning', 'no lock factory'));
+    }
+
     public function testRunAllEmitsProgressPrefixPerTask(): void
     {
         // Each executed task must produce a `[i/N] FQCN` progress line before execution.
@@ -2701,6 +2716,7 @@ final class TaskRunnerTest extends TestCase
         int $lockTtl = 3600,
         ?string $environment = null,
         ?ClockInterface $clock = null,
+        bool $lockDisabledByConfig = false,
     ): TaskRunner {
         $idResolver = new TaskIdResolver();
 
@@ -2714,6 +2730,7 @@ final class TaskRunnerTest extends TestCase
             $transactional,
             $allOrNothing,
             $lockTtl,
+            lockDisabledByConfig: $lockDisabledByConfig,
             dispatcher: $dispatcher,
             lockFactory: $lockFactory,
             environment: $environment,

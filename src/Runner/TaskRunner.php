@@ -52,6 +52,8 @@ final readonly class TaskRunner
         private bool $transactional,
         private bool $allOrNothing,
         private int $lockTtl,
+        /** True when lock.enabled is false in config — a deliberate opt-out, not a missing symfony/lock. */
+        private bool $lockDisabledByConfig = false,
         private ?EventDispatcherInterface $dispatcher = null,
         private ?LockFactory $lockFactory = null,
         private ?string $environment = null,
@@ -210,7 +212,7 @@ final readonly class TaskRunner
      */
     private function withLock(OutputInterface $output, \Closure $operation): mixed
     {
-        if (null === $this->lockFactory) {
+        if (null === $this->lockFactory && !$this->lockDisabledByConfig) {
             if ($output->isVerbose()) {
                 $output->writeln('<comment>No lock factory configured — concurrent execution is not protected.</comment>');
             }
