@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Psr\Clock\ClockInterface;
-use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
+use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Helper\SystemClock;
+use Soviann\DeployTasksBundle\Runner\SlotResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -90,40 +92,16 @@ final class DeployTasksSkipCommand extends Command
         }
 
         $task = $this->registry->get($id);
-        $declared = AsDeployTask::groupsOf($task);
 
-        if (null === $declared) {
-            if (null !== $group) {
-                $io->error(\sprintf('Task "%s" has no groups declared; --group=%s is not valid.', $id, $group));
+        try {
+            $slots = SlotResolver::resolve($id, $task, null === $group ? [] : [$group]);
+        } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
+            $io->error($e->getMessage());
 
-                return Command::INVALID;
-            }
-
-            $slot = null;
-        } else {
-            if (null === $group) {
-                $io->error(\sprintf(
-                    'Task "%s" has groups declared (%s); specify --group=… to select a slot.',
-                    $id,
-                    \implode(', ', $declared),
-                ));
-
-                return Command::INVALID;
-            }
-
-            if (!\in_array($group, $declared, true)) {
-                $io->error(\sprintf(
-                    'Group "%s" is not declared on task "%s" (declared: %s).',
-                    $group,
-                    $id,
-                    \implode(', ', $declared),
-                ));
-
-                return Command::INVALID;
-            }
-
-            $slot = $group;
+            return Command::INVALID;
         }
+
+        $slot = $slots[0];
 
         if ($input->isInteractive()) {
             $prompt = null === $slot

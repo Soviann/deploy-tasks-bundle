@@ -148,7 +148,7 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
         $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
         self::assertStringContainsString('has no groups declared', $display);
-        self::assertStringContainsString('--group=predeploy is not valid', $display);
+        self::assertStringContainsString('cannot target --group=[predeploy]', $display);
 
         // Must NOT have saved anything to storage.
         $storage = self::getContainer()->get(TaskStorageInterface::class);

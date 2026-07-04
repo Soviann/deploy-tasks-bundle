@@ -126,12 +126,7 @@ final readonly class TaskRunner
      * execution and persistence run inside a single transaction, mirroring runAll():
      * a failure rolls back every side-effect before the exception escapes.
      *
-     * Slot resolution (`$groups` being `$options->groups`):
-     * - `$groups === []` and task has no declared groups → single default slot.
-     * - `$groups === []` and task declares groups → throws {@see TaskGroupRequiredException}.
-     * - `$groups !== []` and task has no declared groups → throws {@see TaskGroupMismatchException}.
-     * - `$groups !== []` → slots are the requested groups; any undeclared group throws
-     *   {@see TaskGroupMismatchException}.
+     * Slot resolution (`$groups` being `$options->groups`) is owned by {@see SlotResolver}.
      *
      * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the
      *                                          runner's environment
@@ -161,7 +156,7 @@ final readonly class TaskRunner
                     throw new TaskEnvironmentMismatchException($taskId, \implode('|', $envs), $this->environment);
                 }
 
-                $slots = $this->resolveSlotsForRunOne($taskId, $task, $options->groups);
+                $slots = SlotResolver::resolve($taskId, $task, $options->groups);
                 $pendingSlots = $this->filterPendingSlots($taskId, $slots, $options->rerunAll);
 
                 if ([] === $pendingSlots) {
@@ -687,40 +682,6 @@ final readonly class TaskRunner
         }
 
         $this->persistOutcome($taskId, $outcome, $pendingSlots);
-    }
-
-    /**
-     * @param list<string> $groups
-     *
-     * @return list<?string>
-     *
-     * @throws TaskGroupRequiredException
-     * @throws TaskGroupMismatchException
-     * @throws \ReflectionException
-     */
-    private function resolveSlotsForRunOne(string $taskId, DeployTaskInterface $task, array $groups): array
-    {
-        $declared = AsDeployTask::groupsOf($task);
-
-        if ([] === $groups) {
-            if (null !== $declared) {
-                throw TaskGroupRequiredException::create($taskId, $declared);
-            }
-
-            return [null];
-        }
-
-        if (null === $declared) {
-            throw TaskGroupMismatchException::create($taskId, $groups, []);
-        }
-
-        $undeclared = \array_values(\array_diff($groups, $declared));
-
-        if ([] !== $undeclared) {
-            throw TaskGroupMismatchException::create($taskId, $undeclared, $declared);
-        }
-
-        return $groups;
     }
 
     /**
