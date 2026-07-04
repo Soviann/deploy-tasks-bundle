@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -20,6 +21,17 @@ use Symfony\Component\Filesystem\Filesystem;
  */
 trait HostLogManipulationTrait
 {
+    /**
+     * Same charset as AsDeployTask::TASK_ID_PATTERN, anchored with \z instead of $
+     * so a trailing newline cannot sneak past the check. Every accepted id is safe
+     * as a log line (single line, no control bytes), a path segment (no slashes,
+     * no traversal), and terminal output.
+     */
+    private function isValidHostTaskId(string $id): bool
+    {
+        return 1 === \preg_match('/^'.AsDeployTask::IDENTIFIER_CHAR.'+\z/', $id);
+    }
+
     /**
      * @return list<string> ids currently present in the log (exact lines, no trailing newline)
      */

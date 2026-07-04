@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -74,7 +76,17 @@ final class DeployTasksRollupHostCommand extends Command
 
         $done = $this->readHostLog($this->hostLogPath);
         $ids = \array_map(static fn (string $script): string => \basename($script, '.sh'), $scripts);
-        $pending = \array_values(\array_diff($ids, $done));
+
+        // A hostile basename (e.g. one embedding a newline) would corrupt the log's
+        // one-id-per-line contract or the terminal, so it never reaches the confirm
+        // list below — the runner itself refuses such scripts too.
+        $validIds = \array_values(\array_filter($ids, $this->isValidHostTaskId(...)));
+        $ignored = \count($ids) - \count($validIds);
+        if ($ignored > 0) {
+            $io->warning(\sprintf('%d script(s) ignored (invalid id characters).', $ignored));
+        }
+
+        $pending = \array_values(\array_diff($validIds, $done));
 
         if ([] === $pending) {
             $io->note('Every host task is already marked as done — nothing to roll up.');
@@ -85,7 +97,12 @@ final class DeployTasksRollupHostCommand extends Command
         if (!$force && !$this->confirmOrAbort($io, \sprintf(
             'This will mark %d host task(s) as done: %s. Continue?',
             \count($pending),
-            \implode(', ', $pending),
+            \implode(', ', \array_map(
+                // Defense in depth: pending ids already passed isValidHostTaskId(),
+                // which excludes control bytes and formatter tag characters.
+                static fn (string $id): string => OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
+                $pending,
+            )),
         ))) {
             return Command::FAILURE;
         }

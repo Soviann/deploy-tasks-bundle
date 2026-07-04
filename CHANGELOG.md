@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Host task ids are now validated against the shared identifier allowlist (`^[a-zA-Z0-9._-]+\z`) before any filesystem or log access: `deploytasks:skip:host` and `deploytasks:reset:host` reject an invalid `id` argument (e.g. `../evil`) with `Command::INVALID`, and `deploytasks:rollup:host` excludes scripts with hostile basenames (e.g. embedded newlines that would split the completion log's one-id-per-line contract) from the rollup, warning about the ignored count. Host task ids rendered by `deploytasks:status` and the rollup confirmation prompt are stripped of terminal control characters and formatter tags, so a script name embedding ANSI escape sequences can no longer poison the deployer's terminal.
 - `deploytasks:generate:container` now validates the `--namespace` override segment-by-segment against the PHP-identifier rule (the same rule already applied to namespaces derived from `--dir`), so a value like `App; system(...)` can no longer inject raw PHP into the generated class.
 - `bin/deploy-tasks-host.sh` now parses `.env` files as KEY=VALUE data instead of sourcing them as shell code — a dotenv value like `FOO=$(cmd)` is no longer executed. Task storage matching and recording also handle filenames starting with a dash safely.
 - Error messages are stripped of terminal control characters before console display, preventing ANSI escape-sequence injection from task exceptions or external process output, including process-failure messages.

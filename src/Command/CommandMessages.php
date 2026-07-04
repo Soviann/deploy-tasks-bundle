@@ -21,6 +21,9 @@ final class CommandMessages
     /** Shared by the three host-scope ops commands (skip:host, reset:host, rollup:host). */
     public const HOST_LOCK_HELD = 'A host run holds the lock (%s) — retry when bin/deploy-tasks-host.sh finishes.';
 
+    /** Shared by skip:host and reset:host — the sanitized rejected id fills the placeholder. */
+    public const HOST_TASK_ID_INVALID = 'Invalid host task id "%s" — allowed: letters, digits, dot, underscore, hyphen.';
+
     /**
      * Renders a task status as its colour-tagged console label.
      */

@@ -479,6 +479,32 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testStatusStripsEscapeSequencesFromHostTaskIds(): void
+    {
+        $projectDir = FilesystemTestHelper::tempDir('deploy-tasks-status-host-');
+        $hostDir = $projectDir.'/deploy/host-tasks';
+        \mkdir($hostDir, 0o755, true);
+        // ESC is legal in POSIX filenames; rendered raw it would inject ANSI
+        // sequences (here: clear-screen) into the deployer's terminal.
+        \touch($hostDir.'/'."esc\x1b[2Jseq.sh");
+
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            $exitCode = $tester->execute([]);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            $display = $tester->getDisplay();
+            self::assertStringContainsString('esc', $display);
+            self::assertStringNotContainsString("\x1b", $display);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
     public function testStatusOmitsHostSectionWhenHostDirectoryAbsent(): void
     {
         $projectDir = FilesystemTestHelper::tempDir('deploy-tasks-status-host-');

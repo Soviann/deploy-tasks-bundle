@@ -13,6 +13,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -180,7 +181,12 @@ final class DeployTasksStatusCommand extends Command
         $table->setHeaders(['ID', 'Status']);
         foreach ($scripts as $script) {
             $id = \basename($script, '.sh');
-            $table->addRow([$id, isset($done[$id]) ? '<info>done</info>' : '<comment>pending</comment>']);
+            // Script basenames are attacker-influencable filesystem input: strip control
+            // bytes (ANSI injection) and escape formatter tags before rendering.
+            $table->addRow([
+                OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
+                isset($done[$id]) ? '<info>done</info>' : '<comment>pending</comment>',
+            ]);
         }
         $table->render();
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -62,6 +63,12 @@ final class DeployTasksSkipHostCommand extends Command
 
         /** @var string $id */
         $id = $input->getArgument('id');
+
+        if (!$this->isValidHostTaskId($id)) {
+            $io->error(\sprintf(CommandMessages::HOST_TASK_ID_INVALID, ConsoleSanitizer::sanitize($id)));
+
+            return Command::INVALID;
+        }
 
         if (!\is_dir($this->hostTasksDir)) {
             $io->error(\sprintf(CommandMessages::HOST_DIR_MISSING, $this->hostTasksDir));

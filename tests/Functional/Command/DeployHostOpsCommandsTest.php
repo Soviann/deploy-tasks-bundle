@@ -115,6 +115,21 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $tester->execute(['id' => 'a'], ['interactive' => false]);
     }
 
+    public function testSkipHostRejectsTraversalId(): void
+    {
+        \mkdir($this->hostDir, 0o755, true);
+        // Reachable as "../evil" from the host dir — without validation the skip would
+        // accept it and poison the log with a path-traversal id.
+        \touch($this->projectDir.'/deploy/evil.sh');
+
+        $tester = $this->tester('deploytasks:skip:host');
+        $exitCode = $tester->execute(['id' => '../evil'], ['interactive' => false]);
+
+        self::assertSame(Command::INVALID, $exitCode);
+        self::assertStringContainsString('Invalid host task id', $tester->getDisplay());
+        self::assertSame([], $this->logLines());
+    }
+
     // --- reset:host ---
 
     public function testResetHostRemovesExactLine(): void
@@ -207,6 +222,20 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame(['a'], $this->logLines());
     }
 
+    public function testResetHostRejectsInvalidId(): void
+    {
+        \mkdir($this->hostDir, 0o755, true);
+        // A poisoned log line must not be manipulable through an invalid id either.
+        \file_put_contents($this->logPath, "../evil\n");
+
+        $tester = $this->tester('deploytasks:reset:host');
+        $exitCode = $tester->execute(['id' => '../evil', '--force' => true], ['interactive' => false]);
+
+        self::assertSame(Command::INVALID, $exitCode);
+        self::assertStringContainsString('Invalid host task id', $tester->getDisplay());
+        self::assertSame(['../evil'], $this->logLines());
+    }
+
     // --- rollup:host ---
 
     public function testRollupHostAppendsEveryPendingId(): void
@@ -275,6 +304,21 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Every host task is already marked as done — nothing to roll up.', $tester->getDisplay());
         self::assertSame(['a', 'b'], $this->logLines());
+    }
+
+    public function testRollupHostSkipsAndWarnsOnHostileBasename(): void
+    {
+        $this->makeScript('a');
+        // Legal on POSIX, but appending it would split into two log lines and corrupt
+        // the runner's grep -Fxq bookkeeping.
+        \touch($this->hostDir.'/'."bad\nname.sh");
+
+        $tester = $this->tester('deploytasks:rollup:host');
+        $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['a'], $this->logLines());
+        self::assertStringContainsString('ignored', $tester->getDisplay());
     }
 
     public function testRollupHostFailsLoudlyWhenLogIsUnwritable(): void
