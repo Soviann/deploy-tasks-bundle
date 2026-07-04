@@ -84,6 +84,73 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.2')?->status);
     }
 
+    public function testRunAllReadsStorageOnceInsteadOfPerSlot(): void
+    {
+        $counting = new class(new InMemoryStorage()) implements TaskStorageInterface {
+            public int $getCalls = 0;
+            public int $allCalls = 0;
+
+            public function __construct(private readonly TaskStorageInterface $inner)
+            {
+            }
+
+            public function has(string $taskId, ?string $group = null): bool
+            {
+                return $this->inner->has($taskId, $group);
+            }
+
+            public function get(string $taskId, ?string $group = null): ?TaskExecution
+            {
+                ++$this->getCalls;
+
+                return $this->inner->get($taskId, $group);
+            }
+
+            public function save(TaskExecution $execution): void
+            {
+                $this->inner->save($execution);
+            }
+
+            public function remove(string $taskId, ?string $group = null): void
+            {
+                $this->inner->remove($taskId, $group);
+            }
+
+            public function removeAll(string $taskId): void
+            {
+                $this->inner->removeAll($taskId);
+            }
+
+            public function findByTaskId(string $taskId): array
+            {
+                return $this->inner->findByTaskId($taskId);
+            }
+
+            public function all(): array
+            {
+                ++$this->allCalls;
+
+                return $this->inner->all();
+            }
+
+            public function reset(): void
+            {
+                $this->inner->reset();
+            }
+        };
+
+        $runner = $this->createRunner([
+            new SimpleTask('task.1', 'First'),
+            new SimpleTask('task.2', 'Second'),
+            new SimpleTask('task.3', 'Third'),
+        ], $counting);
+
+        $runner->runAll($this->output);
+
+        self::assertSame(0, $counting->getCalls, 'Pending checks must use the one-shot all() index, not per-slot get().');
+        self::assertSame(1, $counting->allCalls);
+    }
+
     public function testSuccessOutcomeStampsExecutedAtFromInjectedClock(): void
     {
         $clock = new MockClock('2026-02-03 04:05:06.123456+00:00');

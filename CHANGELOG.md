@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** `ProcessRunnerTrait` moved from `Soviann\DeployTasksBundle\ProcessRunnerTrait` to `Soviann\DeployTasksBundle\Helper\ProcessRunnerTrait`, grouping it with the other bundle helpers. Update your `use` statements.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** `TaskSorterInterface::sort()` now returns `list<DeployTaskInterface>` instead of a `SortedTaskCollection` wrapper. The wrapper type and its file are gone. Consumers iterating with `foreach` are unaffected; external implementers must update their return type and drop `new SortedTaskCollection(...)`.
 - **Breaking (pre-1.0, per bundle policy: MINOR bump).** `TaskStorageInterface` gains `findByTaskId(string $taskId): array` (`list<TaskExecution>`). Built-in backends filter at the storage layer (DBAL uses an indexed WHERE, filesystem globs only the target task's slot files, in-memory filters its array), so `deploytasks:reset` no longer pages through every execution record just to list one task's slots. Custom `TaskStorageInterface` implementations must add this method.
+- Full runs (`deploytasks:run`, `--dry-run`) now read execution state with a single `storage->all()` instead of one `storage->get()` per (task, slot) — one SELECT instead of N round-trips on database storage.
 
 ### Added
 

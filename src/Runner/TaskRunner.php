@@ -249,11 +249,12 @@ final readonly class TaskRunner
     {
         $pending = 0;
         $skipped = 0;
+        $executionIndex = $rerunAll ? [] : $this->indexExecutions();
 
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
             $slots = self::computeSlots($task, $effectiveGroups);
-            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll, $executionIndex);
 
             $skipped += \count($slots) - \count($pendingSlots);
             $pending += \count($pendingSlots);
@@ -333,6 +334,7 @@ final readonly class TaskRunner
         // Pre-compute which tasks will actually be executed, so progress counters are accurate.
         /** @var list<array{task: DeployTaskInterface, taskId: string, pendingSlots: list<?string>}> $executable */
         $executable = [];
+        $executionIndex = $rerunAll ? [] : $this->indexExecutions();
 
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
@@ -342,7 +344,7 @@ final readonly class TaskRunner
                 continue;
             }
 
-            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll);
+            $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll, $executionIndex);
             $skipped += \count($slots) - \count($pendingSlots);
 
             if ([] === $pendingSlots) {
@@ -722,11 +724,12 @@ final readonly class TaskRunner
     }
 
     /**
-     * @param list<?string> $slots
+     * @param list<?string>                     $slots
+     * @param array<string, TaskExecution>|null $executionIndex one-shot all() index; null = per-slot get() (single-task paths)
      *
      * @return list<?string>
      */
-    private function filterPendingSlots(string $taskId, array $slots, bool $rerunAll): array
+    private function filterPendingSlots(string $taskId, array $slots, bool $rerunAll, ?array $executionIndex = null): array
     {
         if ($rerunAll) {
             return $slots;
@@ -735,12 +738,34 @@ final readonly class TaskRunner
         $pending = [];
 
         foreach ($slots as $slot) {
-            if ($this->isPendingSlot($this->storage->get($taskId, $slot))) {
+            $execution = null !== $executionIndex
+                ? ($executionIndex[TaskExecution::slotKey($taskId, $slot)] ?? null)
+                : $this->storage->get($taskId, $slot);
+
+            if ($this->isPendingSlot($execution)) {
                 $pending[] = $slot;
             }
         }
 
         return $pending;
+    }
+
+    /**
+     * One-shot index of every stored execution, keyed by slot — turns the
+     * per-(task, slot) storage->get() of a full run into a single all() read
+     * (one SELECT on DBAL instead of one round-trip per slot).
+     *
+     * @return array<string, TaskExecution>
+     */
+    private function indexExecutions(): array
+    {
+        $index = [];
+
+        foreach ($this->storage->all() as $execution) {
+            $index[TaskExecution::slotKey($execution->id, $execution->group)] = $execution;
+        }
+
+        return $index;
     }
 
     /**
