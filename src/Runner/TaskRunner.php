@@ -37,6 +37,10 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Executes pending deploy tasks in order, tracking results in storage.
+ *
+ * @internal the console commands are the bundle's public surface; this class
+ *           stays autowirable for programmatic runs, but its contract (method
+ *           signatures, thrown exception types) may change in any release
  */
 final readonly class TaskRunner
 {
