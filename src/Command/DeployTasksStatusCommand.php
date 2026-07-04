@@ -33,7 +33,7 @@ final class DeployTasksStatusCommand extends Command
         private readonly TaskRegistry $registry,
         private readonly TaskStorageInterface $storage,
         private readonly TaskDescriptionResolver $descriptionResolver,
-        /** Directory scanned for host-scope `*.sh` tasks (mirrors deploytasks:generate:host's host_directory). */
+        /** Directory scanned for host-scope `*.sh` tasks (the host.directory bundle config). */
         private readonly string $hostTasksDir,
         /** Host runner's append-only completion log (bin/deploy-tasks-host.sh's default `.deploy-tasks-host.log`). */
         private readonly string $hostLogPath,

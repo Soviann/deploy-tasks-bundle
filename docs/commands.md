@@ -71,7 +71,7 @@ Multi-group tasks are displayed once per declared slot. The `Group` column shows
 | `failed` | Execution failed; will be retried on the next `deploytasks:run` |
 | `skipped` | Manually marked as skipped via `deploytasks:skip`, or returned by a task as `TaskResult::SKIPPED` |
 
-**Host tasks:** when `generate.host_directory` exists and contains at least one `*.sh` script, a separate "Host tasks" section is appended listing each script as `done` or `pending`. This is a read-only view onto [host-scope tasks](host-tasks.md) — `done` means the script's basename appears as a full line in the host runner's completion log, mirroring `bin/deploy-tasks-host.sh`'s own `grep -Fxq` check. The section is omitted entirely when the host directory doesn't exist. See [host-tasks.md](host-tasks.md#status-visibility) for the env-override caveat.
+**Host tasks:** when the `host.directory` config path exists and contains at least one `*.sh` script, a separate "Host tasks" section is appended listing each script as `done` or `pending`. This is a read-only view onto [host-scope tasks](host-tasks.md) — `done` means the script's basename appears as a full line in the host runner's completion log (`host.log_path`), mirroring `bin/deploy-tasks-host.sh`'s own `grep -Fxq` check. The section is omitted entirely when the host directory doesn't exist. See [host-tasks.md](host-tasks.md#status-visibility) for the env-override caveat.
 
 ---
 
@@ -238,7 +238,7 @@ bin/console deploytasks:generate:host --dir=deploy/host-tasks/
 
 | Option | Default | Description |
 |---|---|---|
-| `--dir` | `deploy/host-tasks/` | Target directory for the generated script |
+| `--dir` | `host.directory` config (default `deploy/host-tasks/`) | Target directory for the generated script |
 
 The generated filename follows the pattern `deploy_task_<YYYYMMDD>_<HHMMSS>.sh` (e.g. `deploy_task_20260418_143022.sh`). The file is executable (`0750`) and contains a bash stub with `set -euo pipefail` and a `# TODO: implement` marker. Lexicographic filename ordering on disk drives execution order.
 

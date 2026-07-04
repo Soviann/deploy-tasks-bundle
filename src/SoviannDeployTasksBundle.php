@@ -70,7 +70,11 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
  *     directory: string,
  *     template: string|null,
  *     root_namespace: string,
- *     host_directory: string,
+ * }
+ * @phpstan-type HostConfig array{
+ *     directory: string,
+ *     log_path: string,
+ *     lock_path: string,
  * }
  */
 final class SoviannDeployTasksBundle extends AbstractBundle
@@ -121,10 +125,25 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                             ->cannotBeEmpty()
                             ->info('Root namespace for deploytasks:generate:container output when --dir starts with "src/" (mirrors symfony/maker-bundle\'s root_namespace). Set to your composer.json PSR-4 root if it is not "App".')
                         ->end()
-                        ->scalarNode('host_directory')
-                            ->defaultValue('%kernel.project_dir%/deploy/host-tasks')
+                    ->end()
+                ->end()
+                ->arrayNode('host')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('directory')
                             ->cannotBeEmpty()
-                            ->info('Where deploytasks:generate:host writes new host-scope task stubs.')
+                            ->defaultValue('%kernel.project_dir%/deploy/host-tasks')
+                            ->info('Directory scanned for host-scope *.sh tasks (deploytasks:generate:host output, ops commands, status). Must match the runner\'s DEPLOY_TASKS_HOST_DIR.')
+                        ->end()
+                        ->scalarNode('log_path')
+                            ->cannotBeEmpty()
+                            ->defaultValue('%kernel.project_dir%/.deploy-tasks-host.log')
+                            ->info('Host runner\'s append-only completion log. Must match DEPLOY_TASKS_HOST_STORAGE.')
+                        ->end()
+                        ->scalarNode('lock_path')
+                            ->cannotBeEmpty()
+                            ->defaultValue('%kernel.project_dir%/.deploy-tasks-host.lock')
+                            ->info('Host runner\'s flock file. Must match DEPLOY_TASKS_HOST_LOCK.')
                         ->end()
                     ->end()
                 ->end()
@@ -247,14 +266,16 @@ final class SoviannDeployTasksBundle extends AbstractBundle
 
         /** @var GenerateConfig $generateConfig */
         $generateConfig = $config['generate'];
+        /** @var HostConfig $hostConfig */
+        $hostConfig = $config['host'];
 
         $services->set('soviann_deploy_tasks.command.status', DeployTasksStatusCommand::class)
             ->args([
                 '$registry' => service('soviann_deploy_tasks.registry'),
                 '$storage' => service('soviann_deploy_tasks.storage'),
                 '$descriptionResolver' => service('soviann_deploy_tasks.description_resolver'),
-                '$hostTasksDir' => $generateConfig['host_directory'],
-                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                '$hostTasksDir' => $hostConfig['directory'],
+                '$hostLogPath' => $hostConfig['log_path'],
             ])
             ->tag('console.command')
         ;
@@ -305,7 +326,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
 
         $services->set('soviann_deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
             ->args([
-                '$hostDirectory' => $generateConfig['host_directory'],
+                '$hostDirectory' => $hostConfig['directory'],
                 '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')
@@ -315,24 +336,24 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         // status bridge above; they manipulate the completion log only, never the runner.
         $services->set('soviann_deploy_tasks.command.skip.host', DeployTasksSkipHostCommand::class)
             ->args([
-                '$hostTasksDir' => $generateConfig['host_directory'],
-                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                '$hostTasksDir' => $hostConfig['directory'],
+                '$hostLogPath' => $hostConfig['log_path'],
             ])
             ->tag('console.command')
         ;
 
         $services->set('soviann_deploy_tasks.command.reset.host', DeployTasksResetHostCommand::class)
             ->args([
-                '$hostTasksDir' => $generateConfig['host_directory'],
-                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                '$hostTasksDir' => $hostConfig['directory'],
+                '$hostLogPath' => $hostConfig['log_path'],
             ])
             ->tag('console.command')
         ;
 
         $services->set('soviann_deploy_tasks.command.rollup.host', DeployTasksRollupHostCommand::class)
             ->args([
-                '$hostTasksDir' => $generateConfig['host_directory'],
-                '$hostLogPath' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                '$hostTasksDir' => $hostConfig['directory'],
+                '$hostLogPath' => $hostConfig['log_path'],
             ])
             ->tag('console.command')
         ;

@@ -13,12 +13,12 @@ use Symfony\Component\HttpKernel\Kernel;
 
 /**
  * Boots a throwaway kernel whose kernel.project_dir is a disposable temp tree, so
- * generate.host_directory's default (%kernel.project_dir%/deploy/host-tasks) and the
- * host commands' default log path (%kernel.project_dir%/.deploy-tasks-host.log)
+ * host.directory's default (%kernel.project_dir%/deploy/host-tasks) and the
+ * host commands' default log path (host.log_path, %kernel.project_dir%/.deploy-tasks-host.log)
  * resolve inside it instead of the bundle's own root.
  *
  * Cache/log dirs are keyed on the full argument list: %kernel.project_dir% (and any
- * host_directory override) is baked into the compiled container, so two kernels built
+ * host.directory override) is baked into the compiled container, so two kernels built
  * from different arguments must never share a cache. Both dirs live under the
  * /tmp/deploy-tasks-* prefix that the mutation-testing workflow cleans between runs;
  * call cleanupAll() in tearDown to remove every dir this factory created.
@@ -90,7 +90,7 @@ final class HostTasksKernelFactory
                     'lock' => ['enabled' => false],
                 ];
                 if (null !== $this->hostDirectory) {
-                    $bundleConfig['generate'] = ['host_directory' => $this->hostDirectory];
+                    $bundleConfig['host'] = ['directory' => $this->hostDirectory];
                 }
                 $container->extension('soviann_deploy_tasks', $bundleConfig);
 

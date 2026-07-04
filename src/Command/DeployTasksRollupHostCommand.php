@@ -18,7 +18,7 @@ final class DeployTasksRollupHostCommand extends Command
     use HostLogManipulationTrait;
 
     public function __construct(
-        /** Directory scanned for host-scope `*.sh` tasks (mirrors deploytasks:generate:host's host_directory). */
+        /** Directory scanned for host-scope `*.sh` tasks (the host.directory bundle config). */
         private readonly string $hostTasksDir,
         /** Host runner's append-only completion log (bin/deploy-tasks-host.sh's default `.deploy-tasks-host.log`). */
         private readonly string $hostLogPath,

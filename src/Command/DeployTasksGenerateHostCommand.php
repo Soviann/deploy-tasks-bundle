@@ -75,7 +75,7 @@ final class DeployTasksGenerateHostCommand extends Command
         $userProvidedDir = $input->hasParameterOption('--dir');
 
         if (!$userProvidedDir && \str_starts_with($dirInput, '/')) {
-            // The configured host_directory default is an absolute path injected via DI.
+            // The configured host.directory default is an absolute path injected via DI.
             // Use it directly; apply only the boundary check.
             $resolvedDir = PathNormalizer::normalize($dirInput);
 

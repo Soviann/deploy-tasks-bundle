@@ -398,11 +398,11 @@ final class DeployGenerateHostCommandTest extends FunctionalTestCase
         // Kills LogicalAnd→LogicalOr mutation (#20, line 77): with OR, any user-provided dir that
         // starts with '/' would enter the absolute-path branch instead of being rejected.
         // We assert that a user-provided absolute path IS rejected (FAILURE) while the default
-        // absolute host_directory (not user-provided) is accepted (SUCCESS).
+        // absolute host.directory (not user-provided) is accepted (SUCCESS).
         $projectDir = \sys_get_temp_dir().'/generate-host-di-abs-'.\uniqid();
         \mkdir($projectDir, 0o755, true);
 
-        // Absolute path as the injected default (simulating the DI-configured host_directory).
+        // Absolute path as the injected default (simulating the DI-configured host.directory).
         $absHostDir = $projectDir.'/host-tasks';
         $command = $this->makeCommand(projectDir: $projectDir, hostDirectory: $absHostDir);
         $tester = new CommandTester($command);

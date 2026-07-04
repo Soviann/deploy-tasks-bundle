@@ -83,7 +83,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -126,7 +130,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -174,7 +182,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -207,6 +219,11 @@ final class ConfigurationTest extends TestCase
                 'events' => ['enabled' => false],
                 'lock' => ['enabled' => false, 'ttl' => 1800],
                 'generate' => ['directory' => 'src/T/', 'template' => '/tpl.php'],
+                'host' => [
+                    'directory' => '/srv/host-tasks',
+                    'log_path' => '/srv/state/host.log',
+                    'lock_path' => '/srv/state/host.lock',
+                ],
             ],
             'expected' => [
                 'id_generator' => 'app.id',
@@ -244,7 +261,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/T/',
                     'template' => '/tpl.php',
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '/srv/host-tasks',
+                    'log_path' => '/srv/state/host.log',
+                    'lock_path' => '/srv/state/host.lock',
                 ],
             ],
         ];
@@ -287,7 +308,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -330,7 +355,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -373,7 +402,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -424,7 +457,11 @@ final class ConfigurationTest extends TestCase
                     'directory' => 'src/DeployTasks/Task/',
                     'template' => null,
                     'root_namespace' => 'App',
-                    'host_directory' => '%kernel.project_dir%/deploy/host-tasks',
+                ],
+                'host' => [
+                    'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                    'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                    'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
                 ],
             ],
         ];
@@ -674,12 +711,52 @@ final class ConfigurationTest extends TestCase
         self::processConfig(['generate' => ['root_namespace' => '']]);
     }
 
-    public function testEmptyGenerateHostDirectoryIsRejected(): void
+    public function testHostDefaultsMirrorTheRunnerEnvVarDefaults(): void
     {
-        // cannotBeEmpty() on generate.host_directory.
+        // host.directory / host.log_path / host.lock_path are the PHP-side source of truth
+        // for the runner's DEPLOY_TASKS_HOST_DIR / STORAGE / LOCK paths.
+        $config = self::processConfig([]);
+
+        self::assertSame(
+            [
+                'directory' => '%kernel.project_dir%/deploy/host-tasks',
+                'log_path' => '%kernel.project_dir%/.deploy-tasks-host.log',
+                'lock_path' => '%kernel.project_dir%/.deploy-tasks-host.lock',
+            ],
+            $config['host'],
+        );
+    }
+
+    public function testGenerateHostDirectoryIsRejectedAsUnrecognized(): void
+    {
+        // generate.host_directory moved to host.directory (pre-1.0 breaking, no shim).
         $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
 
-        self::processConfig(['generate' => ['host_directory' => '']]);
+        self::processConfig(['generate' => ['host_directory' => '/anywhere']]);
+    }
+
+    public function testEmptyHostDirectoryIsRejected(): void
+    {
+        // cannotBeEmpty() on host.directory.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['host' => ['directory' => '']]);
+    }
+
+    public function testEmptyHostLogPathIsRejected(): void
+    {
+        // cannotBeEmpty() on host.log_path.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['host' => ['log_path' => '']]);
+    }
+
+    public function testEmptyHostLockPathIsRejected(): void
+    {
+        // cannotBeEmpty() on host.lock_path.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig(['host' => ['lock_path' => '']]);
     }
 
     /**

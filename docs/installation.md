@@ -62,7 +62,10 @@ soviann_deploy_tasks:
         directory: src/DeployTasks/Task/
         template: ~           # path to a custom PHP template
         root_namespace: App   # root namespace for src/-rooted --dir (mirrors symfony/maker-bundle)
-        host_directory: '%kernel.project_dir%/deploy/host-tasks'   # where deploytasks:generate:host writes stubs
+    host:
+        directory: '%kernel.project_dir%/deploy/host-tasks'        # host-scope *.sh task directory — must match DEPLOY_TASKS_HOST_DIR
+        log_path: '%kernel.project_dir%/.deploy-tasks-host.log'    # host runner completion log — must match DEPLOY_TASKS_HOST_STORAGE
+        lock_path: '%kernel.project_dir%/.deploy-tasks-host.lock'  # host runner flock file — must match DEPLOY_TASKS_HOST_LOCK
 ```
 
 See [storage.md](storage.md) for the full storage configuration reference.

@@ -103,9 +103,12 @@ soviann_deploy_tasks:
         enabled: true
     generate:
         directory: src/DeployTasks/Task/    # default output directory for `deploytasks:generate:container`
-        host_directory: '%kernel.project_dir%/deploy/host-tasks'  # default output directory for `deploytasks:generate:host`
         template: ~                         # path to a custom PHP template
         root_namespace: App                 # root namespace for `src/`-rooted `--dir` (mirrors symfony/maker-bundle)
+    host:
+        directory: '%kernel.project_dir%/deploy/host-tasks'        # host-scope `*.sh` task directory — must match `DEPLOY_TASKS_HOST_DIR`
+        log_path: '%kernel.project_dir%/.deploy-tasks-host.log'    # host runner completion log — must match `DEPLOY_TASKS_HOST_STORAGE`
+        lock_path: '%kernel.project_dir%/.deploy-tasks-host.lock'  # host runner flock file — must match `DEPLOY_TASKS_HOST_LOCK`
 ```
 
 **Scalar shorthand:** `storage: database` expands to `storage: { type: database }`; `events: false` and `lock: false` expand to `{ enabled: false }`. The long form keeps working unchanged.

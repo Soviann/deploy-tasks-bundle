@@ -15,7 +15,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * Verifies that soviann_deploy_tasks.generate.host_directory is honoured at kernel-boot time
+ * Verifies that soviann_deploy_tasks.host.directory is honoured at kernel-boot time
  * and that the default value (%kernel.project_dir%/deploy/host-tasks) is resolved correctly.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
@@ -51,7 +51,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
 
         $files = \glob($expectedAbsolute.'/deploy_task_*.sh');
         self::assertNotFalse($files);
-        self::assertCount(1, $files, 'Expected exactly one generated stub in the configured host_directory.');
+        self::assertCount(1, $files, 'Expected exactly one generated stub in the configured host.directory.');
 
         $kernel->shutdown();
     }
