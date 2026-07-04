@@ -19,7 +19,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Finder\Finder;
 
 use function Symfony\Component\String\u;
 
@@ -229,12 +228,8 @@ final class DeployTasksStatusCommand extends Command
 
         $done = \array_flip($this->readHostLog($this->hostLogPath));
 
-        // Finder instead of glob(): glob() treats [?* in the *directory path* as
-        // pattern metacharacters, silently dropping the section for a project dir
-        // like "app[blue]". sortByName() preserves the alphabetical listing.
         $rows = [];
-        foreach ((new Finder())->files()->in($this->hostTasksDir)->name('*.sh')->depth(0)->sortByName() as $script) {
-            $id = $script->getBasename('.sh');
+        foreach ($this->listHostTaskIds($this->hostTasksDir) as $id) {
             $isDone = isset($done[$id]);
 
             if ($pendingOnly && $isDone) {

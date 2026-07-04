@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Command;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Finder\Finder;
 
 /**
  * Shared read/append/rewrite helpers for commands that manipulate the host runner's
@@ -131,5 +132,25 @@ trait HostLogManipulationTrait
         }
 
         return $removed;
+    }
+
+    /**
+     * Lists host task ids — `*.sh` basenames at depth 0, alphabetical.
+     *
+     * Finder instead of glob(): glob() treats [?* in the *directory path* as
+     * pattern metacharacters, silently matching nothing for a project dir like
+     * "app[blue]". sortByName() preserves the alphabetical listing.
+     *
+     * @return list<string>
+     */
+    private function listHostTaskIds(string $hostTasksDir): array
+    {
+        $ids = [];
+
+        foreach ((new Finder())->files()->in($hostTasksDir)->name('*.sh')->depth(0)->sortByName() as $script) {
+            $ids[] = $script->getBasename('.sh');
+        }
+
+        return $ids;
     }
 }

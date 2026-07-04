@@ -11,7 +11,6 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Finder\Finder;
 
 /** @internal */
 #[AsCommand(name: 'deploytasks:rollup:host', description: 'Mark every pending host-scope deploy task as done.')]
@@ -66,13 +65,7 @@ final class DeployTasksRollupHostCommand extends Command
             return Command::INVALID;
         }
 
-        // Finder instead of glob(): glob() treats [?* in the *directory path* as
-        // pattern metacharacters, silently finding nothing for a project dir like
-        // "app[blue]". sortByName() preserves the alphabetical listing.
-        $ids = [];
-        foreach ((new Finder())->files()->in($this->hostTasksDir)->name('*.sh')->depth(0)->sortByName() as $script) {
-            $ids[] = $script->getBasename('.sh');
-        }
+        $ids = $this->listHostTaskIds($this->hostTasksDir);
 
         if ([] === $ids) {
             $io->warning(\sprintf('No host tasks found in "%s" — nothing to roll up.', $this->hostTasksDir));
