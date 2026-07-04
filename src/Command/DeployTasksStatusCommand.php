@@ -149,7 +149,7 @@ final class DeployTasksStatusCommand extends Command
         $io->newLine();
         $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), \count($rows)));
 
-        $this->renderHostTasks($io, $noState, $groupFilter, [] === $filterStatus ? null : \implode(',', $filterStatus));
+        $this->renderHostTasks($io, $noState, $groupFilter, $filterStatus);
 
         return Command::SUCCESS;
     }
@@ -161,23 +161,24 @@ final class DeployTasksStatusCommand extends Command
      *
      * The section obeys the display flags: --no-state suppresses it (done/pending IS
      * execution state), --group suppresses it (host tasks have no group concept), and
-     * --filter-status keeps it only for a plain PENDING filter, restricted to pending
-     * rows — host tasks are never RAN/FAILED/SKIPPED, so no other filter can match.
+     * --filter-status keeps it only when the filter includes PENDING (alone or in a
+     * compound list such as the help-recommended PENDING,FAILED), restricted to
+     * pending rows — host tasks are only ever done or pending.
      *
      * @param list<string> $groups       normalized --group values
-     * @param string|null  $filterStatus normalized --filter-status values, comma-joined (null = no filter)
+     * @param list<string> $filterStatus normalized --filter-status values ([] = no filter)
      */
-    private function renderHostTasks(SymfonyStyle $io, bool $noState, array $groups, ?string $filterStatus): void
+    private function renderHostTasks(SymfonyStyle $io, bool $noState, array $groups, array $filterStatus): void
     {
         if ($noState || [] !== $groups) {
             return;
         }
 
-        if (null !== $filterStatus && self::PENDING_FILTER_VALUE !== $filterStatus) {
+        if ([] !== $filterStatus && !\in_array(self::PENDING_FILTER_VALUE, $filterStatus, true)) {
             return;
         }
 
-        $pendingOnly = null !== $filterStatus;
+        $pendingOnly = [] !== $filterStatus;
 
         if (!\is_dir($this->hostTasksDir)) {
             return;

@@ -566,6 +566,29 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         }
     }
 
+    public function testCompoundPendingFilterKeepsPendingHostTasksVisible(): void
+    {
+        $projectDir = $this->createHostProjectDir();
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            // The command's own help recommends --filter-status=PENDING,FAILED: a
+            // compound list that includes PENDING must still show pending host rows.
+            $exitCode = $tester->execute(['--filter-status' => 'PENDING,FAILED']);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            $display = $tester->getDisplay();
+            self::assertStringContainsString('Host tasks', $display);
+            self::assertStringContainsString('bbb.todo', $display);
+            self::assertStringNotContainsString('aaa.done', $display);
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
     public function testFilterStatusOtherThanPendingSuppressesHostSection(): void
     {
         $projectDir = $this->createHostProjectDir();
