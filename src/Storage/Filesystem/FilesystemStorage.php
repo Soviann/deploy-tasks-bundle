@@ -364,6 +364,12 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw new StorageException(\sprintf('Storage record "%s" key "%s" must be a string, got %s.', $sourceFile, $key, \get_debug_type($decoded[$key])));
             }
         }
+
+        foreach (['error', 'group'] as $key) {
+            if (\array_key_exists($key, $decoded) && null !== $decoded[$key] && !\is_string($decoded[$key])) {
+                throw new StorageException(\sprintf('Storage record "%s" key "%s" must be a string or null, got %s.', $sourceFile, $key, \get_debug_type($decoded[$key])));
+            }
+        }
     }
 
     /**
@@ -381,7 +387,7 @@ final class FilesystemStorage implements TaskStorageInterface
         $this->assertRecordShape($data, $sourceFile);
 
         /**
-         * @var array{id: string, status: string, executed_at: string, error: string|null, group?: string|null} $data
+         * @var array{id: string, status: string, executed_at: string, error?: string|null, group?: string|null} $data
          */
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['executed_at']);
 
@@ -395,7 +401,7 @@ final class FilesystemStorage implements TaskStorageInterface
             id: $data['id'],
             status: TaskStatus::fromStored($data['status'], $data['id'], $group),
             executedAt: $executedAt,
-            error: $data['error'],
+            error: $data['error'] ?? null,
             group: $group,
         );
     }
