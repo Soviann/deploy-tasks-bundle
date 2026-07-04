@@ -75,48 +75,20 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      * Returns a CREATE TABLE SQL string for the current platform, using quoted identifiers.
      *
      * The statement uses the DBAL Schema builder internally for platform-native column
-     * types (e.g. DATETIME on SQLite/MySQL, TIMESTAMP on PostgreSQL), then rewrites the
-     * unquoted identifiers with their properly-quoted equivalents so the output is safe to
-     * fold into a Doctrine migration. Table and column names are quoted via the platform's
-     * own quoting rules.
+     * types (e.g. DATETIME on SQLite/MySQL, TIMESTAMP on PostgreSQL). Every asset name is
+     * built as a quoted Doctrine identifier up front, so the platform emits its own
+     * correctly-quoted DDL directly — no post-hoc rewriting is needed, and this method
+     * emits exactly the statements createSchema() executes.
      *
      * @throws StorageException When the DDL cannot be generated for the connection's platform
      */
     public function getCreateTableSql(): string
     {
         try {
-            $sqls = $this->buildSchemaSql();
-            $platform = $this->connection->getDatabasePlatform();
+            return \implode(";\n", $this->buildSchemaSql());
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to generate the CREATE TABLE SQL for storage table "%s": %s', $this->configuration->tableName, $e->getMessage()), 0, $e);
         }
-
-        // The Schema builder omits quotes for safe identifiers on some platforms (e.g. SQLite).
-        // Replace the unquoted names with their platform-quoted equivalents so the output of
-        // --dump-sql is migration-safe and matches the DDL actually executed by createSchema().
-        $unquotedToQuoted = [
-            $this->configuration->tableName => $this->quotedTable,
-            $this->configuration->idColumn => $this->quotedIdColumn,
-            $this->configuration->groupColumn => $this->quotedGroupColumn,
-            $this->configuration->statusColumn => $this->quotedStatusColumn,
-            $this->configuration->executedAtColumn => $this->quotedExecutedAtColumn,
-            $this->configuration->errorColumn => $this->quotedErrorColumn,
-        ];
-
-        // Only replace whole-word occurrences (word boundary on both sides) to avoid
-        // corrupting partial matches (e.g. "id" inside "task_id").
-        $result = [];
-
-        foreach ($sqls as $sql) {
-            foreach ($unquotedToQuoted as $unquoted => $quoted) {
-                if ($unquoted !== $quoted) {
-                    $sql = \preg_replace('/\b'.\preg_quote($unquoted, '/').'\b/', $quoted, $sql) ?? $sql;
-                }
-            }
-            $result[] = $sql;
-        }
-
-        return \implode(";\n", $result);
     }
 
     /**
@@ -448,6 +420,11 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     /**
      * Builds the CREATE TABLE SQL statements for the current platform using the Schema builder.
      *
+     * Every asset name is wrapped in quotes ("…") before being handed to Doctrine, which
+     * marks it as a quoted identifier — the platform then emits its own correctly-quoted
+     * DDL for it, safe even for keyword-shaped configured names (e.g. an `order` table or
+     * a `default` column, both legal per {@see DbalStorageConfiguration::SQL_IDENTIFIER_PATTERN}).
+     *
      * @return list<string>
      *
      * @throws DbalException
@@ -455,21 +432,21 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     private function buildSchemaSql(): array
     {
         $schema = new Schema();
-        $table = $schema->createTable($this->configuration->tableName);
+        $table = $schema->createTable($this->quotedAssetName($this->configuration->tableName));
 
         $table->addColumn(
-            $this->configuration->idColumn,
+            $this->quotedAssetName($this->configuration->idColumn),
             Types::STRING,
             ['length' => $this->configuration->idColumnLength],
         );
         $table->addColumn(
-            $this->configuration->groupColumn,
+            $this->quotedAssetName($this->configuration->groupColumn),
             Types::STRING,
             ['length' => $this->configuration->groupColumnLength, 'default' => ''],
         );
-        $table->addColumn($this->configuration->statusColumn, Types::STRING, ['length' => 16]);
-        $table->addColumn($this->configuration->executedAtColumn, Types::DATETIME_IMMUTABLE);
-        $table->addColumn($this->configuration->errorColumn, Types::TEXT, ['notnull' => false]);
+        $table->addColumn($this->quotedAssetName($this->configuration->statusColumn), Types::STRING, ['length' => 16]);
+        $table->addColumn($this->quotedAssetName($this->configuration->executedAtColumn), Types::DATETIME_IMMUTABLE);
+        $table->addColumn($this->quotedAssetName($this->configuration->errorColumn), Types::TEXT, ['notnull' => false]);
 
         /** @var non-empty-string $pkIdColumn */
         $pkIdColumn = $this->configuration->idColumn;
@@ -478,11 +455,17 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
 
         $table->addPrimaryKeyConstraint(
             PrimaryKeyConstraint::editor()
-                ->setUnquotedColumnNames($pkIdColumn, $pkGroupColumn)
+                ->setQuotedColumnNames($pkIdColumn, $pkGroupColumn)
                 ->create(),
         );
 
         return $schema->toSql($this->connection->getDatabasePlatform());
+    }
+
+    /** Wraps an identifier in SQL quotes so Doctrine's Schema marks it as a quoted asset. */
+    private function quotedAssetName(string $identifier): string
+    {
+        return '"'.$identifier.'"';
     }
 
     /**

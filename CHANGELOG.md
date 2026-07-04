@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The runner no longer logs "no lock factory — concurrent execution is not protected" on every run when locking was deliberately disabled via `lock: false`; the warning now fires only when locking is enabled but `symfony/lock` is unavailable.
+- `deploytasks:create-schema` now builds its DDL with quoted identifiers at the Schema level: `--dump-sql` output and the executed statements are byte-identical, and keyword-shaped configured names (e.g. an `order` table or a `default` column) no longer produce corrupted dumps or failing CREATE TABLE statements.
 
 ### Changed
 

@@ -36,6 +36,32 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         self::assertStringContainsString('deploy_task_executions', $sql);
     }
 
+    public function testKeywordShapedIdentifiersProduceExecutableQuotedDdl(): void
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $configuration = new DbalStorageConfiguration(
+            tableName: 'order',
+            idColumn: 'default',
+            groupColumn: 'group',
+        );
+        $storage = new DbalStorage($connection, $configuration);
+
+        // Pre-fix, the executed DDL relied on SQLite self-quoting reserved words while
+        // getCreateTableSql()'s regex rewrite double-quoted them ("" corruption) — the
+        // dump and the executed statements disagreed. Quoted asset names fix both.
+        $storage->save(new TaskExecution('t1', TaskStatus::Ran, new \DateTimeImmutable('2026-01-01T00:00:00+00:00'), null, null));
+
+        self::assertTrue($storage->has('t1'));
+
+        $sql = $storage->getCreateTableSql();
+        self::assertStringContainsString('"order"', $sql);
+        self::assertStringContainsString('"default"', $sql);
+        self::assertStringContainsString('"group"', $sql);
+        // The old regex rewrite double-quotes identifiers the platform already quotes
+        // itself for reserved keywords (e.g. `""order""`), which is corrupted DDL.
+        self::assertStringNotContainsString('""', $sql);
+    }
+
     public function testGetCreateTableSqlQuotesIdentifiers(): void
     {
         $config = new DbalStorageConfiguration(
