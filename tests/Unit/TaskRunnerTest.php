@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
@@ -41,6 +42,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ReturnsFailureTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\RollbackTransactionalStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
@@ -1557,15 +1559,15 @@ final class TaskRunnerTest extends TestCase
 
     public function testExecuteTaskRollsBackOnSaveFailure(): void
     {
-        // Goal: on transactional storage, persistence runs in its own per-task transaction
-        // (persistOutcomeTransactional). If save() throws, the task's own transaction has
-        // already committed; the persist transaction catches the exception (triggering
-        // rollback) and re-raises it, so callers see the failure, no failure record is
-        // written, and a partial multi-slot write cannot survive.
+        // Goal: on transactional storage, the success-path persist runs inside the SAME
+        // per-task transaction as run() (wrapInTransaction folds them). If save() throws,
+        // the transaction rolls back the task's work together with the record, and the
+        // exception re-raises to the caller: no failure record is written, and no
+        // committed-but-unrecorded state can survive.
         //
         // The distinguishing observable: $rollbackTriggered is set to true only when the
         // exception from save() is caught by transactional() — which only happens if save()
-        // was called INSIDE a transactional() closure, proving the persist is wrapped.
+        // was called INSIDE a transactional() closure, proving the persist is folded in.
 
         $storage = new class implements TransactionalStorageInterface {
             /** @var array<string, TaskExecution> */
@@ -1669,6 +1671,170 @@ final class TaskRunnerTest extends TestCase
             $storage->rollbackTriggered,
             'transactional() must have caught the save() failure — save() must be called inside the closure, not after it returns',
         );
+    }
+
+    public function testTransactionalTaskSideEffectsRollBackWhenRecordSaveFails(): void
+    {
+        // The split-transaction double-execution window: in per-task transactional
+        // mode, run() side effects and the execution-record save() must commit in ONE
+        // transaction. When save() fails after run() succeeded, the task's work must
+        // roll back with it — committed-but-unrecorded work would silently re-run the
+        // task on the next deploy.
+        $storage = new RollbackTransactionalStorageFixture();
+        $storage->failNextSave = true;
+
+        $task = new class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public function __construct(private readonly RollbackTransactionalStorageFixture $storage)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return 'test.rollback.save-fails';
+            }
+
+            public function getDescription(): string
+            {
+                return 'Applies work into the transactional backend';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->storage->sideEffects[] = 'users migrated';
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $runner = $this->createRunner([$task], $storage);
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected the storage failure to propagate');
+        } catch (StorageException) {
+            // expected — the execution record could not be persisted
+        }
+
+        self::assertSame(
+            [],
+            $storage->sideEffects,
+            'run() side effects must roll back together with the failed record save — committed-but-unrecorded work re-runs the task on the next deploy',
+        );
+        self::assertFalse(
+            $storage->has('test.rollback.save-fails'),
+            'No execution record may survive the rolled-back transaction',
+        );
+    }
+
+    public function testTransactionalTaskDbalSideEffectsRollBackWhenRecordSaveFails(): void
+    {
+        // Real-DBAL proof of the same guarantee: the task writes a row on the storage
+        // connection during run(); when the record save() then fails, the SQL
+        // transaction must roll that row back together with the record.
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+        $storage = new DbalStorage($connection);
+        $connection->executeStatement($storage->getCreateTableSql());
+        $connection->executeStatement('CREATE TABLE task_work (val VARCHAR(32) NOT NULL)');
+
+        // Decorates the real storage: save() fails once; everything else — including
+        // transactional() with its real BEGIN/ROLLBACK — reaches DbalStorage unchanged.
+        $failingSave = new class($storage) implements TransactionalStorageInterface {
+            private bool $saveFailed = false;
+
+            public function __construct(private readonly DbalStorage $inner)
+            {
+            }
+
+            public function has(string $taskId, ?string $group = null): bool
+            {
+                return $this->inner->has($taskId, $group);
+            }
+
+            public function get(string $taskId, ?string $group = null): ?TaskExecution
+            {
+                return $this->inner->get($taskId, $group);
+            }
+
+            public function save(TaskExecution $execution): void
+            {
+                if (!$this->saveFailed) {
+                    $this->saveFailed = true;
+
+                    throw new StorageException(\sprintf('Simulated failure saving task "%s".', $execution->id));
+                }
+
+                $this->inner->save($execution);
+            }
+
+            public function remove(string $taskId, ?string $group = null): void
+            {
+                $this->inner->remove($taskId, $group);
+            }
+
+            public function removeAll(string $taskId): void
+            {
+                $this->inner->removeAll($taskId);
+            }
+
+            /** @return list<TaskExecution> */
+            public function findByTaskId(string $taskId): array
+            {
+                return $this->inner->findByTaskId($taskId);
+            }
+
+            /** @return list<TaskExecution> */
+            public function all(): array
+            {
+                return $this->inner->all();
+            }
+
+            public function reset(): void
+            {
+                $this->inner->reset();
+            }
+
+            public function transactional(\Closure $callback): mixed
+            {
+                return $this->inner->transactional($callback);
+            }
+        };
+
+        $task = new class($connection) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public function __construct(private readonly \Doctrine\DBAL\Connection $connection)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return 'test.dbal.rollback';
+            }
+
+            public function getDescription(): string
+            {
+                return 'Inserts a row on the storage connection';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->connection->executeStatement("INSERT INTO task_work (val) VALUES ('done')");
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $runner = $this->createRunner([$task], $failingSave);
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected the storage failure to propagate');
+        } catch (StorageException) {
+            // expected — the execution record could not be persisted
+        }
+
+        /** @var int|string|false $workRows */
+        $workRows = $connection->fetchOne('SELECT COUNT(*) FROM task_work');
+        self::assertSame(0, (int) $workRows, "The task's INSERT must roll back with the failed record save");
+        self::assertSame([], $storage->all(), 'No execution record may survive the rollback');
     }
 
     public function testRefreshesLockBetweenTasks(): void
@@ -2201,14 +2367,14 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // wrapInTransaction: allOrNothing path returns result (line 539)
+    // wrapInTransaction: allOrNothing skips the per-task wrap
     // -------------------------------------------------------------------------
 
     public function testAllOrNothingPathReturnsTaskResult(): void
     {
-        // Kills ReturnRemoval on line 539: without the return, the task result is
-        // dropped, execution falls through to the attribute-based path, runs task
-        // twice, and returns the second call's result (or wraps in a transaction).
+        // Guards wrapInTransaction's allOrNothing skip: under all_or_nothing the task
+        // must run exactly once, unwrapped (the run-wide transaction already covers
+        // it), and its result must survive through the split persist path.
         $runCount = 0;
         $task = new class($runCount) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
             public function __construct(private int &$runCount)
@@ -2244,70 +2410,116 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // wrapInTransaction: attribute.transactional coalesce / ternary (lines 542-545)
+    // wrapInTransaction: attribute.transactional coalesce / ternary
     // -------------------------------------------------------------------------
 
     public function testAttributeTransactionalFalseOverridesGlobalDefault(): void
     {
-        // Kills Coalesce and Ternary mutants on line 542:
-        // `$attribute->transactional ?? $this->transactional` — when the attribute
-        // sets transactional: true and the global is false, the attribute must win.
-        // Observable: with a transactional storage, wrapInTransaction must call
-        // transactional() even though global transactional is false.
+        // Kills Coalesce and Ternary mutants on the shouldWrap line:
+        // `$attribute->transactional ?? $this->transactional` — when the attribute sets
+        // transactional: true and the global is false, the attribute must win. Since the
+        // success persist is folded into the task's transaction, wrap and split both
+        // call transactional() exactly once — the discriminating observable is run()
+        // executing INSIDE storage->transactional(), probed via the transaction depth.
+        $storage = new RollbackTransactionalStorageFixture();
 
-        $transactionalCallCount = 0;
-        $storage = $this->makeCountingTransactionalStorage($transactionalCallCount);
+        // Attribute transactional: true; global is false.
+        $task = new #[AsDeployTask(id: 'test.attribute-transactional', transactional: true)] class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface {
+            public bool $ranInsideTransaction = false;
 
-        // TransactionalTask has #[AsDeployTask(transactional: true)]; global is false.
+            public function __construct(private readonly RollbackTransactionalStorageFixture $storage)
+            {
+            }
+
+            public function getDescription(): string
+            {
+                return 'Probes the transaction depth at run() time';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->ranInsideTransaction = $this->storage->transactionDepth > 0;
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
         $runner = $this->createRunner(
-            [new TransactionalTask()],
+            [$task],
             $storage,
             transactional: false, // global OFF — attribute must override
         );
 
         $runner->runAll($this->output);
 
-        // TransactionalTask has transactional: true; that must override global=false.
-        // wrapInTransaction calls transactional() once; persistOutcomeTransactional adds another.
-        self::assertGreaterThanOrEqual(
-            2,
-            $transactionalCallCount,
+        self::assertTrue(
+            $task->ranInsideTransaction,
             'Attribute transactional:true must override global transactional:false',
+        );
+        self::assertTrue(
+            $storage->has('test.attribute-transactional'),
+            'The execution record must persist through the wrapped path',
         );
     }
 
     public function testGlobalTransactionalFalseSkipsWrapWhenAttributeIsNull(): void
     {
-        // Kills LogicalAndSingleSubExprNegation on line 544: with !$shouldWrap, a task
-        // that should NOT wrap (shouldWrap=false) would be wrapped instead.
-        $transactionalCallCount = 0;
-        $storage = $this->makeCountingTransactionalStorage($transactionalCallCount);
+        // Kills LogicalAndSingleSubExprNegation on the shouldWrap line: with !$shouldWrap,
+        // a task that should NOT wrap (shouldWrap=false) would be wrapped instead. The
+        // transactional() call count is 1 either way (the wrap folds the persist in; the
+        // split wraps the persist alone), so the discriminator is run() executing
+        // OUTSIDE any transaction while the split persist still wraps its saves.
+        $storage = new RollbackTransactionalStorageFixture();
 
-        // SimpleTask has no #[AsDeployTask] attribute — global config controls wrapping.
+        // No #[AsDeployTask] attribute — global config controls wrapping.
+        $task = new class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+            public bool $ranInsideTransaction = false;
+
+            public function __construct(private readonly RollbackTransactionalStorageFixture $storage)
+            {
+            }
+
+            public function getTaskId(): string
+            {
+                return 'task.unwrapped';
+            }
+
+            public function getDescription(): string
+            {
+                return 'Probes the transaction depth at run() time';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->ranInsideTransaction = $this->storage->transactionDepth > 0;
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
         $runner = $this->createRunner(
-            [new SimpleTask('task.1', 'First')],
+            [$task],
             $storage,
             transactional: false, // should NOT wrap
         );
 
         $runner->runAll($this->output);
 
-        // With !shouldWrap mutant: transactional() would be called once for wrapInTransaction.
-        // With correct code: wrapInTransaction must NOT call transactional() when shouldWrap=false.
-        // persistOutcomeTransactional always adds exactly 1 call on TransactionalStorage.
-        // So exactly 1 call expected (from persistOutcomeTransactional only).
-        self::assertSame(
-            1,
-            $transactionalCallCount,
-            'wrapInTransaction must not call transactional() when shouldWrap=false',
+        self::assertFalse(
+            $task->ranInsideTransaction,
+            'wrapInTransaction must not open a transaction around run() when shouldWrap=false',
+        );
+        self::assertTrue(
+            $storage->lastSaveInsideTransaction,
+            'The split-path persist must still wrap its saves in a per-save transaction',
         );
     }
 
     public function testTransactionalStoragePathReturnsResult(): void
     {
-        // Kills ReturnRemoval on line 545: without the return inside the transactional
-        // block, the method falls through to `return $task->run($output)` — the task
-        // runs twice (once inside transactional(), once bare after it).
+        // Kills ReturnRemoval on the transactional branch of wrapInTransaction: without
+        // the return, the method falls through to the split path and calls $run() again —
+        // the task runs twice (once inside transactional(), once bare after it).
         $runCount = 0;
         $task = new class($runCount) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
             public function __construct(private int &$runCount)
@@ -2341,18 +2553,20 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // persistOutcomeTransactional early return (line 570)
+    // persistOutcomeTransactional early return
     // -------------------------------------------------------------------------
 
     public function testPersistOutcomeTransactionalDoesNotSaveTwice(): void
     {
-        // Kills ReturnRemoval on line 570: without the `return` after the transactional()
-        // call, the code falls through to the bare persistOutcome() and saves each slot
-        // a second time. We use a TransactionalStorageInterface mock that counts saves.
+        // Kills ReturnRemoval in persistOutcomeTransactional: without the `return` after
+        // the transactional() call, the code falls through to the bare persistOutcome()
+        // and saves each slot a second time. Global transactional: false routes the
+        // success persist through persistOutcomeTransactional (wrapped tasks persist
+        // inside their run() transaction and never reach it).
         $saveCount = 0;
         $storage = $this->makeSaveCountingTransactionalStorage($saveCount);
 
-        $runner = $this->createRunner([new SimpleTask('task.1', 'First')], $storage);
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')], $storage, transactional: false);
 
         $runner->runAll($this->output);
 
@@ -2573,66 +2787,6 @@ final class TaskRunnerTest extends TestCase
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private function makeCountingTransactionalStorage(int &$count): TransactionalStorageInterface
-    {
-        return new class($count) implements TransactionalStorageInterface {
-            /** @var array<string, TaskExecution> */
-            private array $executions = [];
-
-            public function __construct(private int &$count)
-            {
-            }
-
-            public function has(string $taskId, ?string $group = null): bool
-            {
-                return isset($this->executions[$taskId."\0".($group ?? '')]);
-            }
-
-            public function get(string $taskId, ?string $group = null): ?TaskExecution
-            {
-                return $this->executions[$taskId."\0".($group ?? '')] ?? null;
-            }
-
-            public function save(TaskExecution $execution): void
-            {
-                $this->executions[$execution->id."\0".($execution->group ?? '')] = $execution;
-            }
-
-            public function remove(string $taskId, ?string $group = null): void
-            {
-                unset($this->executions[$taskId."\0".($group ?? '')]);
-            }
-
-            public function removeAll(string $taskId): void
-            {
-            }
-
-            /** @return list<TaskExecution> */
-            public function findByTaskId(string $taskId): array
-            {
-                return [];
-            }
-
-            /** @return list<TaskExecution> */
-            public function all(): array
-            {
-                return \array_values($this->executions);
-            }
-
-            public function reset(): void
-            {
-                $this->executions = [];
-            }
-
-            public function transactional(\Closure $callback): mixed
-            {
-                ++$this->count;
-
-                return $callback();
-            }
-        };
-    }
 
     private function makeSaveCountingTransactionalStorage(int &$saveCount): TransactionalStorageInterface
     {

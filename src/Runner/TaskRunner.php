@@ -419,17 +419,19 @@ final readonly class TaskRunner
      * Emits a `[current/total] FQCN` progress line before execution and a
      * `→ status (ms)` completion line after.
      *
-     * Persistence happens after run() completes: the success path writes through
-     * persistOutcomeTransactional() (a dedicated per-task transaction on transactional
-     * backends), the failure path through plain persistOutcome(); under all_or_nothing
-     * both nest inside the run-wide transaction. The execution record is always written
-     * before After/Failed events are dispatched.
+     * Success-path persistence is owned by wrapInTransaction(): on a transactional
+     * backend the execution record commits inside the same per-task transaction as
+     * run(), so a failure between them rolls the task's work back instead of leaving
+     * it applied but unrecorded; non-transactional backends and all_or_nothing runs
+     * keep the split (run, then persist). The failure path writes through plain
+     * persistOutcome(). The execution record is always written before After/Failed
+     * events are dispatched.
      *
      * @param list<?string> $pendingSlots Slots to persist the execution outcome into
      *
      * @throws \ReflectionException
      * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
-     * @throws \Throwable           When storage throws inside the transactional closure
+     * @throws \Throwable           When storage throws while persisting the outcome
      */
     private function executeTask(
         DeployTaskInterface $task,
@@ -455,26 +457,41 @@ final readonly class TaskRunner
         $start = \microtime(true);
         $taskRanSuccessfully = false;
 
-        try {
-            $result = $this->wrapInTransaction($task, $attribute, $output, $taskId);
-            $taskRanSuccessfully = true;
-            $duration = \microtime(true) - $start;
+        // Runs the task and builds its success outcome. A returned TaskResult::FAILURE
+        // (or the runner-reserved TaskResult::LOCKED) is converted into a
+        // TaskReturnedFailureException, so it follows the same path as a thrown failure
+        // inside any wrapping transaction: rollback, Failed record, TaskFailedEvent,
+        // all_or_nothing abort.
+        $run = function () use ($task, $output, $taskId, $timeout, $start, &$taskRanSuccessfully): TaskOutcome {
+            $result = $task->run($output);
 
-            $outcome = $this->buildSuccessOutcome($taskId, $result, $duration, $timeout, $output);
+            if (TaskResult::FAILURE === $result || TaskResult::LOCKED === $result) {
+                throw TaskReturnedFailureException::create($taskId, $result);
+            }
+
+            $taskRanSuccessfully = true;
+
+            return $this->buildSuccessOutcome($taskId, $result, \microtime(true) - $start, $timeout, $output);
+        };
+
+        try {
+            $outcome = $this->wrapInTransaction($run, $attribute, $taskId, $pendingSlots);
+
             $this->writeCompletionLine($output, $outcome);
 
-            $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
-
-            // Persist must precede dispatch so a throwing listener cannot lose the record.
-            $this->dispatchGuarded(new AfterTaskEvent($taskId, $task, $result, $duration), $taskId);
+            // Persisted (inside wrapInTransaction) before this dispatch so a throwing
+            // listener cannot lose the record.
+            $this->dispatchGuarded(new AfterTaskEvent($taskId, $task, $outcome->result, $outcome->durationSeconds), $taskId);
 
             return $outcome;
         } catch (\Throwable $e) {
             $duration = \microtime(true) - $start;
 
-            // Re-raise when the task itself succeeded: the record is already persisted, and a
-            // failure record would be wrong — this covers both a storage save() failure and a
-            // throwing AfterTaskEvent listener.
+            // Re-raise when the task itself ran to completion — a failure record would be
+            // wrong. This covers a throwing AfterTaskEvent listener (record already
+            // persisted) and a storage failure while persisting the success outcome
+            // (nothing recorded; on a transactional backend the task's side effects
+            // rolled back with it, so the task is safe to re-run).
             if ($taskRanSuccessfully) {
                 throw $e;
             }
@@ -629,63 +646,70 @@ final readonly class TaskRunner
     }
 
     /**
-     * Wraps task execution in a database transaction if the task is marked as transactional
-     * and the storage backend supports it.
+     * Runs the task and persists its success outcome, folding both into a single
+     * per-task transaction when the task is marked as transactional and the storage
+     * backend supports it.
      *
-     * A returned TaskResult::FAILURE (or the runner-reserved TaskResult::LOCKED) is converted
-     * into a TaskReturnedFailureException inside the wrapper, so it follows the same path as
-     * a thrown failure: rollback, TaskFailedEvent, Failed record, all_or_nothing abort.
+     * The fold closes the split-transaction window: with run() side effects and the
+     * execution record committing together, a crash or storage failure between them
+     * can never leave applied side effects without a record (which would re-run the
+     * task on the next deploy) — the failure rolls the task's work back instead.
+     *
+     * The split (run bare, then persist) remains for non-transactional backends,
+     * tasks that opted out of wrapping, and all_or_nothing runs, where the run-wide
+     * transaction already provides the same guarantee.
+     *
+     * @param \Closure(): TaskOutcome $run          Runs the task and builds its success outcome
+     * @param list<?string>           $pendingSlots
+     *
+     * @throws \Throwable When the task, a storage save, or the transaction fails
      */
     private function wrapInTransaction(
-        DeployTaskInterface $task,
+        \Closure $run,
         ?AsDeployTask $attribute,
-        OutputInterface $output,
         string $taskId,
-    ): TaskResult {
-        $run = static function () use ($task, $output, $taskId): TaskResult {
-            $result = $task->run($output);
+        array $pendingSlots,
+    ): TaskOutcome {
+        // Skip per-task wrapping when allOrNothing already wraps the entire run.
+        if (!$this->allOrNothing) {
+            $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
 
-            if (TaskResult::FAILURE === $result || TaskResult::LOCKED === $result) {
-                // Thrown inside any wrapping transaction so the task's side-effects
-                // roll back together with the failure.
-                throw TaskReturnedFailureException::create($taskId, $result);
+            if ($shouldWrap) {
+                if ($this->storage instanceof TransactionalStorageInterface) {
+                    return $this->storage->transactional(function () use ($run, $taskId, $pendingSlots): TaskOutcome {
+                        $outcome = $run();
+                        $this->persistOutcome($taskId, $outcome, $pendingSlots);
+
+                        return $outcome;
+                    });
+                }
+
+                // Only reachable on a hand-constructed runner: the DI compiler pass rejects
+                // transactional config on a non-transactional storage at compile time.
+                $this->logger->warning(
+                    'Task requested transactional execution but the storage backend does not support transactions — running unwrapped.',
+                    ['task_id' => $taskId],
+                );
             }
-
-            return $result;
-        };
-
-        // Skip per-task wrapping when allOrNothing already wraps the entire run
-        if ($this->allOrNothing) {
-            return $run();
         }
 
-        $shouldWrap = null !== $attribute ? ($attribute->transactional ?? $this->transactional) : $this->transactional;
+        $outcome = $run();
+        $this->persistOutcomeTransactional($taskId, $outcome, $pendingSlots);
 
-        if ($shouldWrap) {
-            if ($this->storage instanceof TransactionalStorageInterface) {
-                return $this->storage->transactional($run);
-            }
-
-            // Only reachable on a hand-constructed runner: the DI compiler pass rejects
-            // transactional config on a non-transactional storage at compile time.
-            $this->logger->warning(
-                'Task requested transactional execution but the storage backend does not support transactions — running unwrapped.',
-                ['task_id' => $taskId],
-            );
-        }
-
-        return $run();
+        return $outcome;
     }
 
     /**
      * Persists the task outcome for each pending slot, wrapping the saves in a single
-     * per-task transaction when the storage backend supports it.
+     * per-save transaction when the storage backend supports it.
      *
-     * Placing `save()` inside the same transaction as `task->run()` would require
-     * restructuring the call stack.  Instead, a dedicated per-save transaction is used:
-     * if storage throws during any save the exception propagates to the caller
-     * (which re-raises it), keeping the runner's failure semantics intact while ensuring
-     * that a partial-write within a multi-slot task is rolled back on transactional backends.
+     * Used by the split success path only — non-transactional backends, tasks that
+     * opted out of wrapping, and all_or_nothing runs (where the record commits or
+     * rolls back with the run-wide transaction anyway). Transactionally-wrapped tasks
+     * persist inside their own run() transaction instead ({@see wrapInTransaction}).
+     * If storage throws during any save the exception propagates to the caller (which
+     * re-raises it), and the per-save transaction keeps a partial-write within a
+     * multi-slot task from surviving on transactional backends.
      *
      * @param list<?string> $pendingSlots
      */

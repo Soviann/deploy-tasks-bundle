@@ -31,5 +31,6 @@ so it executes exactly once per environment.
 ### Fixed
 
 - A deploy task running longer than the configured lock TTL no longer crashes the run with an uncaught lock error.
+- A transactional task whose result fails to persist now rolls back its own side effects instead of silently re-running on the next deploy.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD
