@@ -53,7 +53,7 @@ final class AsDeployTask
      *                                            DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when
      *                                            deploytasks:run is called without --group). Names must match
-     *                                            AsDeployTask::GROUP_NAME_PATTERN.
+     *                                            AsDeployTask::GROUP_NAME_PATTERN and each name must be unique.
      *
      * @throws \InvalidArgumentException When a non-empty id does not match TASK_ID_PATTERN
      * @throws \InvalidArgumentException When env is an empty array
@@ -61,6 +61,7 @@ final class AsDeployTask
      * @throws \InvalidArgumentException When groups is an empty array
      * @throws \InvalidArgumentException When groups contains a non-string entry
      * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
+     * @throws \InvalidArgumentException When the same group name appears more than once
      * @throws \InvalidArgumentException When timeout is negative
      */
     public function __construct(
@@ -104,10 +105,18 @@ final class AsDeployTask
             default => [$groups],
         };
 
+        $seenGroups = [];
+
         foreach ($groupList as $group) {
             if (1 !== \preg_match(self::GROUP_NAME_PATTERN, $group)) {
                 throw new \InvalidArgumentException(\sprintf('Invalid group name "%s" in #[AsDeployTask]: must match %s.', $group, self::GROUP_NAME_PATTERN));
             }
+
+            if (isset($seenGroups[$group])) {
+                throw new \InvalidArgumentException(\sprintf('Duplicate group "%s" in #[AsDeployTask]: declare each group once.', $group));
+            }
+
+            $seenGroups[$group] = true;
         }
 
         if ('' !== $id && 1 !== \preg_match(self::TASK_ID_PATTERN, $id)) {

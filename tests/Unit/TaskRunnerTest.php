@@ -43,6 +43,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ReturnsFailureTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\RollbackTransactionalStorageFixture;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SaveCountingStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
@@ -1011,6 +1012,32 @@ final class TaskRunnerTest extends TestCase
         self::assertFalse($this->storage->has('task.default'));
         self::assertTrue($this->storage->has('test.predeploy', 'predeploy'));
         self::assertFalse($this->storage->has('test.predeploy'));
+    }
+
+    public function testRunAllWithDuplicateGroupOptionRunsSlotOnce(): void
+    {
+        $counting = new SaveCountingStorageFixture();
+
+        $runner = $this->createRunner([new PredeployTask()], $counting);
+
+        $result = $runner->runAll($this->output, new RunOptions(groups: ['predeploy', 'predeploy']));
+
+        self::assertSame(1, $result->ran, 'A repeated --group value must not inflate the ran counter.');
+        self::assertSame(1, $counting->saveCalls, 'A repeated --group value must not double-persist the slot.');
+    }
+
+    public function testRunOneWithDuplicateRequestedGroupWritesSlotOnce(): void
+    {
+        $counting = new SaveCountingStorageFixture();
+
+        $runner = $this->createRunner([new MultiGroupTask()], $counting);
+
+        $result = $runner->runOne('test.multi_group', $this->output, new RunOptions(groups: ['predeploy', 'predeploy']));
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertTrue($counting->has('test.multi_group', 'predeploy'));
+        self::assertFalse($counting->has('test.multi_group', 'postdeploy'));
+        self::assertSame(1, $counting->saveCalls, 'A repeated --group value must not double-persist the slot.');
     }
 
     public function testRunAllWithoutGroupExcludesGroupedTasks(): void

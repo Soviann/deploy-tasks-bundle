@@ -242,6 +242,14 @@ final class AsDeployTaskTest extends TestCase
         new AsDeployTask(id: 'task.mixed', groups: ['predeploy', 'a/b']);
     }
 
+    public function testConstructorRejectsDuplicateGroups(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Duplicate group "predeploy"/');
+
+        new AsDeployTask(id: 'task.dup-group', groups: ['predeploy', 'predeploy']);
+    }
+
     public function testConstructorRejectsEmptyEnvArray(): void
     {
         $this->expectException(\InvalidArgumentException::class);

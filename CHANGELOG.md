@@ -35,5 +35,6 @@ so it executes exactly once per environment.
 - A rollup interrupted by a storage failure on a non-transactional backend no longer wipes execution history, which would have silently re-run already-applied tasks on the next deploy.
 - A filesystem write failure during a task save now reports through the same `StorageException` contract as the database backend, instead of leaking a raw filesystem exception.
 - `#[AsDeployTask]` now rejects an `env` that would silently disable the task (empty array or non-string entries) at construction, instead of letting it match no environment and become a silent no-op.
+- A repeated `--group` value on `deploytasks:run` (e.g. `--group=a --group=a`) no longer runs the same slot twice, inflating the counters and double-persisting its storage row. `#[AsDeployTask(groups: …)]` now also rejects a duplicate declared group name at construction instead of silently accepting it.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD
