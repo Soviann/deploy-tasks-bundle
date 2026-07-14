@@ -56,6 +56,8 @@ final class AsDeployTask
      *                                            AsDeployTask::GROUP_NAME_PATTERN.
      *
      * @throws \InvalidArgumentException When a non-empty id does not match TASK_ID_PATTERN
+     * @throws \InvalidArgumentException When env is an empty array
+     * @throws \InvalidArgumentException When env contains a non-string entry
      * @throws \InvalidArgumentException When groups is an empty array
      * @throws \InvalidArgumentException When groups contains a non-string entry
      * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
@@ -70,6 +72,19 @@ final class AsDeployTask
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
     ) {
+        if ([] === $env) {
+            throw new \InvalidArgumentException('env cannot be an empty array — omit (or pass null) to mean all environments.');
+        }
+
+        if (\is_array($env)) {
+            foreach ($env as $entry) {
+                /* @phpstan-ignore function.alreadyNarrowedType */
+                if (!\is_string($entry)) {
+                    throw new \InvalidArgumentException(\sprintf('env entries must be strings, got %s.', \get_debug_type($entry)));
+                }
+            }
+        }
+
         if ([] === $groups) {
             throw new \InvalidArgumentException('groups cannot be an empty array — omit (or pass null) to mean the default group.');
         }

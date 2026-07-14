@@ -242,6 +242,23 @@ final class AsDeployTaskTest extends TestCase
         new AsDeployTask(id: 'task.mixed', groups: ['predeploy', 'a/b']);
     }
 
+    public function testConstructorRejectsEmptyEnvArray(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/env cannot be an empty array/');
+
+        new AsDeployTask(id: 'task.bad-env', env: []);
+    }
+
+    public function testConstructorRejectsBadEntryInsideEnvArray(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/env entries must be strings/');
+
+        // @phpstan-ignore argument.type (intentional wrong type for validation test)
+        new AsDeployTask(id: 'task.mixed-env', env: [123]);
+    }
+
     public function testRejectsNegativeTimeout(): void
     {
         $this->expectException(\InvalidArgumentException::class);
