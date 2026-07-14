@@ -32,5 +32,6 @@ so it executes exactly once per environment.
 
 - A deploy task running longer than the configured lock TTL no longer crashes the run with an uncaught lock error.
 - A transactional task whose result fails to persist now rolls back its own side effects instead of silently re-running on the next deploy.
+- A rollup interrupted by a storage failure on a non-transactional backend no longer wipes execution history, which would have silently re-run already-applied tasks on the next deploy.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

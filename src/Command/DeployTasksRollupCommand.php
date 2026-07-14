@@ -142,22 +142,46 @@ final class DeployTasksRollupCommand extends Command
         }
 
         $resetAll = [] === $groupFilter;
-        $rollup = function () use ($targets, $resetAll): void {
-            if ($resetAll) {
-                $this->storage->reset();
-            }
+        $now = $this->clock->now();
 
-            $now = $this->clock->now();
+        $executions = [];
 
-            foreach ($targets as $target) {
-                $this->storage->save(new TaskExecution($target['id'], TaskStatus::Ran, $now, null, $target['slot']));
-            }
-        };
+        foreach ($targets as $target) {
+            $executions[] = new TaskExecution($target['id'], TaskStatus::Ran, $now, null, $target['slot']);
+        }
 
         if ($this->storage instanceof TransactionalStorageInterface) {
-            $this->storage->transactional($rollup);
+            $this->storage->transactional(function () use ($executions, $resetAll): void {
+                if ($resetAll) {
+                    $this->storage->reset();
+                }
+
+                foreach ($executions as $execution) {
+                    $this->storage->save($execution);
+                }
+            });
         } else {
-            $rollup();
+            // Non-transactional backends never destroy history before the new baseline
+            // is complete: write every record first, then prune the stale ones. A save()
+            // failure partway through leaves the prior records intact, so already-applied
+            // tasks are not seen as pending on the next deploy.
+            foreach ($executions as $execution) {
+                $this->storage->save($execution);
+            }
+
+            if ($resetAll) {
+                $baseline = [];
+
+                foreach ($executions as $execution) {
+                    $baseline[TaskExecution::slotKey($execution->id, $execution->group)] = true;
+                }
+
+                foreach ($existingRecords as $record) {
+                    if (!isset($baseline[TaskExecution::slotKey($record->id, $record->group)])) {
+                        $this->storage->remove($record->id, $record->group);
+                    }
+                }
+            }
         }
 
         $io->success($resetAll

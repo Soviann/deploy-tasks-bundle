@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
+use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
+use Soviann\DeployTasksBundle\Tests\Fixtures\FailingSaveFilesystemStorageFixture;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[CoversClass(DeployTasksRollupCommand::class)]
 final class DeployRollupCommandTest extends FunctionalTestCase
@@ -261,6 +266,81 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         // Must NOT use the all-records format.
         self::assertStringNotContainsString('cleared', $display);
         self::assertStringNotContainsString('across', $display);
+    }
+
+    public function testInterruptedRollupDoesNotWipeHistoryOnNonTransactionalStorage(): void
+    {
+        // A filesystem backend has no transactions: if history were destroyed before
+        // the new baseline is fully written, a save() failure partway through the
+        // rollup would leave previously-applied tasks without a record — they would
+        // silently re-run on the next deploy.
+        $storagePath = \sys_get_temp_dir().'/deploy-tasks-rollup-atomic-'.\getmypid();
+
+        self::useConfigurableKernel(
+            [
+                'storage' => [
+                    'type' => 'custom',
+                    'custom' => ['service' => 'test.failing_storage'],
+                ],
+            ],
+            [
+                'test.failing_storage' => [
+                    'class' => FailingSaveFilesystemStorageFixture::class,
+                    'args' => [$storagePath],
+                    'public' => true,
+                ],
+                'test.task.one' => [
+                    'class' => SimpleTask::class,
+                    'args' => ['test.one', 'First task'],
+                    'tags' => ['soviann_deploy_tasks.task'],
+                ],
+                'test.task.two' => [
+                    'class' => SimpleTask::class,
+                    'args' => ['test.two', 'Second task'],
+                    'tags' => ['soviann_deploy_tasks.task'],
+                ],
+                'test.task.three' => [
+                    'class' => SimpleTask::class,
+                    'args' => ['test.three', 'Third task'],
+                    'tags' => ['soviann_deploy_tasks.task'],
+                ],
+                // Failure-path kernels must not log to stderr — Infection SIGTERMs the
+                // initial PHPUnit run on the first stderr byte (see bundle GOTCHAS).
+                'logger' => ['class' => NullLogger::class, 'public' => true],
+            ],
+        );
+        self::bootKernel();
+
+        $storage = self::getContainer()->get('test.failing_storage');
+        \assert($storage instanceof FailingSaveFilesystemStorageFixture);
+
+        try {
+            // All three tasks were applied on earlier deploys.
+            foreach (['test.one', 'test.two', 'test.three'] as $id) {
+                $storage->save(new TaskExecution($id, TaskStatus::Ran, new \DateTimeImmutable()));
+            }
+
+            // The first rollup save() succeeds, the second one throws mid-loop.
+            $storage->savesUntilFailure = 1;
+
+            $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:rollup'));
+
+            try {
+                $tester->execute(['--force' => true], ['interactive' => false]);
+                self::fail('The armed storage should have aborted the rollup with a StorageException.');
+            } catch (StorageException) {
+                // Expected: the second save() failed partway through the rollup.
+            }
+
+            // History must not be left wiped-and-partial: every previously-applied
+            // task must still be recorded as run, not seen as pending.
+            foreach (['test.one', 'test.two', 'test.three'] as $id) {
+                self::assertTrue($storage->has($id), \sprintf('Task "%s" was applied before the interrupted rollup and must not be seen as pending afterwards.', $id));
+                self::assertSame(TaskStatus::Ran, $storage->get($id)?->status);
+            }
+        } finally {
+            (new Filesystem())->remove($storagePath);
+        }
     }
 
     protected static function getKernelClass(): string
