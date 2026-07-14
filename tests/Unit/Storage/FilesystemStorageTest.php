@@ -12,6 +12,7 @@ use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
+use Symfony\Component\Filesystem\Exception\IOException;
 
 #[CoversClass(FilesystemStorage::class)]
 final class FilesystemStorageTest extends TaskStorageContractTestCase
@@ -650,6 +651,26 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         } finally {
             \chmod($parent, 0o700);
             FilesystemTestHelper::cleanup($parent);
+        }
+    }
+
+    /**
+     * dumpFile() writes via a temp-file-then-rename; renaming a regular file onto a path
+     * already occupied by a directory is an OS-level EISDIR failure, not a permission
+     * check — so unlike chmod-based fixtures, this reproduces the same way whether the
+     * test process runs as an unprivileged user or as root (e.g. some CI containers).
+     */
+    public function testSaveIntoPathOccupiedByDirectoryThrowsStorageException(): void
+    {
+        \mkdir($this->storagePath, 0o700, true);
+        \mkdir($this->storagePath.'/task.a.json');
+
+        try {
+            $this->storage->save(new TaskExecution('task.a', TaskStatus::Ran, new \DateTimeImmutable()));
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertStringContainsString('Failed to write storage file', $e->getMessage());
+            self::assertInstanceOf(IOException::class, $e->getPrevious());
         }
     }
 

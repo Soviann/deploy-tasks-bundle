@@ -124,7 +124,11 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw StorageException::lockUnavailable($lockPath);
             }
 
-            $this->fs->dumpFile($path, $json);
+            try {
+                $this->fs->dumpFile($path, $json);
+            } catch (IOException $e) {
+                throw new StorageException(\sprintf('Failed to write storage file "%s".', $path), 0, $e);
+            }
 
             // Deploy-task payloads can carry error messages, DSN fragments, or other sensitive
             // context; restrict reads to the owning user so unrelated accounts on the host
