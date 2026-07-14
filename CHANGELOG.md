@@ -28,4 +28,8 @@ so it executes exactly once per environment.
 - **Configuration** — the `soviann_deploy_tasks` config tree covers storage, events, lock, generate, and host settings, with scalar shorthands (`storage: database`, `events: false`, `lock: false`). Task ids and group names are validated against a strict allowlist, and untrusted text is stripped of terminal control sequences before display.
 - **Requirements** — PHP 8.2+, Symfony 6.4 LTS or 7.x.
 
+### Fixed
+
+- A deploy task running longer than the configured lock TTL no longer crashes the run with an uncaught lock error.
+
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

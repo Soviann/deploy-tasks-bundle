@@ -48,6 +48,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Lock\Exception\LockConflictedException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
 use Symfony\Component\Lock\Store\InMemoryStore;
@@ -1699,6 +1700,39 @@ final class TaskRunnerTest extends TestCase
             $refreshCount,
             'refresh() must be called between each task (at least 2 times for 3 tasks)',
         );
+    }
+
+    public function testLostLockLeaseDuringRefreshStopsRunWithLockedResult(): void
+    {
+        // A task that outruns lock.ttl loses the lease, so the between-task refresh()
+        // throws LockConflictedException. The runner must convert that into the same
+        // locked sentinel an acquire failure produces — not an uncaught exception —
+        // and must not run the remaining tasks: a second runner may hold the lock now.
+        $logger = new ArrayLogger();
+
+        $lock = $this->createMock(SharedLockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        $lock->method('refresh')->willThrowException(new LockConflictedException('lease lost'));
+
+        $lockFactory = $this->createMock(LockFactory::class);
+        $lockFactory->method('createLock')->willReturn($lock);
+
+        $runner = $this->createRunner(
+            [
+                new SleepingTask('task.1', 1_000),
+                new SimpleTask('task.2', 'Second'),
+            ],
+            logger: $logger,
+            lockFactory: $lockFactory,
+        );
+
+        $result = $runner->runAll($this->output);
+
+        self::assertTrue($result->locked);
+        self::assertSame(1, $result->ran, 'The task that ran before the lease was lost must stay counted');
+        self::assertTrue($this->storage->has('task.1'), 'The completed task keeps its execution record');
+        self::assertFalse($this->storage->has('task.2'), 'The run must stop after the lease is lost');
+        self::assertTrue($logger->has('warning', 'could not be refreshed'));
     }
 
     // -------------------------------------------------------------------------

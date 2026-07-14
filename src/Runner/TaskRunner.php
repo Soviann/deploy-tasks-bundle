@@ -31,6 +31,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Lock\Exception\LockConflictedException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\LockInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -313,6 +314,10 @@ final readonly class TaskRunner
      * special-case branch) so a deploy longer than the configured TTL does not let the
      * lease expire and allow a second runner to acquire it mid-deploy.
      *
+     * When the refresh itself fails because the lease already expired (a task outran
+     * the TTL), the run stops and returns the locked sentinel: a second runner may
+     * hold the lock by now, so continuing would defeat the concurrency protection.
+     *
      * @param list<DeployTaskInterface> $tasks
      * @param list<?string>             $effectiveGroups
      *
@@ -383,8 +388,6 @@ final readonly class TaskRunner
                 throw $taskError;
             }
 
-            $lock?->refresh();
-
             $count = \count($item['pendingSlots']);
 
             if (TaskResult::FAILURE === $outcome->result) {
@@ -393,6 +396,17 @@ final readonly class TaskRunner
                 $skipped += $count;
             } else {
                 $ran += $count;
+            }
+
+            try {
+                $lock?->refresh();
+            } catch (LockConflictedException $e) {
+                $this->logger->warning(
+                    'Deploy tasks run stopped: the run lock could not be refreshed — its lease expired and another process may hold it now',
+                    ['task_id' => $item['taskId'], 'exception' => $e],
+                );
+
+                return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, locked: true);
             }
         }
 
