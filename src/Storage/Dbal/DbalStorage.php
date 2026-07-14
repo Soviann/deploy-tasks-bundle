@@ -304,18 +304,38 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
-     * @throws StorageException
+     * @throws StorageException When the transaction machinery (begin/commit/rollback) fails;
+     *                          exceptions thrown by the callback propagate unchanged
      */
     public function transactional(\Closure $callback): mixed
     {
+        /** @var DbalException|null $callbackFailure */
+        $callbackFailure = null;
+
         try {
             // Run any pending auto-create DDL *before* opening the transaction:
             // MySQL/MariaDB DDL implicitly commits, which would silently void an
             // all_or_nothing run's rollback guarantee on first use.
             $this->ensureInitialized();
 
-            return $this->connection->transactional(static fn (Connection $connection): mixed => $callback());
+            return $this->connection->transactional(static function () use ($callback, &$callbackFailure): mixed {
+                try {
+                    return $callback();
+                } catch (DbalException $e) {
+                    // Remember the instance so the outer catch can tell the callback's
+                    // own database error apart from a transaction-machinery failure.
+                    $callbackFailure = $e;
+
+                    throw $e;
+                }
+            });
         } catch (DbalException $e) {
+            if ($e === $callbackFailure) {
+                // The task's own database error — propagate unchanged per the
+                // TransactionalStorageInterface contract (rollback already happened).
+                throw $e;
+            }
+
             throw new StorageException(\sprintf('Transaction failed: %s', $e->getMessage()), 0, $e);
         }
     }

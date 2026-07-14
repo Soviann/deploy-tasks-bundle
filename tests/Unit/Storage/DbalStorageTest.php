@@ -1007,6 +1007,34 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         self::assertSame([], $this->storage->all(), 'Storage must be empty after rollback.');
     }
 
+    /**
+     * A DbalException thrown by the callback is the task's own database error, not a
+     * transaction-machinery failure — it must propagate unchanged instead of being
+     * relabeled StorageException "Transaction failed", which would hide the real error.
+     */
+    public function testTransactionalCallbackDbalExceptionPropagatesUnwrappedAfterRollback(): void
+    {
+        $boom = new \Doctrine\DBAL\Exception\InvalidArgumentException('task query failed');
+        $caught = null;
+
+        try {
+            $this->storage->transactional(function () use ($boom): void {
+                $this->storage->save(new TaskExecution(
+                    'task.dbal-tx', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'),
+                ));
+
+                throw $boom;
+            });
+        } catch (\Throwable $e) {
+            $caught = $e;
+        }
+
+        self::assertSame($boom, $caught, 'The exact callback DbalException must propagate, not a StorageException relabel.');
+
+        self::assertFalse($this->storage->has('task.dbal-tx'), 'The save must have been rolled back.');
+        self::assertSame([], $this->storage->all(), 'Storage must be empty after rollback.');
+    }
+
     protected function createStorage(): TaskStorageInterface
     {
         return $this->storage;
