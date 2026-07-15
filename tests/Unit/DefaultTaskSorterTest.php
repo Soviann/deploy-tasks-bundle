@@ -134,6 +134,63 @@ final class DefaultTaskSorterTest extends TestCase
         self::assertSame($second, $sorted[1]);
     }
 
+    public function testSameDayTasksSortByFullTimestampRegardlessOfRegistrationOrder(): void
+    {
+        // Both ids carry the same YYYYMMDD (20260416) but differ in the HHIISS suffix.
+        // Registered out of chronological order — the sorter must still order 09:00 before
+        // 20:53 by comparing the full 14-digit timestamp, not just the 8-digit date.
+        $evening = new SimpleTask('task_20260416205300');
+        $morning = new SimpleTask('task_20260416090000');
+
+        $sorted = $this->sorter->sort([$evening, $morning]);
+
+        self::assertSame($morning, $sorted[0]);
+        self::assertSame($evening, $sorted[1]);
+    }
+
+    public function testSameDayTasksRegisteredChronologicallyKeepTimestampOrder(): void
+    {
+        // Same pair registered already in chronological order — covers the other registration
+        // direction, so a comparator that inverts same-day timestamps (and happened to look
+        // correct above only because registration order was reversed) fails one of the two.
+        $morning = new SimpleTask('task_20260416090000');
+        $evening = new SimpleTask('task_20260416205300');
+
+        $sorted = $this->sorter->sort([$morning, $evening]);
+
+        self::assertSame($morning, $sorted[0]);
+        self::assertSame($evening, $sorted[1]);
+    }
+
+    public function testLaterDayDateOnlyIdSortsAfterEarlierDayFullTimestampId(): void
+    {
+        // Mixed extract lengths across different days (realistic during an id-format
+        // migration): the 8-digit Apr 17 id must sort AFTER the 14-digit Apr 16 23:59:59 id.
+        // Pins byte-wise comparison — PHP's <=> compares two numeric strings NUMERICALLY,
+        // and 20260417 < 20260416235959 as numbers, which would invert the chronology.
+        $laterDateOnly = new SimpleTask('task_20260417');
+        $earlierTimestamped = new SimpleTask('task_20260416235959');
+
+        $sorted = $this->sorter->sort([$laterDateOnly, $earlierTimestamped]);
+
+        self::assertSame($earlierTimestamped, $sorted[0]);
+        self::assertSame($laterDateOnly, $sorted[1]);
+    }
+
+    public function testFarFutureDateOnlyIdSortsAfterPastFullTimestampId(): void
+    {
+        // Far-apart years, mixed extract lengths: a 2099 date-only task must sort AFTER a
+        // 2026 timestamped task. Numerically 20990101 < 20260101000000, so a numeric-string
+        // comparison would run the 2099 task first — byte-wise comparison must win here.
+        $farFutureDateOnly = new SimpleTask('task_20990101');
+        $pastTimestamped = new SimpleTask('task_20260101000000');
+
+        $sorted = $this->sorter->sort([$farFutureDateOnly, $pastTimestamped]);
+
+        self::assertSame($pastTimestamped, $sorted[0]);
+        self::assertSame($farFutureDateOnly, $sorted[1]);
+    }
+
     public function testEmptyCollection(): void
     {
         self::assertSame([], $this->sorter->sort([]));

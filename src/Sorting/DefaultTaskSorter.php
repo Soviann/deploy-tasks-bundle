@@ -13,7 +13,8 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
  *
  * Sorting rules (applied in order):
  *  1. Priority DESC (higher priority runs first)
- *  2. Date extracted from ID (8 consecutive digits, YYYYMMDD) ASC (older tasks run first)
+ *  2. Timestamp extracted from ID (14 digits YYYYMMDDHHIISS, or 8 digits YYYYMMDD) ASC
+ *     (older tasks run first)
  *  3. Original registration order preserved for ties (usort() is stable since PHP 8.0)
  *
  * @internal
@@ -65,11 +66,18 @@ final readonly class DefaultTaskSorter implements TaskSorterInterface
     }
 
     /**
-     * Extracts a date string (8 consecutive digits, YYYYMMDD) from an ID, or returns null if none found.
+     * Extracts the longest leading timestamp digit run from an ID — 14 digits
+     * (YYYYMMDDHHIISS) preferred over 8 (YYYYMMDD) — or returns null if none found.
+     *
+     * Extracts are compared byte-wise (see compareDates()), which is chronologically
+     * correct across mixed lengths because both formats start with the same fixed-width
+     * YYYYMMDD prefix: the first differing byte decides per calendar position, and when
+     * one extract is a strict prefix of the other (a date-only id vs a same-day
+     * timestamp), the shorter one sorts first ('20260416' < '20260416090000').
      */
     private function extractDate(string $id): ?string
     {
-        if (1 === \preg_match('/(\d{8})/', $id, $matches)) {
+        if (1 === \preg_match('/(\d{14}|\d{8})/', $id, $matches)) {
             return $matches[1];
         }
 
@@ -79,6 +87,10 @@ final readonly class DefaultTaskSorter implements TaskSorterInterface
     /**
      * Compares two nullable date strings for ascending sort.
      * Tasks without a date sort after tasks with a date.
+     *
+     * The comparison must be byte-wise (strcmp), not `<=>`: PHP's spaceship operator
+     * compares two numeric strings NUMERICALLY, which inverts chronology for mixed-length
+     * extracts (numerically 20260417 < 20260416235959, yet Apr 17 is the later day).
      */
     private function compareDates(?string $a, ?string $b): int
     {
@@ -94,6 +106,6 @@ final readonly class DefaultTaskSorter implements TaskSorterInterface
             return -1;
         }
 
-        return $a <=> $b;
+        return \strcmp($a, $b) <=> 0;
     }
 }

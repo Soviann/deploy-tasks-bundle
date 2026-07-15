@@ -45,5 +45,6 @@ so it executes exactly once per environment.
 - `deploytasks:status` no longer reports a false "config drifted" warning for a `deploy-tasks-host.local.sh` saved with CRLF line endings (e.g. edited on Windows): the generated-file parser now tolerates the trailing `\r`.
 - Database storage now rejects a task id or group name longer than its configured column (e.g. a runtime id from `TaskIdProviderInterface`, which compile-time validation cannot see) before the query runs, instead of letting a lenient database (e.g. MySQL in non-strict mode) silently truncate the stored key — which made the pending check miss it and re-run the task on every deploy.
 - Two tasks whose ids differ only by letter case (e.g. `Seed_Users` vs `seed_users`) now fail fast at container build or boot, instead of silently sharing one execution record on a case-insensitive storage backend (MySQL `*_ci` collations, APFS/NTFS file names) — which made one of the tasks never run. `#[AsDeployTask(groups: …)]` likewise rejects two declared groups on the same task that differ only by case.
+- Two tasks generated on the same day (ids carrying a `YYYYMMDDHHIISS` timestamp) now order by their full timestamp instead of falling back to registration order, which could run them out of the order they were created in.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD
