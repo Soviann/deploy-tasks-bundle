@@ -173,6 +173,9 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
+     * Records come back in directory-listing order, which is filesystem-dependent —
+     * effectively unordered, matching the interface's no-ordering guarantee.
+     *
      * @return list<TaskExecution>
      *
      * @throws \InvalidArgumentException When the task id fails validation
@@ -322,6 +325,13 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     private function validateGroup(string $group): void
     {
+        // Checked before the pattern (which also rejects '') so the empty string —
+        // almost always a caller meaning "default slot" — gets the same actionable
+        // message on every backend instead of a puzzling regex mismatch.
+        if ('' === $group) {
+            throw new \InvalidArgumentException('Group name must not be the empty string; use null to target the default group slot.');
+        }
+
         if (1 !== \preg_match(AsDeployTask::GROUP_NAME_PATTERN, $group)) {
             throw new \InvalidArgumentException(\sprintf('Invalid group name "%s": must match %s.', $group, AsDeployTask::GROUP_NAME_PATTERN));
         }

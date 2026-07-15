@@ -31,6 +31,23 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
  */
 final class DbalStorage implements SchemaManageable, TransactionalStorageInterface
 {
+    /**
+     * Hard byte cap applied to error text before save().
+     *
+     * The error column is created as a platform CLOB without a length, but a host
+     * pointing the bundle at a pre-existing table may well have a MySQL/MariaDB
+     * TEXT column — 65,535 bytes, the smallest limit among the supported platforms.
+     * Anything longer would either fail the INSERT (strict mode), losing the whole
+     * execution record over diagnostic payload, or be truncated mid-byte by the
+     * server. Note the contrast with assertKeyLengths(): keys must round-trip
+     * exactly so over-long keys are REJECTED, while error text is diagnostic, so
+     * losing its tail is acceptable and it is TRUNCATED.
+     */
+    private const ERROR_MAX_BYTES = 65535;
+
+    /** Appended (within ERROR_MAX_BYTES) so a cut error message is recognizably cut. */
+    private const ERROR_TRUNCATION_MARKER = ' [truncated]';
+
     private readonly string $quotedTable;
     private readonly string $quotedIdColumn;
     private readonly string $quotedGroupColumn;
@@ -92,10 +109,12 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
+     * @throws \InvalidArgumentException When the group is the empty string
      * @throws StorageException
      */
     public function has(string $taskId, ?string $group = null): bool
     {
+        $this->assertGroupIsNotEmptyString($group);
         $this->assertKeyLengths($taskId, $group);
         $this->ensureInitialized();
 
@@ -118,10 +137,12 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
+     * @throws \InvalidArgumentException When the group is the empty string
      * @throws StorageException
      */
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
+        $this->assertGroupIsNotEmptyString($group);
         $this->assertKeyLengths($taskId, $group);
         $this->ensureInitialized();
 
@@ -148,10 +169,16 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
+     * Error text longer than {@see self::ERROR_MAX_BYTES} is truncated (multibyte-safe,
+     * with a marker) before the statement runs — an over-long diagnostic must never
+     * cost the execution record itself.
+     *
+     * @throws \InvalidArgumentException When the execution's group is the empty string
      * @throws StorageException
      */
     public function save(TaskExecution $execution): void
     {
+        $this->assertGroupIsNotEmptyString($execution->group);
         $this->assertKeyLengths($execution->id, $execution->group);
         $this->ensureInitialized();
 
@@ -164,7 +191,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $execution->group ?? '',
             $execution->status->value,
             $executedAtUtc,
-            $execution->error,
+            $this->truncateError($execution->error),
         ];
         $types = [
             Types::STRING,
@@ -184,10 +211,12 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
+     * @throws \InvalidArgumentException When the group is the empty string
      * @throws StorageException
      */
     public function remove(string $taskId, ?string $group = null): void
     {
+        $this->assertGroupIsNotEmptyString($group);
         $this->ensureInitialized();
 
         try {
@@ -227,6 +256,10 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     }
 
     /**
+     * Rows come back ordered by the executed-at column (ascending, UTC) — a stable
+     * order for display output, but a property of this backend, not of the
+     * interface, which guarantees no ordering.
+     *
      * @return list<TaskExecution>
      *
      * @throws StorageException
@@ -463,6 +496,36 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         if (null !== $group && \strlen($group) > $this->configuration->groupColumnLength) {
             throw new StorageException(\sprintf('Group name "%s" is %d characters, exceeding the configured group_column_length of %d — the database could silently truncate it. Increase soviann_deploy_tasks.storage.database.group_column_length or shorten the group name.', $group, \strlen($group), $this->configuration->groupColumnLength));
         }
+    }
+
+    /**
+     * The group column stores '' for the default slot (SQL forbids NULL in a primary
+     * key), so an explicit '' from a caller would silently alias the default slot.
+     * Rejected as an input-contract violation, matching the other backends (see
+     * TaskStorageInterface).
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function assertGroupIsNotEmptyString(?string $group): void
+    {
+        if ('' === $group) {
+            throw new \InvalidArgumentException('Group name must not be the empty string; use null to target the default group slot.');
+        }
+    }
+
+    /**
+     * Caps error text at {@see self::ERROR_MAX_BYTES}, cutting on a UTF-8 character
+     * boundary (mb_strcut never splits a sequence; symfony/string's mbstring polyfill
+     * guarantees its availability) and appending a marker so the cut is visible.
+     */
+    private function truncateError(?string $error): ?string
+    {
+        if (null === $error || \strlen($error) <= self::ERROR_MAX_BYTES) {
+            return $error;
+        }
+
+        return \mb_strcut($error, 0, self::ERROR_MAX_BYTES - \strlen(self::ERROR_TRUNCATION_MARKER), 'UTF-8')
+            .self::ERROR_TRUNCATION_MARKER;
     }
 
     /**

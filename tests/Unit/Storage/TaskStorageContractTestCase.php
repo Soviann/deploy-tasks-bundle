@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -152,6 +153,45 @@ abstract class TaskStorageContractTestCase extends TestCase
 
         self::assertFalse($storage->has('task.1', 'predeploy'));
         self::assertTrue($storage->has('task.1', 'postdeploy'));
+    }
+
+    /**
+     * The empty string is not a valid group name. Backends that key the default
+     * (null) slot on '' internally would silently alias the default slot if ''
+     * were accepted from callers, so every backend must reject it identically —
+     * as an input-contract violation, before the backend is touched.
+     *
+     * @param \Closure(TaskStorageInterface): mixed $call
+     */
+    #[DataProvider('provideEmptyStringGroupCalls')]
+    public function testEmptyStringGroupIsRejectedAsInvalidInput(\Closure $call): void
+    {
+        $storage = $this->createStorage();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('must not be the empty string');
+
+        $call($storage);
+    }
+
+    /**
+     * @return iterable<string, array{\Closure(TaskStorageInterface): mixed}>
+     */
+    public static function provideEmptyStringGroupCalls(): iterable
+    {
+        yield 'has' => [static fn (TaskStorageInterface $storage): bool => $storage->has('task.1', '')];
+
+        yield 'get' => [static fn (TaskStorageInterface $storage): ?TaskExecution => $storage->get('task.1', '')];
+
+        yield 'remove' => [static function (TaskStorageInterface $storage): void {
+            $storage->remove('task.1', '');
+        }];
+
+        yield 'save' => [static function (TaskStorageInterface $storage): void {
+            $storage->save(new TaskExecution(
+                'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, '',
+            ));
+        }];
     }
 
     public function testRemoveAllDeletesEverySlot(): void

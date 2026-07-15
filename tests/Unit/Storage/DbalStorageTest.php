@@ -1035,6 +1035,44 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         self::assertSame([], $this->storage->all(), 'Storage must be empty after rollback.');
     }
 
+    // Unbounded error text: truncated in PHP before the statement runs
+
+    /**
+     * MySQL/MariaDB TEXT holds at most 65,535 bytes; an over-long error would either
+     * fail the INSERT (strict mode) — losing the whole execution record over
+     * diagnostic payload — or be truncated mid-byte by the server. save() must
+     * truncate in PHP, multibyte-safely and with a visible marker, before binding.
+     */
+    public function testSaveTruncatesOverlongErrorTextInsteadOfFailing(): void
+    {
+        // 65,522 single-byte chars followed by two-byte 'é's: the first 'é' straddles
+        // the 65,523-byte content budget (65,535 minus the 12-byte marker), so a naive
+        // byte cut would leave half a UTF-8 sequence at the boundary.
+        $error = \str_repeat('a', 65522).\str_repeat('é', 100);
+
+        $this->storage->save(new TaskExecution(
+            'task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), $error,
+        ));
+
+        $stored = $this->storage->get('task.1');
+
+        self::assertNotNull($stored);
+        self::assertNotNull($stored->error);
+        self::assertSame(1, \preg_match('//u', $stored->error), 'Truncation must not split a UTF-8 sequence.');
+        self::assertSame(\str_repeat('a', 65522).' [truncated]', $stored->error);
+    }
+
+    public function testSaveKeepsErrorTextAtTheColumnLimitVerbatim(): void
+    {
+        $error = \str_repeat('a', 65535);
+
+        $this->storage->save(new TaskExecution(
+            'task.1', TaskStatus::Failed, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), $error,
+        ));
+
+        self::assertSame($error, $this->storage->get('task.1')?->error);
+    }
+
     protected function createStorage(): TaskStorageInterface
     {
         return $this->storage;

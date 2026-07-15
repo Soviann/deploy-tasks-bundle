@@ -12,6 +12,9 @@ use Soviann\DeployTasksBundle\Exception\StorageException;
  * Records are scoped by a (task id, group) pair. A null group maps to the default slot
  * used when deploytasks:run is called without --group. Passing a non-null group targets
  * a named group slot; a task that belongs to multiple groups has one record per slot.
+ * The empty string is not a valid group name: implementations MUST reject it with
+ * \InvalidArgumentException before the backend is touched (backends key the default
+ * slot on '' internally, so accepting it would silently alias the default slot).
  *
  * Exception contract: implementations MUST wrap backend failures (I/O, database,
  * serialization, corrupted records) in StorageException — the single failure channel
@@ -65,6 +68,10 @@ interface TaskStorageInterface
      * Backends with an indexed ID column (DBAL) filter at the storage layer so
      * the runner never has to page through the full execution set just to inspect
      * one task.
+     *
+     * No particular order is guaranteed — each backend returns records in its own
+     * natural order (documented per implementation). Callers that need a stable
+     * order must sort the result themselves.
      *
      * @return list<TaskExecution>
      *
