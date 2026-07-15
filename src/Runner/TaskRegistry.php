@@ -22,12 +22,21 @@ final class TaskRegistry
      * @param iterable<DeployTaskInterface> $tasks      Tagged deploy task services
      * @param TaskIdResolver                $idResolver Resolves the canonical ID for each task
      *
-     * @throws DuplicateTaskIdException  When two tasks resolve to the same id
+     * @throws DuplicateTaskIdException  When two tasks resolve to the same id, or to ids differing only by letter case
      * @throws \InvalidArgumentException When a resolved id does not match AsDeployTask::TASK_ID_PATTERN
      * @throws \ReflectionException      When the #[AsDeployTask] attribute lookup fails for a tagged task
      */
     public function __construct(iterable $tasks, TaskIdResolver $idResolver)
     {
+        // Collisions are detected on the lowercased id: MySQL *_ci collations and
+        // APFS/NTFS file names treat "Seed_Users" and "seed_users" as the same
+        // storage key, so ids differing only by case would silently share one
+        // execution record — and one of the tasks would never run. Checking here
+        // keeps the guard backend-agnostic and covers ids the compiler pass cannot
+        // see (TaskIdProviderInterface).
+        /** @var array<string, string> $seenIds lowercased id → registered id */
+        $seenIds = [];
+
         foreach ($tasks as $task) {
             $id = $idResolver->resolve($task);
 
@@ -35,10 +44,20 @@ final class TaskRegistry
                 throw new \InvalidArgumentException(\sprintf('Invalid task id "%s" (from %s): must match %s.', $id, $task::class, AsDeployTask::TASK_ID_PATTERN));
             }
 
-            if (isset($this->tasks[$id])) {
-                throw DuplicateTaskIdException::create($id, $this->tasks[$id]::class, $task::class);
+            $lowercased = \strtolower($id);
+
+            if (isset($seenIds[$lowercased])) {
+                $existingId = $seenIds[$lowercased];
+                $existingFqcn = $this->tasks[$existingId]::class;
+
+                if ($existingId === $id) {
+                    throw DuplicateTaskIdException::create($id, $existingFqcn, $task::class);
+                }
+
+                throw DuplicateTaskIdException::createCaseInsensitive($existingId, $existingFqcn, $id, $task::class);
             }
 
+            $seenIds[$lowercased] = $id;
             $this->tasks[$id] = $task;
         }
     }

@@ -12,6 +12,7 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\CaseCollidingGroupsTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\NoAttributeSeedCategoriesTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\NullStaticTaskIdGenerator;
 use Soviann\DeployTasksBundle\Tests\Fixtures\OverlongIdTask;
@@ -19,6 +20,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\A\ClashTask as ClashTaskA;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\B\ClashTask as ClashTaskB;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
+use Soviann\DeployTasksBundle\Tests\Fixtures\UppercasedAttributeOnlyTask;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
@@ -45,6 +47,46 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $this->expectExceptionMessageMatches('/Duplicate deploy task ID "attribute_only"/');
 
         $pass->process($container);
+    }
+
+    public function testTaskIdsDifferingOnlyByCaseThrow(): void
+    {
+        // "attribute_only" vs "Attribute_Only": MySQL *_ci collations and
+        // APFS/NTFS file names treat them as the same storage key, so the two
+        // tasks would silently share one execution record. The message must name
+        // both ids and both services so the host can locate them.
+        $container = $this->baseContainer();
+
+        $def1 = new Definition(AttributeOnlyTask::class);
+        $def1->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.lowercase', $def1);
+
+        $def2 = new Definition(UppercasedAttributeOnlyTask::class);
+        $def2->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.uppercase', $def2);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/"attribute_only" \(service "service\.lowercase"\).*"Attribute_Only" \(service "service\.uppercase"\).*letter case/s');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    public function testGroupsDifferingOnlyByCaseOnOneTaskFailTheBuild(): void
+    {
+        // One task declaring groups "Predeploy" and "predeploy" produces two
+        // storage slots — (id, Predeploy) and (id, predeploy) — that collapse
+        // onto one record on a case-insensitive backend. The attribute rejects
+        // the declaration the moment the pass reads it, failing the build.
+        $container = $this->baseContainer();
+
+        $def = new Definition(CaseCollidingGroupsTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.case_groups', $def);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/"Predeploy" and "predeploy".*letter case/');
+
+        (new RegisterTasksCompilerPass())->process($container);
     }
 
     public function testTaskIdExceedingConfiguredColumnLengthThrows(): void

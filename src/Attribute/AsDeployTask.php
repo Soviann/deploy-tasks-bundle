@@ -53,7 +53,8 @@ final class AsDeployTask
      *                                            DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when
      *                                            deploytasks:run is called without --group). Names must match
-     *                                            AsDeployTask::GROUP_NAME_PATTERN and each name must be unique.
+     *                                            AsDeployTask::GROUP_NAME_PATTERN and each name must be unique,
+     *                                            ignoring letter case.
      *
      * @throws \InvalidArgumentException When a non-empty id does not match TASK_ID_PATTERN
      * @throws \InvalidArgumentException When env is an empty array
@@ -61,7 +62,7 @@ final class AsDeployTask
      * @throws \InvalidArgumentException When groups is an empty array
      * @throws \InvalidArgumentException When groups contains a non-string entry
      * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
-     * @throws \InvalidArgumentException When the same group name appears more than once
+     * @throws \InvalidArgumentException When the same group name appears more than once, or two group names differ only by letter case
      * @throws \InvalidArgumentException When timeout is negative
      */
     public function __construct(
@@ -105,6 +106,13 @@ final class AsDeployTask
             default => [$groups],
         };
 
+        // Deduplicated on the lowercased name: a multi-group task records one
+        // storage slot per (id, group) pair, and case-insensitive backends
+        // (MySQL *_ci collations, APFS/NTFS file names) collapse same-id slots
+        // whose groups differ only by case onto a single record. Case-differing
+        // group names across DIFFERENT tasks stay legal — their storage keys
+        // always differ in the id component.
+        /** @var array<string, string> $seenGroups lowercased group name → declared spelling */
         $seenGroups = [];
 
         foreach ($groupList as $group) {
@@ -112,11 +120,17 @@ final class AsDeployTask
                 throw new \InvalidArgumentException(\sprintf('Invalid group name "%s" in #[AsDeployTask]: must match %s.', $group, self::GROUP_NAME_PATTERN));
             }
 
-            if (isset($seenGroups[$group])) {
-                throw new \InvalidArgumentException(\sprintf('Duplicate group "%s" in #[AsDeployTask]: declare each group once.', $group));
+            $lowercased = \strtolower($group);
+
+            if (isset($seenGroups[$lowercased])) {
+                if ($seenGroups[$lowercased] === $group) {
+                    throw new \InvalidArgumentException(\sprintf('Duplicate group "%s" in #[AsDeployTask]: declare each group once.', $group));
+                }
+
+                throw new \InvalidArgumentException(\sprintf('Groups "%s" and "%s" in #[AsDeployTask] differ only by letter case. Case-insensitive storage backends (MySQL *_ci collations, APFS/NTFS file names) treat them as the same record slot, so the task would silently run for only one of them. Rename one group so they differ beyond case.', $seenGroups[$lowercased], $group));
             }
 
-            $seenGroups[$group] = true;
+            $seenGroups[$lowercased] = $group;
         }
 
         if ('' !== $id && 1 !== \preg_match(self::TASK_ID_PATTERN, $id)) {

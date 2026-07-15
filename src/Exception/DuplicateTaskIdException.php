@@ -21,4 +21,18 @@ final class DuplicateTaskIdException extends \LogicException implements DeployTa
             $newFqcn,
         ));
     }
+
+    /**
+     * Creates an exception naming both ids (and their classes) that collide only by letter case.
+     */
+    public static function createCaseInsensitive(string $existingId, string $existingFqcn, string $newId, string $newFqcn): self
+    {
+        return new self(\sprintf(
+            'Task ids "%s" (from "%s") and "%s" (from "%s") differ only by letter case. Case-insensitive storage backends (MySQL *_ci collations, APFS/NTFS file names) treat them as the same key, so one of the tasks would silently never run. Rename one id so they differ beyond case.',
+            $existingId,
+            $existingFqcn,
+            $newId,
+            $newFqcn,
+        ));
+    }
 }

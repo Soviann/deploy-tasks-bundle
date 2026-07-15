@@ -27,7 +27,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
      * @throws IncompatibleStorageException When the custom storage service does not implement TaskStorageInterface
      * @throws IncompatibleStorageException When a task declares transactional: true on a non-transactional storage
-     * @throws \LogicException              When two tagged tasks resolve to the same ID
+     * @throws \LogicException              When two tagged tasks resolve to the same ID, or to IDs differing only by letter case
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
      * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails on a tagged class
@@ -144,7 +144,16 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * Validates at compile time that no two tagged tasks resolve to the same ID.
+     * Validates at compile time that no two tagged tasks resolve to the same ID —
+     * exactly, or differing only by letter case: case-insensitive storage backends
+     * (MySQL *_ci collations, APFS/NTFS file names) treat such ids as one key, so
+     * two distinct tasks would silently share a single execution record.
+     *
+     * Group names differing only by case on ONE task are rejected by the
+     * #[AsDeployTask] constructor the moment the attribute is read (same-id slots
+     * collapse on those backends). Across DIFFERENT tasks, case-differing group
+     * names stay legal: every storage key is an (id, group) pair and ids are
+     * case-insensitively unique, so those records can never share a backend key.
      *
      * Tasks implementing TaskIdProviderInterface are skipped from the ID checks
      * only (duplicate detection and id_column_length): their real ID only exists
@@ -171,7 +180,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * silently degrade to unwrapped execution.
      *
      * @throws IncompatibleStorageException When a task demands a transaction the storage cannot provide
-     * @throws \LogicException              When two tagged tasks resolve to the same ID
+     * @throws \LogicException              When two tagged tasks resolve to the same ID, or to IDs differing only by letter case
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
      * @throws \LogicException              When a filesystem-backed task's record file name exceeds 255 bytes
@@ -186,7 +195,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             ? $container->findDefinition('soviann_deploy_tasks.storage')->getClass()
             : null;
 
-        /** @var array<string, string> $seenIds resolved task ID → service ID */
+        // Keyed by lowercased ID: MySQL *_ci collations and APFS/NTFS file names
+        // treat ids differing only by case as the same storage key, so such ids
+        // must be rejected like exact duplicates (backend-agnostic guard).
+        /** @var array<string, array{string, string}> $seenIds lowercased task ID → [resolved task ID, service ID] */
         $seenIds = [];
 
         foreach ($taggedServices as $serviceId => $tags) {
@@ -243,11 +255,19 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
                 $this->validateRecordFileNameLengths($class, $serviceId, $taskId);
             }
 
-            if (isset($seenIds[$taskId])) {
-                throw new \LogicException(\sprintf('Duplicate deploy task ID "%s" found in services "%s" and "%s".', $taskId, $seenIds[$taskId], $serviceId));
+            $lowercased = \strtolower($taskId);
+
+            if (isset($seenIds[$lowercased])) {
+                [$existingId, $existingServiceId] = $seenIds[$lowercased];
+
+                if ($existingId === $taskId) {
+                    throw new \LogicException(\sprintf('Duplicate deploy task ID "%s" found in services "%s" and "%s".', $taskId, $existingServiceId, $serviceId));
+                }
+
+                throw new \LogicException(\sprintf('Deploy task IDs "%s" (service "%s") and "%s" (service "%s") differ only by letter case. Case-insensitive storage backends (MySQL *_ci collations, APFS/NTFS file names) treat them as the same key, so one of the tasks would silently never run. Rename one ID so they differ beyond case.', $existingId, $existingServiceId, $taskId, $serviceId));
             }
 
-            $seenIds[$taskId] = $serviceId;
+            $seenIds[$lowercased] = [$taskId, $serviceId];
         }
     }
 

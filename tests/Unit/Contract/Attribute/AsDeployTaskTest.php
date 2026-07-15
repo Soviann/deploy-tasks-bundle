@@ -250,6 +250,18 @@ final class AsDeployTaskTest extends TestCase
         new AsDeployTask(id: 'task.dup-group', groups: ['predeploy', 'predeploy']);
     }
 
+    public function testConstructorRejectsGroupsDifferingOnlyByCase(): void
+    {
+        // (id, Predeploy) and (id, predeploy) are distinct slots to the registry
+        // but one single key to a case-insensitive backend (MySQL *_ci collation,
+        // APFS/NTFS file name) — the record of one slot would silently shadow
+        // the other, so the declaration is rejected outright.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/"Predeploy" and "predeploy".*letter case/');
+
+        new AsDeployTask(id: 'task.case-group', groups: ['Predeploy', 'predeploy']);
+    }
+
     public function testConstructorRejectsEmptyEnvArray(): void
     {
         $this->expectException(\InvalidArgumentException::class);

@@ -111,6 +111,27 @@ final class TaskRegistryTest extends TestCase
         }
     }
 
+    public function testConstructThrowsOnIdsDifferingOnlyByCase(): void
+    {
+        // MySQL *_ci collations and APFS/NTFS file names treat these two ids as
+        // the same storage key — both tasks would share one execution record and
+        // one of them would silently never run. SimpleTask provides its id via
+        // TaskIdProviderInterface, so this collision is invisible to the compiler
+        // pass and MUST be caught here at boot.
+        $task1 = new SimpleTask('Seed_Users');
+        $task2 = new SimpleTask('seed_users');
+
+        try {
+            new TaskRegistry([$task1, $task2], $this->idResolver);
+            self::fail('Expected DuplicateTaskIdException was not thrown.');
+        } catch (DuplicateTaskIdException $e) {
+            self::assertStringContainsString('"Seed_Users"', $e->getMessage());
+            self::assertStringContainsString('"seed_users"', $e->getMessage());
+            self::assertStringContainsString($task1::class, $e->getMessage());
+            self::assertStringContainsString('letter case', $e->getMessage());
+        }
+    }
+
     public function testRejectsProviderIdWithDisallowedCharacters(): void
     {
         $task = new class implements DeployTaskInterface, TaskIdProviderInterface {
