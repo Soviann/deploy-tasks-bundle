@@ -511,6 +511,31 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         self::assertSame('task-a', $all[0]->id);
     }
 
+    /**
+     * Guard against unlink-while-iterating: reset() used to walk a live Finder
+     * iterator while deleting from it, which is filesystem-dependent and can skip
+     * records the iterator hasn't visited yet. With several slots present, every
+     * record must still be gone afterward.
+     */
+    public function testResetRemovesEveryRecordAcrossSeveralSlots(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.2', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution('task.3', TaskStatus::Ran, new \DateTimeImmutable()));
+        $this->storage->save(new TaskExecution(
+            'task.3', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+
+        $this->storage->reset();
+
+        self::assertSame([], $this->storage->all());
+        self::assertSame(
+            [],
+            \glob($this->storagePath.'/*.json'),
+            'No record file may survive reset() when several slots exist.',
+        );
+    }
+
     public function testResetLeavesForeignFilesAlone(): void
     {
         // Write a valid record

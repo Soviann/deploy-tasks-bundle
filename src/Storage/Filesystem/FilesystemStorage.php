@@ -218,13 +218,19 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * Iterates the record files in the storage directory — all of them, or only
-     * those belonging to $taskId (any slot). Yields nothing when the directory
-     * does not exist yet.
+     * Lists the record files in the storage directory — all of them, or only
+     * those belonging to $taskId (any slot). Empty when the directory does not
+     * exist yet.
      *
-     * @return iterable<\SplFileInfo>
+     * Materialized eagerly (iterator_to_array()) rather than returned as a live
+     * Finder/directory iterator: reset()/removeAll() unlink each file as they
+     * consume this list, and deleting from a directory while it's still being
+     * iterated is filesystem-dependent and can skip entries the iterator hasn't
+     * visited yet.
+     *
+     * @return list<\SplFileInfo>
      */
-    private function records(?string $taskId = null): iterable
+    private function records(?string $taskId = null): array
     {
         if (!\is_dir($this->storagePath)) {
             return [];
@@ -236,20 +242,20 @@ final class FilesystemStorage implements TaskStorageInterface
             ->depth(0)
             ->name(self::RECORD_NAME_PATTERN);
 
-        if (null === $taskId) {
-            return $finder;
+        if (null !== $taskId) {
+            $defaultSlotName = $taskId.'.json';
+            $groupSlotPrefix = $taskId.'@';
+
+            $finder = $finder->filter(
+                static function (\SplFileInfo $file) use ($defaultSlotName, $groupSlotPrefix): bool {
+                    $basename = $file->getBasename();
+
+                    return $basename === $defaultSlotName || \str_starts_with($basename, $groupSlotPrefix);
+                },
+            );
         }
 
-        $defaultSlotName = $taskId.'.json';
-        $groupSlotPrefix = $taskId.'@';
-
-        return $finder->filter(
-            static function (\SplFileInfo $file) use ($defaultSlotName, $groupSlotPrefix): bool {
-                $basename = $file->getBasename();
-
-                return $basename === $defaultSlotName || \str_starts_with($basename, $groupSlotPrefix);
-            },
-        );
+        return \iterator_to_array($finder, false);
     }
 
     /**
