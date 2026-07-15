@@ -7,7 +7,6 @@ namespace Soviann\DeployTasksBundle\DependencyInjection\Compiler;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
-use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
@@ -156,7 +155,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      *
      * When a custom generator is configured, its generateStatic() is called for
      * each task without an explicit attribute ID. Returning null opts that task
-     * out of compile-time duplicate detection.
+     * out of compile-time duplicate detection. When the generator's class itself
+     * cannot be resolved at compile time (factory-defined service, class not yet
+     * loadable), every generator-derived task is skipped the same way — the
+     * default generator's IDs must never stand in for the real generator's, or
+     * legal setups the real generator disambiguates would be rejected.
      *
      * When the active storage is database-backed, also enforces that each task ID
      * and group fits the configured DBAL column length — the attribute itself is
@@ -225,7 +228,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             if ('' !== $attributeId) {
                 $taskId = $attributeId;
             } else {
-                $taskId = $generatorClass::generateStatic($class);
+                $taskId = null === $generatorClass ? null : $generatorClass::generateStatic($class);
 
                 if (null === $taskId) {
                     continue; // can't know ID at compile time — skip
@@ -311,17 +314,21 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * Returns the FQCN of the configured task ID generator.
+     * Returns the FQCN of the configured task ID generator, or null when the
+     * generator's class cannot be resolved at compile time (factory-defined
+     * service, class not yet loadable). Callers must then skip generator-derived
+     * ID validation — substituting the default generator would validate phantom
+     * IDs the real generator may never produce.
      *
-     * @return class-string<TaskIdGeneratorInterface>
+     * @return class-string<TaskIdGeneratorInterface>|null
      */
-    private function resolveGeneratorClass(ContainerBuilder $container): string
+    private function resolveGeneratorClass(ContainerBuilder $container): ?string
     {
         $definition = $container->findDefinition('soviann_deploy_tasks.id_generator');
         $class = $definition->getClass();
 
         if (null === $class || !\class_exists($class)) {
-            return DefaultTaskIdGenerator::class;
+            return null;
         }
 
         if (!\is_a($class, TaskIdGeneratorInterface::class, true)) {

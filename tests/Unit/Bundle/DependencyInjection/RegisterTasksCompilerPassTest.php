@@ -139,30 +139,70 @@ final class RegisterTasksCompilerPassTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // resolveGeneratorClass — null class falls back to DefaultTaskIdGenerator
-    // (mutants 110–114)
+    // resolveGeneratorClass — unresolvable generator class skips generator-derived
+    // ID validation instead of substituting the default generator
     // -------------------------------------------------------------------------
 
-    public function testResolveGeneratorClassReturnsDefaultWhenDefinitionHasNullClass(): void
+    public function testUnresolvableGeneratorClassDoesNotCauseFalseDuplicateIdError(): void
     {
-        // A Definition with no class set returns null from getClass() — the pass
-        // must fall back to DefaultTaskIdGenerator::class rather than using null.
+        // A custom generator built by a factory has no class at compile time —
+        // getClass() returns null. Substituting the default generator would
+        // validate phantom IDs: both services below default-generate
+        // "no_attribute_seed_categories", yet the real generator may disambiguate
+        // them at runtime. The pass must skip these tasks instead, exactly as it
+        // does when generateStatic() returns null.
         $container = $this->baseContainer();
+        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition()); // class is null
 
-        // Override soviann_deploy_tasks.id_generator with a class-less definition.
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition());
+        $def1 = new Definition(NoAttributeSeedCategoriesTask::class);
+        $def1->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.first', $def1);
 
-        // Add a task so validateTaggedTasks actually calls resolveGeneratorClass().
-        $def = new Definition(AttributeOnlyTask::class);
+        $def2 = new Definition(NoAttributeSeedCategoriesTask::class);
+        $def2->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.second', $def2);
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testUnresolvableGeneratorClassSkipsIdColumnLengthValidation(): void
+    {
+        // Skipping must cover the id_column_length check too — it would otherwise
+        // run against the same phantom default-generated ID.
+        $container = $this->baseContainer();
+        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition()); // class is null
+        $this->withDbalColumnLengths($container, idColumnLength: 3, groupColumnLength: 128);
+
+        $def = new Definition(NoAttributeSeedCategoriesTask::class);
         $def->addTag('soviann_deploy_tasks.task');
-        $container->setDefinition('service.task', $def);
+        $container->setDefinition('service.generated_id', $def);
 
-        $pass = new RegisterTasksCompilerPass();
-        $pass->process($container); // must not throw or fail
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
 
-        // AttributeOnlyTask has an explicit attribute ID, so it gets registered —
-        // verifying the pass completed successfully without crashing on a null class.
-        self::assertTrue($container->hasDefinition('service.task'));
+        $this->addToAssertionCount(1);
+    }
+
+    public function testUnresolvableGeneratorClassStillValidatesExplicitAttributeIds(): void
+    {
+        // Attribute IDs do not depend on the generator, so their duplicate
+        // detection must survive an unresolvable generator class.
+        $container = $this->baseContainer();
+        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition()); // class is null
+
+        $def1 = new Definition(AttributeOnlyTask::class);
+        $def1->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.first', $def1);
+
+        $def2 = new Definition(AttributeOnlyTask::class);
+        $def2->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.second', $def2);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/Duplicate deploy task ID "attribute_only"/');
+
+        (new RegisterTasksCompilerPass())->process($container);
     }
 
     // -------------------------------------------------------------------------

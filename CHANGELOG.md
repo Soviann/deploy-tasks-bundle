@@ -39,5 +39,6 @@ so it executes exactly once per environment.
 - A database error raised by a task's own queries inside a transaction now surfaces unchanged, instead of being relabeled as a generic "Transaction failed" storage error that hid the real cause.
 - Resetting filesystem storage, or clearing all slots for one task, no longer risks leaving a stray record behind: the record set is now captured before any file is deleted, instead of deleting while still walking the live directory listing.
 - `deploytasks:skip` no longer silently erases an existing execution record (especially a `Ran` one) when re-skipping a slot: the confirmation prompt now warns and requires an explicit "yes" before overwriting; `--no-interaction` still proceeds since skip remains reversible via `deploytasks:reset`.
+- A custom id generator whose class cannot be resolved at compile time (e.g. a factory-built service) no longer fails the container build with false "Duplicate deploy task ID" errors: compile-time id validation now skips the tasks that depend on the generator instead of checking ids the default generator would have produced.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD
