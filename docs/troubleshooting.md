@@ -34,16 +34,6 @@ The active storage backend does not implement `TransactionalStorageInterface`. T
 
 The same exception is raised at container build when any task declares `#[AsDeployTask(transactional: true)]` while the active storage is non-transactional — the message names the task class. Remove the per-task flag or switch to a transactional storage.
 
-## `TaskGroupRequiredException` from `deploytasks:skip`
-
-`deploytasks:skip <id>` requires `--group=<name>` when the task declares one or more groups — there is no single slot to mark as skipped. Pick the slot explicitly:
-
-```bash
-bin/console deploytasks:skip task_... --group=predeploy
-```
-
-`deploytasks:reset` does *not* require `--group` — without it, every declared slot for the task is reset.
-
 ## `AllOrNothingFailureException`
 
 Raised when `all_or_nothing: true` is enabled and any task fails — the runner rolls back the wrapping transaction and reports the failing task. This is a feature: it guarantees a partial deploy never leaves a half-applied state in storage. Disable `all_or_nothing` if you want failed tasks to remain failed but successful ones to remain recorded.

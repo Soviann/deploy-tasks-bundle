@@ -10,13 +10,13 @@ namespace Soviann\DeployTasksBundle\Runner;
 final readonly class RunOptions
 {
     /**
-     * On a full run, empty targets every slot — the default slot of ungrouped
-     * tasks and every declared group of grouped tasks — while one or more
-     * group names narrow the run to tasks declaring any of them, restricted to
-     * the matching slots. A multi-group task executes once per invocation,
+     * Empty targets every slot — the default slot of ungrouped tasks and
+     * every declared group of grouped tasks — while one or more group names
+     * narrow the run to tasks declaring any of them, restricted to the
+     * matching slots. A multi-group task executes once per invocation,
      * writing one storage row per targeted slot. Single-task runs resolve
-     * groups through {@see SlotResolver} instead, which requires an explicit
-     * group for grouped tasks.
+     * groups through {@see SlotResolver}, which applies the same expansion
+     * but rejects a requested group the task does not declare.
      *
      * Deduplicated at construction — this is the single point every group-slot
      * consumer (runAll, runOne, SlotResolver) reads from, so a repeated CLI

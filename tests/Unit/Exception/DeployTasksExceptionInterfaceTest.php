@@ -16,7 +16,6 @@ use Soviann\DeployTasksBundle\Exception\MismatchedTaskIdException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
-use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Exception\TaskReturnedFailureException;
 
@@ -33,7 +32,6 @@ final class DeployTasksExceptionInterfaceTest extends TestCase
     {
         yield 'DuplicateTaskIdException' => [DuplicateTaskIdException::class];
         yield 'TaskNotFoundException' => [TaskNotFoundException::class];
-        yield 'TaskGroupRequiredException' => [TaskGroupRequiredException::class];
         yield 'TaskGroupMismatchException' => [TaskGroupMismatchException::class];
         yield 'IncompatibleStorageException' => [IncompatibleStorageException::class];
         yield 'StorageException' => [StorageException::class];

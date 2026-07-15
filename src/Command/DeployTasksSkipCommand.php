@@ -6,7 +6,6 @@ namespace Soviann\DeployTasksBundle\Command;
 
 use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
-use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Runner\SlotResolver;
@@ -51,14 +50,15 @@ final class DeployTasksSkipCommand extends Command
                 'group',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Target a specific group slot (required when the task declares groups).',
+                'Target a specific group slot (default: every declared slot).',
             )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command marks a deploy task as skipped so it will not be executed on future runs:
 
                     <info>%command.full_name% task_20260412143000_seed_categories</info>
 
-                When the task declares groups, <comment>--group</comment> is required to pick the slot to skip:
+                When the task declares groups, every declared slot is skipped by default.
+                Use <comment>--group</comment> to pick a single slot:
 
                     <info>%command.full_name% task_20260412143000_seed_categories --group=predeploy</info>
 
@@ -96,7 +96,7 @@ final class DeployTasksSkipCommand extends Command
 
         try {
             $slots = SlotResolver::resolve($id, $task, null === $group ? [] : [$group]);
-        } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
+        } catch (TaskGroupMismatchException $e) {
             // Mismatch messages embed the raw --group value. error() escapes
             // formatter tags itself, so sanitize-only covers the missing half
             // (control bytes) without double-escaping.
@@ -105,33 +105,44 @@ final class DeployTasksSkipCommand extends Command
             return Command::INVALID;
         }
 
-        $slot = $slots[0];
-
-        // Read the slot before writing to it: an existing record (especially a Ran one, i.e.
-        // real execution history) must not be silently overwritten by a blind save().
-        $existing = $this->storage->get($id, $slot);
-
+        // Read each slot before writing to it: an existing record (especially a Ran
+        // one, i.e. real execution history) must not be silently overwritten by a
+        // blind save(). Every slot is confirmed before anything is saved, so
+        // declining one prompt leaves all slots untouched — no partial skip.
         if ($input->isInteractive()) {
-            $prompt = $this->buildConfirmationPrompt($id, $slot, $existing);
+            foreach ($slots as $slot) {
+                $prompt = $this->buildConfirmationPrompt($id, $slot, $this->storage->get($id, $slot));
 
-            if (!$this->confirmOrAbort($io, $prompt)) {
-                return Command::FAILURE;
+                if (!$this->confirmOrAbort($io, $prompt)) {
+                    return Command::FAILURE;
+                }
             }
         }
 
-        $this->storage->save(new TaskExecution($id, TaskStatus::Skipped, $this->clock->now(), null, $slot));
+        $skippedAt = $this->clock->now();
 
-        $io->success(null === $slot
+        foreach ($slots as $slot) {
+            $this->storage->save(new TaskExecution($id, TaskStatus::Skipped, $skippedAt, null, $slot));
+        }
+
+        $groups = \array_values(\array_filter($slots, static fn (?string $slot): bool => null !== $slot));
+
+        $io->success([] === $groups
             ? \sprintf('Task "%s" marked as skipped.', $id)
-            : \sprintf('Task "%s" marked as skipped in group "%s".', $id, $slot));
+            : \sprintf(
+                'Task "%s" marked as skipped in group%s %s.',
+                $id,
+                1 === \count($groups) ? '' : 's',
+                \implode(', ', \array_map(static fn (string $slot): string => \sprintf('"%s"', $slot), $groups)),
+            ));
 
         return Command::SUCCESS;
     }
 
     /**
-     * Builds the confirmation prompt for one resolved slot. Written as a per-slot helper
-     * (id + group + existing record in, prompt string out) so a future caller resolving
-     * multiple slots can call it once per slot instead of needing a one-shot rewrite.
+     * Builds the confirmation prompt for one resolved slot (id + group + existing
+     * record in, prompt string out) — called once per slot when a bare invocation
+     * targets every declared slot.
      */
     private function buildConfirmationPrompt(string $id, ?string $slot, ?TaskExecution $existing): string
     {

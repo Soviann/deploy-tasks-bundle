@@ -17,7 +17,6 @@ use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
-use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Exception\TaskReturnedFailureException;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
@@ -133,7 +132,6 @@ final readonly class TaskRunner
      *
      * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the
      *                                          runner's environment
-     * @throws TaskGroupRequiredException
      * @throws TaskGroupMismatchException
      * @throws TaskNotFoundException            When no task is registered with the given id
      * @throws \ReflectionException             When the #[AsDeployTask] attribute lookup fails
@@ -800,31 +798,18 @@ final readonly class TaskRunner
     /**
      * Computes the slots a task participates in for the current invocation.
      *
-     * Mirrors {@see \Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand::slotsFor()}: with no requested
-     * groups, every slot is targeted — the default slot for an ungrouped task,
-     * every declared group for a grouped one. A non-empty request narrows to
-     * the intersection with the declared groups; the default slot is only ever
-     * targeted by an unfiltered run.
-     *
-     * The expansion can never yield a duplicate slot: requested groups are
-     * deduplicated by {@see RunOptions}, declared groups by the attribute.
+     * Delegates to {@see SlotResolver::expand()} — the single owner of the
+     * group→slot expansion — so bulk runs and single-task targeting cannot
+     * drift apart.
      *
      * @param list<string> $requestedGroups [] targets every slot
      *
      * @return list<?string>
+     *
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails
      */
     private static function computeSlots(DeployTaskInterface $task, array $requestedGroups): array
     {
-        $declared = AsDeployTask::groupsOf($task);
-
-        if (null === $declared) {
-            return [] === $requestedGroups ? [null] : [];
-        }
-
-        if ([] === $requestedGroups) {
-            return $declared;
-        }
-
-        return \array_values(\array_intersect($declared, $requestedGroups));
+        return SlotResolver::expand(AsDeployTask::groupsOf($task), $requestedGroups);
     }
 }

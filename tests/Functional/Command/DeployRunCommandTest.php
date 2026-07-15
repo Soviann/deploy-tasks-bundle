@@ -283,11 +283,21 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
     }
 
-    public function testIdOnlyOnGroupedTaskFailsInvalid(): void
+    public function testIdWithoutGroupRunsEveryDeclaredSlot(): void
     {
-        $this->tester->execute(['--id' => 'test.predeploy']);
+        // Flipped by the Phase 3 group-semantics change: --id on a grouped task
+        // without --group used to exit INVALID (group-required exception, class
+        // removed); it now runs the task and records every declared slot.
+        $this->tester->execute(['--id' => 'test.multi_group']);
 
-        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'postdeploy'));
+        self::assertFalse($storage->has('test.multi_group'), 'A grouped task must never record the default (null) slot');
     }
 
     public function testIdWithGroupRunsSingleSlot(): void
@@ -446,12 +456,12 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString('No deploy tasks registered.', $this->tester->getDisplay());
     }
 
-    // Mutant 55 (Catch_:148) — TaskGroupMismatchException must also be caught and display INVALID
-    public function testGroupedTaskWithoutGroupArgReturnsInvalid(): void
+    // Mutant 55 (Catch_:148) — TaskGroupMismatchException must be caught and display INVALID.
+    // Flipped trigger by the Phase 3 group-semantics change: --id without --group no longer
+    // errors (group-required exception removed), so an undeclared --group exercises the catch.
+    public function testIdWithUndeclaredGroupReturnsInvalid(): void
     {
-        // test.predeploy declares group 'predeploy'. Running with --id without --group
-        // triggers TaskGroupRequiredException (or TaskGroupMismatchException) → Command::INVALID
-        $this->tester->execute(['--id' => 'test.predeploy']);
+        $this->tester->execute(['--id' => 'test.predeploy', '--group' => ['postdeploy']]);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
         // The exception message must be displayed (MethodCallRemoval:149 mutant)
@@ -461,7 +471,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
     // Mutant 56 (MethodCallRemoval:149) — error message is shown for group exception
     public function testGroupExceptionErrorMessageIsDisplayed(): void
     {
-        $this->tester->execute(['--id' => 'test.predeploy']);
+        $this->tester->execute(['--id' => 'test.predeploy', '--group' => ['postdeploy']]);
 
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
         // io->error() wraps text in [ERROR] block — must appear

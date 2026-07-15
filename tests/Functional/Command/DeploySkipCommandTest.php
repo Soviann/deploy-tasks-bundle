@@ -70,13 +70,38 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         );
     }
 
-    public function testSkipGroupedTaskRequiresGroupFlag(): void
+    public function testSkipWithoutGroupSkipsEveryDeclaredSlot(): void
     {
-        $this->tester->execute(['id' => 'test.predeploy']);
+        // Flipped by the Phase 3 group-semantics change: bare skip on a grouped
+        // task used to demand --group (group-required exception, class removed);
+        // it now marks every declared slot as skipped.
+        $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => false]);
 
-        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
-        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
-        self::assertStringContainsString('specify --group', $display);
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertSame(TaskStatus::Skipped, $storage->get('test.multi_group', 'predeploy')?->status);
+        self::assertSame(TaskStatus::Skipped, $storage->get('test.multi_group', 'postdeploy')?->status);
+        self::assertFalse($storage->has('test.multi_group'), 'A grouped task must never record the default (null) slot');
+    }
+
+    public function testSkipWithoutGroupAbortsBeforeAnySlotWhenDeclined(): void
+    {
+        // Interim multi-slot confirmation (Task 3.4 owns the final all-slots
+        // prompt UX): declining any per-slot prompt aborts with nothing saved —
+        // a partial skip across slots must be impossible.
+        $this->tester->setInputs(['yes', 'no']);
+        $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertFalse($storage->has('test.multi_group', 'predeploy'), 'Declining any slot prompt must leave every slot untouched');
+        self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
     }
 
     public function testSkipMarksOnlyTargetSlot(): void

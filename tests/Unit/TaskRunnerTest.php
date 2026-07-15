@@ -19,7 +19,6 @@ use Soviann\DeployTasksBundle\Exception\EventListenerException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
-use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Exception\TaskNotFoundException;
 use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
@@ -1206,13 +1205,23 @@ final class TaskRunnerTest extends TestCase
         );
     }
 
-    public function testRunOneThrowsWhenTaskDeclaresGroupsAndNoneRequested(): void
+    public function testRunOneWithoutGroupsTargetsEveryDeclaredSlot(): void
     {
-        $runner = $this->createRunner([new PredeployTask()]);
+        // Flipped by the Phase 3 group-semantics change: --id without --group
+        // used to throw a group-required exception (class removed); a bare
+        // single-task run now targets every declared slot, mirroring the
+        // bulk-run expansion.
+        $runner = $this->createRunner([new MultiGroupTask()]);
 
-        $this->expectException(TaskGroupRequiredException::class);
+        $result = $runner->runOne('test.multi_group', $this->output);
 
-        $runner->runOne('test.predeploy', $this->output);
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+        self::assertFalse(
+            $this->storage->has('test.multi_group'),
+            'A grouped task must never record the default (null) slot',
+        );
     }
 
     public function testRunOneThrowsWhenRequestedGroupUndeclared(): void

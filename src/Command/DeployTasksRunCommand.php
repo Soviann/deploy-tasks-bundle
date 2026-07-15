@@ -7,7 +7,6 @@ namespace Soviann\DeployTasksBundle\Command;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
-use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Runner\RunOptions;
 use Soviann\DeployTasksBundle\Runner\RunResult;
@@ -111,8 +110,8 @@ final class DeployTasksRunCommand extends Command
                     <info>%command.full_name% --id=task_20260412143000_seed_categories --rerun-all</info>
                     <info>%command.full_name% --id=my.task --dry-run</info>
 
-                When a task declares groups, <comment>--id</comment> must be combined with
-                <comment>--group</comment> to select which slot(s) to record:
+                When a task declares groups, <comment>--id</comment> without <comment>--group</comment>
+                targets every declared slot; add <comment>--group</comment> to narrow the slot(s) to record:
 
                     <info>%command.full_name% --id=my.task --group=predeploy</info>
 
@@ -210,7 +209,7 @@ final class DeployTasksRunCommand extends Command
             // Under --require-some an env mismatch IS "no task matched the filters":
             // exit with the documented usage code instead of the generic invalid one.
             return $requireSome ? self::EX_USAGE : Command::INVALID;
-        } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
+        } catch (TaskGroupMismatchException $e) {
             // Mismatch messages embed raw --group values; same sanitize-only
             // reasoning as above (error() already tag-escapes).
             $io->error(ConsoleSanitizer::sanitize($e->getMessage()));
