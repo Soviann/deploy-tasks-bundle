@@ -249,6 +249,73 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertSame(Command::INVALID, $this->tester->getStatusCode());
     }
 
+    // --- Group semantics: pending mirrors the bare-run default (every slot) ---
+
+    public function testFreshGroupedTaskSlotsReadPendingInBareStatus(): void
+    {
+        // A grouped task with no execution record is a genuine bare-run candidate
+        // (absent --group, deploytasks:run targets every slot), so each of its
+        // slots must read pending. Row-scoped: bind the status to the slot's row.
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertMatchesRegularExpression('/test\.multi_group\s+predeploy\b[^\n]*pending/', $display);
+        self::assertMatchesRegularExpression('/test\.multi_group\s+postdeploy\b[^\n]*pending/', $display);
+        self::assertMatchesRegularExpression('/test\.predeploy\s+predeploy\b[^\n]*pending/', $display);
+    }
+
+    public function testPendingFilterIncludesFreshGroupedSlots(): void
+    {
+        $this->tester->execute(['--filter-status' => 'PENDING']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertMatchesRegularExpression('/test\.multi_group\s+predeploy\b/', $display);
+        self::assertMatchesRegularExpression('/test\.multi_group\s+postdeploy\b/', $display);
+        self::assertStringContainsString('test.predeploy', $display);
+        // Every slot of a fresh registry is pending: 6 default + 1 predeploy + 2 multi_group.
+        self::assertStringContainsString('9 slot(s) displayed', $display);
+    }
+
+    public function testBareStatusTracksPerSlotProgressOfAGroupedTask(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        // Only the predeploy slot has run; postdeploy has no record yet.
+        $storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertMatchesRegularExpression('/test\.multi_group\s+predeploy\b[^\n]*ran/', $display);
+        self::assertMatchesRegularExpression('/test\.multi_group\s+postdeploy\b[^\n]*pending/', $display);
+    }
+
+    public function testPendingFilterExcludesRanSlotsOfGroupedTasks(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        // Partially-run multi-group task + fully-run single-group task.
+        $storage->save(new TaskExecution('test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+        $storage->save(new TaskExecution('test.predeploy', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy'));
+
+        $this->tester->execute(['--filter-status' => 'PENDING']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        // The un-run slot is still a bare-run candidate...
+        self::assertMatchesRegularExpression('/test\.multi_group\s+postdeploy\b[^\n]*pending/', $display);
+        // ...while ran slots drop out, including the fully-run grouped task.
+        self::assertDoesNotMatchRegularExpression('/test\.multi_group\s+predeploy\b/', $display);
+        self::assertStringNotContainsString('test.predeploy', $display);
+        // 9 slots minus the two ran slots.
+        self::assertStringContainsString('7 slot(s) displayed', $display);
+    }
+
     // --- Mutant-killing tests ---
 
     // Mutant 87+88 (ArrayItemRemoval:90) — 'ID' header must appear in both noState and full-state tables
