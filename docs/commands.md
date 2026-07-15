@@ -25,17 +25,18 @@ bin/console deploytasks:run --require-some --group=predeploy
 | `--dry-run` | List pending tasks without executing them |
 | `--rerun-all` | Re-execute all tasks regardless of their current state |
 | `--id=<id>` | Target a single task by its ID |
-| `--group=<name>` | Restrict execution to the given group slot; repeatable for a union (e.g. `--group=a --group=b`). Without this flag, only default-slot tasks run. |
+| `--group=<name>` | Restrict execution to the given group slot; repeatable for a union (e.g. `--group=a --group=b`). Without this flag, every slot runs — the default slot and every declared group. |
 | `--require-some` | Exit `64` (`EX_USAGE`) when no task matches the provided filters, distinguishing an empty selection from a successful noop. |
 
 **Exit codes:** `0` on success; `1` if at least one task failed; `2` (`Command::INVALID`) when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values, or when `--id` targets a task whose declared `env` excludes the current environment (without `--require-some`); `64` (`EX_USAGE`) when `--require-some` is set and no task matched the filters — this includes an unknown `--id` and an `--id` excluded by its declared `env`, both of which count as "no match" under `--require-some`; `75` (`EX_TEMPFAIL`) when the run lock is already held — CI pipelines should treat this as "retry recommended" rather than a genuine failure.
 
 **Group semantics:**
 
-- No `--group` → runs only tasks without declared groups (the default slot).
-- `--group=X` → runs only tasks declaring `X`; one storage row per `(task, X)` slot.
-- Multi-group tasks run once per requested slot in the same invocation (e.g. `--group=predeploy --group=postdeploy` executes the task twice, storing two rows).
+- No `--group` → runs every slot: the default slot of ungrouped tasks and every declared group of grouped tasks.
+- `--group=X` → narrows to tasks declaring `X`; one storage row per `(task, X)` slot. The default slot and other groups are excluded.
+- Multi-group tasks run once per targeted slot in the same invocation — every declared group on a bare invocation, or the requested groups under `--group` (e.g. `--group=predeploy --group=postdeploy` executes the task twice, storing two rows).
 - `--rerun-all` with `--group` only re-runs the targeted slots; other slots remain untouched.
+- `--id` without `--group` targets every slot the task declares (same expansion as a bare run); add `--group` to narrow which slot(s) are recorded. `--id` with a `--group` value the task does not declare exits `2` (`Command::INVALID`).
 
 When `symfony/lock` is installed and lock is enabled, a lock is acquired before execution begins. If the lock cannot be acquired, the command exits with code `75` (`EX_TEMPFAIL`).
 
@@ -57,7 +58,7 @@ bin/console deploytasks:status --group=predeploy --group=postdeploy
 | Option | Description |
 |---|---|
 | `--no-state` | Show only task IDs and descriptions; omit execution state (useful for scripting) |
-| `--group=<name>` | Only display rows for the given group slot(s); repeatable. |
+| `--group=<name>` | Only display rows for the given group slot(s); repeatable. Without this flag, every slot's rows are shown — the default slot and every declared group. |
 | `--filter-status=<list>` | Comma-separated statuses to display (`RAN`, `FAILED`, `SKIPPED`, `PENDING` — case-insensitive). Rejected when combined with `--no-state`. Failed slots are retried on the next run — use `PENDING,FAILED` to list everything the next `deploytasks:run` will execute (or `deploytasks:run --dry-run` for the authoritative preview). |
 
 Multi-group tasks are displayed once per declared slot. The `Group` column shows the slot name; the default slot is rendered as `—`.
@@ -127,13 +128,13 @@ bin/console deploytasks:skip task_20260412143000_seed_categories --group=predepl
 
 | Option | Description |
 |---|---|
-| `--group=<name>` | Target a specific group slot. Required when the task declares groups; forbidden otherwise. |
+| `--group=<name>` | Target a specific group slot. Without this flag, every declared slot is skipped (the default slot for an ungrouped task, or every declared group for a grouped one). |
 
 Use `deploytasks:reset` to re-enable a skipped task.
 
-You are prompted for confirmation before proceeding (same convention as `deploytasks:skip:host`: reversible via `deploytasks:reset`, so it proceeds under `--no-interaction` without requiring `--force`).
+You are prompted for confirmation before proceeding (same convention as `deploytasks:skip:host`: reversible via `deploytasks:reset`, so it proceeds under `--no-interaction` without requiring `--force`). When a bare invocation resolves to more than one slot, a single confirmation names every targeted slot, with one overwrite warning per slot that already holds a record (a `ran` record calls out the erased execution history); declining or a bare Enter leaves every slot untouched.
 
-**Exit codes:** `0` on success; `2` (`Command::INVALID`) when the task ID is not registered, or when `--group` is missing for a grouped task, undeclared, or supplied for an ungrouped task; `1` when the confirmation is declined.
+**Exit codes:** `0` on success; `2` (`Command::INVALID`) when the task ID is not registered, or when `--group` names a group the task does not declare; `1` when the confirmation is declined.
 
 ---
 
@@ -161,7 +162,7 @@ bin/console deploytasks:reset task_20260412143000_seed_categories --group=predep
 | `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
 | `--group=<name>` | Reset only the given group slot; without this flag every slot recorded for the task is cleared |
 
-If the task has no execution record, the command reports it is already pending and exits successfully without error.
+If the task has no execution record, the command reports it is already pending and exits successfully without error. When a bare invocation would clear more than one recorded slot, a single confirmation names every slot about to be cleared; declining or a bare Enter leaves every slot untouched.
 
 **Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the task ID is not registered, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
 

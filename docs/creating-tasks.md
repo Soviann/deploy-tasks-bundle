@@ -77,14 +77,14 @@ Groups split a deploy into named stages. Typical use cases: a `predeploy` group 
 #[AsDeployTask(id: 'task_...', groups: null)]                         // default slot (omit --group to run)
 ```
 
-Execution is scoped per `(task, group)` slot:
+Execution is scoped per `(task, group)` slot. The uniform rule across `deploytasks:run`, `run --id`, `status`, `skip`, `reset`, and `rollup`: **without `--group`, every slot runs — the default (ungrouped) slot and every declared group; `--group=<name>` (repeatable) narrows to the tasks declaring the listed group(s).**
 
-- A task with `groups: null` only runs when `deploytasks:run` is called without `--group`.
-- A task with `groups: 'predeploy'` only runs when `--group=predeploy` is passed.
-- A multi-group task records one row per slot it belongs to, so running `--group=predeploy --group=postdeploy` executes the task twice (once per slot) and stores two rows. Running `--group=predeploy` later only re-runs the predeploy slot.
-- `--group=postdeploy` leaves default-slot tasks untouched; `--group` with no declared match is a success (nothing to run).
+- A task with `groups: null` only runs when `deploytasks:run` is called without `--group` — an explicit `--group=<name>` never targets the default slot.
+- A task with `groups: 'predeploy'` runs both when `deploytasks:run` is called without `--group` (bundled with every other slot) and when `--group=predeploy` is passed (targeted on its own).
+- A multi-group task records one row per slot it belongs to. A bare invocation executes it once per declared group; `--group=predeploy --group=postdeploy` executes it twice (once per requested slot) and stores two rows. Running `--group=predeploy` later only re-runs the predeploy slot.
+- `--group=postdeploy` leaves default-slot tasks (and other groups) untouched; `--group` with no declared match is a success (nothing to run).
 
-`deploytasks:skip` requires `--group` when the task declares groups. `deploytasks:reset` accepts an optional `--group` (default: reset every declared slot). `deploytasks:status` always shows one row per declared slot, and `deploytasks:rollup` marks every slot as run unless `--group` narrows the scope.
+`deploytasks:skip` and `deploytasks:reset` both accept an optional `--group` (default: every declared slot for skip, every recorded slot for reset); a bare invocation that resolves to more than one slot shows a single confirmation naming every targeted slot. `deploytasks:status` shows one row per slot (every slot by default, narrowed by `--group`), and `deploytasks:rollup` marks every slot as run unless `--group` narrows the scope. `TaskGroupRequiredException` does not exist — omitting `--group` is never an error.
 
 ## Execution order
 

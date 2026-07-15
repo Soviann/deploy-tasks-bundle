@@ -138,7 +138,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 
 ## Task Groups
 
-Tasks can be assigned to one or more groups (e.g. `predeploy`, `postdeploy`) to split a deploy into named stages. Without `--group`, only ungrouped tasks run; with `--group=<name>`, only tasks declaring that group run, and a multi-group task records one row per matching slot.
+Tasks can be assigned to one or more groups (e.g. `predeploy`, `postdeploy`) to split a deploy into named stages. Without `--group`, every command operates on every slot — the default (ungrouped) slot and every declared group; `--group=<name>` (repeatable) narrows to the tasks declaring the listed group(s), and a multi-group task records one row per matching slot.
 
 ```php
 #[AsDeployTask(id: 'task_...', groups: 'predeploy')]
