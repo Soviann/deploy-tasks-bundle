@@ -9,6 +9,7 @@ use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Runner\TransactionMode;
 use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 
@@ -22,13 +23,12 @@ $runner = new TaskRunner(
     $idResolver,
     new TaskDescriptionResolver(),
     defaultTimeout: 300,
-    transactional: false,
-    allOrNothing: false,
+    transactionMode: TransactionMode::None,
     lockTtl: 3600,
 );
 ```
 
-`TaskRunner`'s constructor takes nine required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $defaultTimeout`, `bool $transactional`, `bool $allOrNothing`, `int $lockTtl` — followed by five optional ones, not all defaulting to `null`: `?EventDispatcherInterface $dispatcher = null`, `?LockFactory $lockFactory = null`, `?string $environment = null`, `ClockInterface $clock = new SystemClock()` (real wall-clock time unless overridden — inject a fake clock for deterministic timestamps in tests), and `?LoggerInterface $logger = null` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed.
+`TaskRunner`'s constructor takes eight required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $defaultTimeout`, `TransactionMode $transactionMode`, `int $lockTtl` — followed by five optional ones, not all defaulting to `null`: `?EventDispatcherInterface $dispatcher = null`, `?LockFactory $lockFactory = null`, `?string $environment = null`, `ClockInterface $clock = new SystemClock()` (real wall-clock time unless overridden — inject a fake clock for deterministic timestamps in tests), and `?LoggerInterface $logger = null` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed. A `transactionMode` other than `none` throws `IncompatibleStorageException` unless `$storage` implements `TransactionalStorageInterface`.
 
 ## Functional Testing with a Test Kernel
 

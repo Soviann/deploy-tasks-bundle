@@ -53,7 +53,7 @@ If you do not need the metadata provided by the attribute, you can implement `De
 | `priority` | `int` | `0` | Higher value runs first |
 | `env` | `string\|string[]\|null` | `null` | Restrict execution to one or more environments; `null` runs everywhere |
 | `timeout` | `?int` | `null` | Override the bundle's `default_timeout` for this task (seconds) |
-| `transactional` | `?bool` | `null` | Wrap execution in a transaction (requires a storage implementing `TransactionalStorageInterface` — `true` on a non-transactional storage fails the container build). `null` defers to the active storage's `transactional` setting (database default: `true`, filesystem default: `false`). |
+| `transactional` | `?bool` | `null` | Per-task override, only meaningful under `storage.<backend>.transaction_mode: per_task`: `null`/unset wraps the task like every other one, `false` opts it out. `true` on a storage that doesn't implement `TransactionalStorageInterface`, `true` under `transaction_mode: none`, or `false` under `transaction_mode: all_or_nothing` all fail the container build — see [`docs/storage.md` → Transaction mode](storage.md#transaction-mode). |
 | `description` | `?string` | `null` | Human-readable description used when `getDescription()` returns an empty string. Mirrors the `id` resolution: interface method wins when non-empty, attribute fallback otherwise. |
 | `groups` | `string\|string[]\|null` | `null` | Group(s) the task belongs to; `null` = default slot (runs when `deploytasks:run` is called without `--group`) |
 

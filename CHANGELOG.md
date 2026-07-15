@@ -31,6 +31,7 @@ so it executes exactly once per environment.
 ### Changed
 
 - **Breaking (pre-1.0):** `deploytasks:run` (and `status`/`skip`/`reset`/`run --id`) now operate on all slots when no `--group` is given — ungrouped and every grouped slot — matching `deploytasks:rollup`. `--group` narrows as before. `TaskGroupRequiredException` is removed.
+- **Breaking (pre-1.0):** `storage.database.transactional`/`all_or_nothing` (and the `custom.*` pair) are replaced by a single `storage.<backend>.transaction_mode: none|per_task|all_or_nothing`. Per-task `#[AsDeployTask(transactional:)]` applies only in `per_task` mode.
 
 ### Fixed
 

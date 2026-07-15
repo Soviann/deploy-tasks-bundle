@@ -28,15 +28,15 @@ Thrown by `deploytasks:run --id=<id>`, `deploytasks:show <id>`, `deploytasks:ski
 
 `--id=<id>` targeting a task whose `#[AsDeployTask(env: ...)]` excludes the runner's current environment throws `TaskEnvironmentMismatchException`, which the command reports as `Command::INVALID` (`2`) — the same code used for an `--id`/`--group` mismatch. Under `--require-some`, this case is treated as "no task matched the filters" instead, and exits `64` (`EX_USAGE`) — see [`deploytasks:run --require-some` exits 64](#deploytasksrun---require-some-exits-64-ex_usage) below.
 
-## `IncompatibleStorageException` when enabling `transactional` / `all_or_nothing`
+## `IncompatibleStorageException` when setting `transaction_mode: per_task` or `all_or_nothing`
 
-The active storage backend does not implement `TransactionalStorageInterface`. The filesystem backend never does (no transactions on disk). The only built-in backend that supports transactions is `DbalStorage`. For a custom backend, implement `TransactionalStorageInterface` and the bundle will detect it automatically.
+The active storage backend does not implement `TransactionalStorageInterface`. The filesystem backend never does (no transactions on disk). The only built-in backend that supports transactions is `DbalStorage`. For a custom backend, implement `TransactionalStorageInterface` and the bundle will detect it automatically. The check runs twice: at container build when the storage class is known at compile time, and again by `TaskRunner`'s constructor against the real instance, for a storage resolvable only at runtime.
 
-The same exception is raised at container build when any task declares `#[AsDeployTask(transactional: true)]` while the active storage is non-transactional — the message names the task class. Remove the per-task flag or switch to a transactional storage.
+The same exception is raised at container build when any task declares `#[AsDeployTask(transactional: true)]` while the active storage is non-transactional — the message names the task class. Remove the per-task flag or switch to a transactional storage. It is also raised for a mode/attribute mismatch: `transactional: true` under `transaction_mode: none`, or `transactional: false` under `transaction_mode: all_or_nothing` — see [`docs/storage.md` → Transaction mode](storage.md#transaction-mode).
 
 ## `AllOrNothingFailureException`
 
-Raised when `all_or_nothing: true` is enabled and any task fails — the runner rolls back the wrapping transaction and reports the failing task. This is a feature: it guarantees a partial deploy never leaves a half-applied state in storage. Disable `all_or_nothing` if you want failed tasks to remain failed but successful ones to remain recorded.
+Raised when `transaction_mode: all_or_nothing` is set and any task fails — the runner rolls back the wrapping transaction and reports the failing task. This is a feature: it guarantees a partial deploy never leaves a half-applied state in storage. Switch to `per_task` or `none` if you want failed tasks to remain failed but successful ones to remain recorded.
 
 ## Tasks re-run after every container deploy (Docker, Kubernetes)
 

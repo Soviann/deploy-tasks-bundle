@@ -67,15 +67,15 @@ Set `default_timeout: 0` to disable the check entirely: no warning is emitted re
 
 ## Transaction Wrapping
 
-For tasks that require database transaction support, set `transactional: true` on the attribute:
+Per-task transaction wrapping only applies when the active storage is configured with `storage.<type>.transaction_mode: per_task` (see [`docs/storage.md` → Transaction mode](storage.md#transaction-mode)). Under `per_task`, every task is wrapped by default — opt one out with:
 
 ```php
-#[AsDeployTask(id: 'task_data_migration', transactional: true)]
+#[AsDeployTask(id: 'task_data_migration', transactional: false)]
 ```
 
 This requires a storage backend implementing `TransactionalStorageInterface`. The built-in `DbalStorage` supports this out of the box. The task's `run()` method and the storage `save()` call are wrapped in a single transaction. If the task fails, both the data changes and the execution record are rolled back.
 
-If the active storage does not implement `TransactionalStorageInterface`, a task declaring `transactional: true` fails the container build with an `IncompatibleStorageException` — an explicit per-task transaction demand never silently degrades to unwrapped execution. Switch to `storage.type: database` (or a custom transactional backend), or remove the flag.
+`transactional` has no effect under `transaction_mode: none` or `all_or_nothing`, and declaring it there fails the container build instead of being silently ignored: `transactional: true` under `none` (nothing to wrap it into), or `transactional: false` under `all_or_nothing` (the run-wide transaction cannot exempt one task). Independently of mode, `transactional: true` on a storage that does not implement `TransactionalStorageInterface` at all always fails the container build with `IncompatibleStorageException` — an explicit per-task transaction demand never silently degrades to unwrapped execution. Switch to `storage.type: database` (or a custom transactional backend), or remove the flag.
 
 ## Custom ID Generator
 

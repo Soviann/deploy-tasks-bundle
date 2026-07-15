@@ -14,7 +14,7 @@ soviann_deploy_tasks:
             path: '%kernel.project_dir%/var/deploy-tasks'
 ```
 
-Filesystem storage does not implement `TransactionalStorageInterface` and is inherently non-transactional — there are no `transactional` / `all_or_nothing` keys under `storage.filesystem`. Setting either fails at container build with Symfony's standard "Unrecognized option" error. Use `storage.type: database` (or a custom transactional backend) if you need transaction wrapping.
+Filesystem storage does not implement `TransactionalStorageInterface` and is inherently non-transactional — there is no `transaction_mode` key under `storage.filesystem`. Setting one fails at container build with Symfony's standard "Unrecognized option" error. Use `storage.type: database` (or a custom transactional backend) if you need transaction wrapping.
 
 The directory is created automatically on the first write. Add it to `.gitignore`:
 
@@ -44,8 +44,7 @@ soviann_deploy_tasks:
             auto_create_table: true          # Create table on first use
             group_column: task_group         # Column for the group slot key
             group_column_length: 128
-            transactional: true              # default — wrap each task in a DB transaction
-            all_or_nothing: true             # default — wrap the entire run in a single transaction
+            transaction_mode: all_or_nothing # default — none | per_task | all_or_nothing
 ```
 
 ### Creating the table
@@ -111,23 +110,25 @@ For containerised deployments, prefer one of:
 - a dedicated bind mount (Docker) or `PersistentVolumeClaim` (Kubernetes) mapped at `%kernel.project_dir%/var/deploy-tasks/`;
 - the database backend, which records executions in a durable SQL table and is not affected by overlay-FS resets.
 
-### Transactional tasks
+### Transaction mode
 
-Transaction wrapping is configured per storage backend under `storage.<type>`:
+Transaction wrapping is configured per storage backend via `storage.<type>.transaction_mode`: `none`, `per_task`, or `all_or_nothing`.
 
 ```yaml
 soviann_deploy_tasks:
     storage:
         type: database
         database:
-            transactional: true       # default for database — wrap each task in a DB transaction
-            all_or_nothing: true      # default for database — wrap the entire run in a single transaction
+            transaction_mode: all_or_nothing   # default for database; custom defaults to none
 ```
 
-- **`transactional: true`** (database default): each task's `run()` and storage `save()` are wrapped in a database transaction. Individual tasks can override this via `#[AsDeployTask(transactional: false)]`. When `transactional` is `null` on the attribute, the storage setting applies.
-- **`all_or_nothing: true`** (database default): the entire run is wrapped in a single transaction — any failure rolls back all tasks. Per-task wrapping is skipped when this is enabled.
+- **`none`** — no transaction wrapping.
+- **`per_task`** — each task's `run()` and its storage `save()` are wrapped together in one transaction. A task can opt out via `#[AsDeployTask(transactional: false)]`; the attribute is only consulted in this mode.
+- **`all_or_nothing`** — the entire run is wrapped in a single transaction — any failure rolls back every task the run has already executed.
 
-Both require a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this).
+Any mode other than `none` requires a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). The pairing is validated twice: at container build (`IncompatibleStorageException`) whenever the storage class is known at compile time, and again by `TaskRunner`'s constructor against the real storage instance — closing the gap for a storage resolvable only at runtime (a factory-built or synthetic service), which the compiler pass skips rather than guesses about.
+
+`#[AsDeployTask(transactional:)]` only has an effect under `transaction_mode: per_task`: unset or `null` wraps the task like every other one, `false` opts it out. Declaring `transactional: true` under `transaction_mode: none`, or `transactional: false` under `transaction_mode: all_or_nothing`, fails the container build instead of being silently ignored — see [`docs/advanced.md` → Transaction Wrapping](advanced.md#transaction-wrapping).
 
 ## InMemoryStorage
 
@@ -139,7 +140,7 @@ use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
 $storage = new InMemoryStorage();
 ```
 
-`InMemoryStorage` is **not transactional** on its own — it does not implement `TransactionalStorageInterface`, so runner config keys `transactional` / `all_or_nothing` have no effect against it. Tests that need transactional behaviour should pair it with `TransactionalInMemoryStorageFixture` (see `tests/Fixtures/`), which wraps `InMemoryStorage` to implement the transactional interface.
+`InMemoryStorage` is **not transactional** on its own — it does not implement `TransactionalStorageInterface`, so building a `TaskRunner` against it with `transaction_mode: per_task` or `all_or_nothing` fails at construction (`IncompatibleStorageException`). Tests that need transactional behaviour should pair it with `TransactionalInMemoryStorageFixture` (see `tests/Fixtures/`), which wraps `InMemoryStorage` to implement the transactional interface.
 
 ## Custom
 
@@ -310,17 +311,16 @@ soviann_deploy_tasks:
         type: custom
         custom:
             service: App\Storage\RedisStorage    # service ID of your TaskStorageInterface implementation
-            transactional: false                 # requires TransactionalStorageInterface
-            all_or_nothing: false                # requires TransactionalStorageInterface
+            transaction_mode: none               # default; per_task/all_or_nothing require TransactionalStorageInterface
 ```
 
 That is enough. The bundle:
 
 - Aliases your service to `TaskStorageInterface` so the runner picks it up.
-- Detects the interface at compile time; if you also implement `TransactionalStorageInterface`, the runner uses transaction wrapping when `transactional` / `all_or_nothing` are enabled.
+- Detects the interface at compile time; if you also implement `TransactionalStorageInterface`, the runner honors `transaction_mode: per_task` / `all_or_nothing` against it.
 - `deploytasks:create-schema` is only registered for the built-in database storage. It is not wired for custom backends, even those implementing `SchemaManageable` — provision custom schemas yourself.
 
-`transactional` and `all_or_nothing` are rejected at container build (`IncompatibleStorageException`) unless the custom service implements `TransactionalStorageInterface`. If your backend has no transaction primitive (Redis, S3, plain HTTP API…), keep both `false`.
+`transaction_mode: per_task` or `all_or_nothing` is rejected at container build (`IncompatibleStorageException`) unless the custom service implements `TransactionalStorageInterface`. If your backend has no transaction primitive (Redis, S3, plain HTTP API…), keep `transaction_mode: none` (the default for `storage.custom`).
 
 ### Testing your custom storage
 

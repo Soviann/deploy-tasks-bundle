@@ -91,12 +91,10 @@ soviann_deploy_tasks:
             error_column: error
             group_column: task_group        # column for the group slot key
             group_column_length: 128        # >= 1
-            transactional: true             # per-task transaction wrapper
-            all_or_nothing: true            # single transaction around the whole run
+            transaction_mode: all_or_nothing # none | per_task | all_or_nothing (default: all_or_nothing)
         custom:
             service: ~                      # service ID, required when type=custom
-            transactional: false            # requires TransactionalStorageInterface
-            all_or_nothing: false           # requires TransactionalStorageInterface
+            transaction_mode: none          # none | per_task | all_or_nothing (default: none); per_task/all_or_nothing require TransactionalStorageInterface
     events:
         enabled: true
     lock:
@@ -113,7 +111,7 @@ soviann_deploy_tasks:
 
 **Scalar shorthand:** `storage: database` expands to `storage: { type: database }`; `events: false` and `lock: false` expand to `{ enabled: false }`. The long form keeps working unchanged.
 
-Validation: `type: database` requires `doctrine/dbal` at compile time. `type: custom` requires `storage.custom.service`. Per-task `#[AsDeployTask(transactional: false)]` overrides the storage-level `transactional` flag.
+Validation: `type: database` requires `doctrine/dbal` at compile time. `type: custom` requires `storage.custom.service`. Per-task `#[AsDeployTask(transactional: false)]` opts a task out of wrapping, but only under `transaction_mode: per_task` — see `docs/storage.md` § Transaction mode.
 
 ## Service Registration
 
