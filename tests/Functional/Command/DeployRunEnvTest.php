@@ -10,7 +10,9 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyGroupedTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
+use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -168,6 +170,80 @@ final class DeployRunEnvTest extends FunctionalTestCase
         $this->tester->execute(['--require-some' => true, '--id' => 'test.prod_only']);
 
         self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+    }
+
+    // --- "No tasks" vs "all filtered out" (Task 1.17) ---
+
+    public function testAllTasksExcludedByEnvironmentShowsDistinctMessage(): void
+    {
+        // Only a prod-restricted task is registered — no ungrouped/env-agnostic
+        // task like the shared TestKernel's SimpleTask — so under APP_ENV=dev the
+        // environment filter excludes the entire registry.
+        self::useConfigurableKernel(
+            KernelConfig::customStorageExtension(),
+            KernelConfig::customStorageServices() + [
+                'test.task.prod_only' => [
+                    'class' => ProdOnlyTask::class,
+                    'tags' => ['soviann_deploy_tasks.task'],
+                ],
+            ],
+        );
+        self::bootKernel(['environment' => 'dev']);
+        $this->cleanStorage();
+
+        $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        $display = $tester->getDisplay();
+        self::assertStringContainsString('1 task(s) registered, none match environment "dev".', $display);
+        self::assertStringNotContainsString('No deploy tasks registered.', $display);
+    }
+
+    public function testTrulyEmptyRegistryStillShowsNoTasksRegisteredMessage(): void
+    {
+        // No task service at all — as opposed to the previous test, where a task
+        // is registered but excluded by the environment filter. The generic
+        // message must still apply here, unqualified by any environment.
+        self::useConfigurableKernel(KernelConfig::customStorageExtension(), KernelConfig::customStorageServices());
+        self::bootKernel(['environment' => 'dev']);
+        $this->cleanStorage();
+
+        $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        $display = $tester->getDisplay();
+        self::assertStringContainsString('No deploy tasks registered.', $display);
+        self::assertStringNotContainsString('none match environment', $display);
+    }
+
+    public function testGroupedOnlyRegistryWithoutGroupFlagDoesNotBlameEnvironment(): void
+    {
+        // The only registered task is BOTH grouped and env-restricted. Without
+        // --group it would not run even in a matching environment, so the empty
+        // run must not blame the environment — that would point the operator at
+        // the wrong cause. The env check is scoped to default-slot candidates,
+        // of which there are none here, so the generic message applies.
+        self::useConfigurableKernel(
+            KernelConfig::customStorageExtension(),
+            KernelConfig::customStorageServices() + [
+                'test.task.prod_only_grouped' => [
+                    'class' => ProdOnlyGroupedTask::class,
+                    'tags' => ['soviann_deploy_tasks.task'],
+                ],
+            ],
+        );
+        self::bootKernel(['environment' => 'dev']);
+        $this->cleanStorage();
+
+        $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        $display = $tester->getDisplay();
+        self::assertStringNotContainsString('none match environment', $display);
+        self::assertStringContainsString('No deploy tasks registered.', $display);
     }
 
     /**

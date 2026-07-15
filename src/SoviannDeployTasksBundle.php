@@ -262,7 +262,11 @@ final class SoviannDeployTasksBundle extends AbstractBundle
 
         // Commands
         $services->set('soviann_deploy_tasks.command.run', DeployTasksRunCommand::class)
-            ->args([service('soviann_deploy_tasks.registry'), service('soviann_deploy_tasks.runner')])
+            ->args([
+                '$registry' => service('soviann_deploy_tasks.registry'),
+                '$runner' => service('soviann_deploy_tasks.runner'),
+                '$environment' => param('kernel.environment'),
+            ])
             ->tag('console.command')
         ;
 

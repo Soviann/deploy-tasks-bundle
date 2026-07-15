@@ -41,6 +41,8 @@ final class DeployTasksRunCommand extends Command
         private readonly TaskRegistry $registry,
         private readonly TaskRunner $runner,
         private readonly bool $lockUnavailable = false,
+        /** Mirrors the runner's `kernel.environment` — only used to word the empty-run message. */
+        private readonly ?string $environment = null,
     ) {
         parent::__construct();
     }
@@ -261,9 +263,7 @@ final class DeployTasksRunCommand extends Command
         }
 
         if (0 === $result->ran && 0 === $result->skipped) {
-            $io->success($groupFilterActive
-                ? 'No tasks matched the requested group(s).'
-                : 'No deploy tasks registered.');
+            $io->success($this->emptyRunMessage($groupFilterActive));
 
             return;
         }
@@ -275,5 +275,37 @@ final class DeployTasksRunCommand extends Command
         }
 
         $io->success($summary);
+    }
+
+    /**
+     * Words the "nothing ran" success message.
+     *
+     * With a group filter active, "no tasks matched" is unambiguous regardless
+     * of the reason (env, group, or both), so that message always wins. Without
+     * one, an otherwise-empty registry and a registry fully excluded by the
+     * environment filter would both read as "No deploy tasks registered." —
+     * misleading when tasks exist but none run in this environment — so that
+     * case gets its own wording.
+     *
+     * The environment check is scoped to the run's actual candidates — the
+     * default-slot tasks, since this branch only runs without a group filter.
+     * A registry holding only grouped tasks must not blame the environment:
+     * those tasks would not have run here even in a matching environment.
+     *
+     * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a registered task
+     */
+    private function emptyRunMessage(bool $groupFilterActive): string
+    {
+        if ($groupFilterActive) {
+            return 'No tasks matched the requested group(s).';
+        }
+
+        $candidates = $this->registry->all(null, []);
+
+        if (null !== $this->environment && [] !== $candidates && [] === $this->registry->all($this->environment, [])) {
+            return \sprintf('%d task(s) registered, none match environment "%s".', \count($candidates), $this->environment);
+        }
+
+        return 'No deploy tasks registered.';
     }
 }
