@@ -89,10 +89,11 @@ final class DeploySkipCommandTest extends FunctionalTestCase
 
     public function testSkipWithoutGroupAbortsBeforeAnySlotWhenDeclined(): void
     {
-        // Interim multi-slot confirmation (Task 3.4 owns the final all-slots
-        // prompt UX): declining any per-slot prompt aborts with nothing saved —
-        // a partial skip across slots must be impossible.
-        $this->tester->setInputs(['yes', 'no']);
+        // Flipped from the interim per-slot prompts (3.3 seam) to the final
+        // all-slots UX: ONE confirmation covers every targeted slot, and
+        // declining it aborts with nothing saved — a partial skip across
+        // slots must be impossible.
+        $this->tester->setInputs(['no']);
         $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
 
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
@@ -100,8 +101,70 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
 
-        self::assertFalse($storage->has('test.multi_group', 'predeploy'), 'Declining any slot prompt must leave every slot untouched');
+        self::assertFalse($storage->has('test.multi_group', 'predeploy'), 'Declining the all-slots prompt must leave every slot untouched');
         self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testSkipWithoutGroupAsksOneConfirmationNamingAllSlots(): void
+    {
+        // Final all-slots UX (replaces the 3.3 interim per-slot prompts): a bare
+        // skip on a multi-group task asks exactly ONE confirmation that lists
+        // every targeted slot. A single "yes" answering it must complete the
+        // whole batch — a second prompt would exhaust the input stream and fail.
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString(
+            'in all declared slots (predeploy, postdeploy)?',
+            $this->tester->getDisplay(),
+        );
+
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        self::assertSame(TaskStatus::Skipped, $storage->get('test.multi_group', 'predeploy')?->status);
+        self::assertSame(TaskStatus::Skipped, $storage->get('test.multi_group', 'postdeploy')?->status);
+    }
+
+    public function testSkipAllSlotsPromptWarnsAboutExistingRanRecord(): void
+    {
+        // Task 1.9's overwrite guard folded into the all-slots prompt: when a
+        // targeted slot holds a Ran record (real execution history), the single
+        // confirmation must name that slot and warn the history gets erased.
+        $ranAt = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $this->storage()->save(new TaskExecution('test.multi_group', TaskStatus::Ran, $ranAt, null, 'predeploy'));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Slot "predeploy" already ran on 2026-01-01 10:00:00', $display);
+        self::assertStringContainsString('erases its execution history', $display);
+        self::assertStringContainsString('in all declared slots (predeploy, postdeploy)?', $display);
+
+        // Declining leaves the Ran record intact and the other slot untouched.
+        $execution = $this->storage()->get('test.multi_group', 'predeploy');
+        \assert(null !== $execution);
+        self::assertSame(TaskStatus::Ran, $execution->status);
+        self::assertFalse($this->storage()->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testSkipAllSlotsPromptWarnsAboutExistingSkippedRecord(): void
+    {
+        // Non-Ran records get the milder overwrite warning, still naming the
+        // slot and the stored status so the operator knows what is replaced.
+        $skippedAt = new \DateTimeImmutable('2026-01-02 11:00:00');
+        $this->storage()->save(new TaskExecution('test.multi_group', TaskStatus::Skipped, $skippedAt, null, 'postdeploy'));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Slot "postdeploy" already has a "skipped" record from 2026-01-02 11:00:00', $display);
+        self::assertStringNotContainsString('execution history', $display);
     }
 
     public function testSkipMarksOnlyTargetSlot(): void

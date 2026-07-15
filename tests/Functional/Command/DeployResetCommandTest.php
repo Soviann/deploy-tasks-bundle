@@ -165,6 +165,47 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
     }
 
+    public function testResetWithoutGroupConfirmsOnceNamingRecordedSlots(): void
+    {
+        // All-slots UX (Task 3.4): the bare-reset confirmation must name what it
+        // is about to remove — every recorded slot — and a single "yes" clears
+        // them all.
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy',
+        ));
+
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        self::assertStringContainsString(
+            'All recorded slots (postdeploy, predeploy) will be cleared',
+            $this->tester->getDisplay(),
+        );
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testResetPromptNamesDefaultSlotWhenOnlyDefaultRecordExists(): void
+    {
+        // The default (null) slot is listed as "default" so an ungrouped task's
+        // prompt still says exactly which record is removed.
+        $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString(
+            'All recorded slots (default) will be cleared',
+            $this->tester->getDisplay(),
+        );
+        self::assertTrue($this->storage->has('test.simple'));
+    }
+
     public function testResetWithGroupRemovesSingleSlot(): void
     {
         $this->storage->save(new TaskExecution(

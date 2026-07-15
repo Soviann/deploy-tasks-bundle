@@ -107,15 +107,16 @@ final class DeployTasksSkipCommand extends Command
 
         // Read each slot before writing to it: an existing record (especially a Ran
         // one, i.e. real execution history) must not be silently overwritten by a
-        // blind save(). Every slot is confirmed before anything is saved, so
-        // declining one prompt leaves all slots untouched — no partial skip.
+        // blind save(). Confirmation happens before anything is saved — one prompt
+        // covering every slot when a bare invocation targets several, the per-slot
+        // prompt otherwise — so declining leaves all slots untouched: no partial skip.
         if ($input->isInteractive()) {
-            foreach ($slots as $slot) {
-                $prompt = $this->buildConfirmationPrompt($id, $slot, $this->storage->get($id, $slot));
+            $prompt = 1 === \count($slots)
+                ? $this->buildConfirmationPrompt($id, $slots[0], $this->storage->get($id, $slots[0]))
+                : $this->buildAllSlotsConfirmationPrompt($id, $slots);
 
-                if (!$this->confirmOrAbort($io, $prompt)) {
-                    return Command::FAILURE;
-                }
+            if (!$this->confirmOrAbort($io, $prompt)) {
+                return Command::FAILURE;
             }
         }
 
@@ -140,9 +141,56 @@ final class DeployTasksSkipCommand extends Command
     }
 
     /**
-     * Builds the confirmation prompt for one resolved slot (id + group + existing
-     * record in, prompt string out) — called once per slot when a bare invocation
-     * targets every declared slot.
+     * Builds the single confirmation prompt for a bare invocation that resolves to
+     * more than one slot: overwrite warnings first (one line per slot whose existing
+     * record — especially a Ran one, i.e. real execution history — would be
+     * replaced), then one question naming every targeted slot, so a single answer
+     * authorizes the whole batch knowingly.
+     *
+     * All interpolated values are trusted-charset: the id and slot names are
+     * registry/attribute-validated identifiers, statuses are enum values, and
+     * timestamps are formatted here — no sanitizing needed.
+     *
+     * @param list<?string> $slots
+     */
+    private function buildAllSlotsConfirmationPrompt(string $id, array $slots): string
+    {
+        $lines = [];
+
+        foreach ($slots as $slot) {
+            $existing = $this->storage->get($id, $slot);
+
+            if (null === $existing) {
+                continue;
+            }
+
+            $lines[] = TaskStatus::Ran === $existing->status
+                ? \sprintf(
+                    'Slot "%s" already ran on %s — skipping overwrites that record and erases its execution history.',
+                    $slot ?? 'default',
+                    $existing->executedAt->format('Y-m-d H:i:s'),
+                )
+                : \sprintf(
+                    'Slot "%s" already has a "%s" record from %s — skipping overwrites it.',
+                    $slot ?? 'default',
+                    $existing->status->value,
+                    $existing->executedAt->format('Y-m-d H:i:s'),
+                );
+        }
+
+        $lines[] = \sprintf(
+            'Skip task "%s" in all declared slots (%s)? This marks it done without executing.',
+            $id,
+            \implode(', ', \array_map(static fn (?string $slot): string => $slot ?? 'default', $slots)),
+        );
+
+        return \implode("\n", $lines);
+    }
+
+    /**
+     * Builds the confirmation prompt when exactly one slot is targeted (id + group
+     * + existing record in, prompt string out) — a --group narrowing or a task
+     * that resolves to a single slot.
      */
     private function buildConfirmationPrompt(string $id, ?string $slot, ?TaskExecution $existing): string
     {

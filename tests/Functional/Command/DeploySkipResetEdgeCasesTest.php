@@ -53,6 +53,39 @@ final class DeploySkipResetEdgeCasesTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 
+    public function testSkipAllSlotsPromptDefaultsToAbortOnBareEnter(): void
+    {
+        // The single all-slots confirmation must default to "no": bare Enter
+        // aborts the whole batch, leaving every slot untouched.
+        $this->skipTester->setInputs(['']);
+        $this->skipTester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->skipTester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->skipTester->getDisplay());
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testResetAllSlotsPromptDefaultsToAbortOnBareEnter(): void
+    {
+        // Reset counterpart: bare Enter on the multi-record confirmation removes
+        // nothing.
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy',
+        ));
+
+        $this->resetTester->setInputs(['']);
+        $this->resetTester->execute(['id' => 'test.multi_group'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->resetTester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->resetTester->getDisplay());
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
     public function testResetFailedTaskMakesItPending(): void
     {
         // Manually store a Failed execution

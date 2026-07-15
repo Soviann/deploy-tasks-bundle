@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -138,15 +140,18 @@ final class DeployTasksResetCommand extends Command
             return Command::SUCCESS;
         }
 
-        if ([] === $this->storage->findByTaskId($id)) {
+        $recorded = $this->storage->findByTaskId($id);
+
+        if ([] === $recorded) {
             $io->note(\sprintf('Task "%s" has no execution records — already pending.', $id));
 
             return Command::SUCCESS;
         }
 
         if (!$force && !$this->confirmOrAbort($io, \sprintf(
-            'Reset task "%s"? All slots will be cleared and the task will run again on next deploytasks:run.',
+            'Reset task "%s"? All recorded slots (%s) will be cleared and the task will run again on next deploytasks:run.',
             $id,
+            \implode(', ', $this->recordedSlotLabels($recorded)),
         ))) {
             return Command::FAILURE;
         }
@@ -159,5 +164,29 @@ final class DeployTasksResetCommand extends Command
         ));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Names the slots whose records a bare reset is about to remove, so the
+     * confirmation states exactly what gets destroyed. Storage returns records
+     * in backend-specific order — sorted here (default slot first, then group
+     * names alphabetically) for a stable prompt. Group names are read back from
+     * storage (a stale row may hold anything), so they pass through the
+     * sanitizer before reaching the formatter-interpreting confirm() sink.
+     *
+     * @param list<TaskExecution> $executions
+     *
+     * @return list<string>
+     */
+    private function recordedSlotLabels(array $executions): array
+    {
+        $groups = \array_map(static fn (TaskExecution $execution): ?string => $execution->group, $executions);
+
+        \usort($groups, static fn (?string $a, ?string $b): int => [null !== $a, $a] <=> [null !== $b, $b]);
+
+        return \array_map(
+            static fn (?string $group): string => null === $group ? 'default' : ConsoleSanitizer::sanitizeForFormatter($group),
+            $groups,
+        );
     }
 }
