@@ -11,6 +11,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Finder\Finder;
 
 /**
@@ -42,21 +43,31 @@ final class FilesystemStorage implements TaskStorageInterface
      */
     private const MAX_RECORD_FILENAME_BYTES = 255;
 
+    /**
+     * Directory names conventionally served as a public web root, matched per
+     * path segment (case-insensitive). Checked only at/below the project dir
+     * when one is known: segments above it (e.g. the "html" in
+     * "/var/www/html/<app>") name the server's deploy root, not the app's
+     * docroot.
+     */
+    private const PUBLIC_ROOT_SEGMENTS = ['htdocs', 'html', 'httpdocs', 'pub', 'public', 'public_html', 'web', 'wwwroot'];
+
     private readonly Filesystem $fs;
 
     /**
-     * @param string $storagePath Directory where task JSON files are stored
+     * @param string      $storagePath Directory where task JSON files are stored
+     * @param string|null $projectDir  Host project directory (kernel.project_dir); scopes the
+     *                                 web-root guard to the storage path portion inside it
      *
      * @throws StorageException When the storage path is under a public web-root directory
      */
     public function __construct(
         private readonly string $storagePath,
+        ?string $projectDir = null,
     ) {
         $this->fs = new Filesystem();
 
-        $normalized = \str_replace('\\', '/', $storagePath);
-
-        if (1 === \preg_match('#(^|/)(public|public_html|web|html|htdocs|wwwroot|httpdocs)(/|$)#i', $normalized)) {
+        if ($this->isUnderPublicWebRoot($storagePath, $projectDir)) {
             throw new StorageException(\sprintf('Refusing to store deploy-task records under a public web-root path: "%s". Move storage.filesystem.path outside the web-served directory.', $storagePath));
         }
     }
@@ -217,6 +228,76 @@ final class FilesystemStorage implements TaskStorageInterface
     {
         foreach ($this->records() as $file) {
             $this->removeRecordFile($file->getPathname());
+        }
+    }
+
+    /**
+     * Web-root guard — a defense-in-depth layer over the primary protection
+     * (the 0700 directory / 0600 record modes applied on every save).
+     *
+     * Both paths are canonicalized with symlinks resolved, so a storage path
+     * that only reaches the docroot through a symlink is still caught. When the
+     * storage dir sits inside the project dir, only the project-relative
+     * segments are inspected: segments above the project dir describe the
+     * server's deploy layout (e.g. "/var/www/html"), not the app's public dir.
+     * Without a known project dir, or for a storage dir outside it, every
+     * segment of the resolved path is checked — conservative, since the guard
+     * cannot tell a deploy root from a docroot there.
+     */
+    private function isUnderPublicWebRoot(string $storagePath, ?string $projectDir): bool
+    {
+        $resolvedStorage = $this->canonicalizeResolvingSymlinks($storagePath);
+        $scope = $resolvedStorage;
+
+        if (null !== $projectDir) {
+            $resolvedProject = $this->canonicalizeResolvingSymlinks($projectDir);
+
+            if (Path::isBasePath($resolvedProject, $resolvedStorage)) {
+                $scope = Path::makeRelative($resolvedStorage, $resolvedProject);
+            }
+        }
+
+        foreach (\explode('/', $scope) as $segment) {
+            if (\in_array(\strtolower($segment), self::PUBLIC_ROOT_SEGMENTS, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Canonicalizes a path lexically, then resolves symlinks. realpath() fails
+     * on paths that do not exist yet (the storage dir is only created on first
+     * save), so symlink resolution applies to the deepest existing ancestor and
+     * the non-existing remainder is re-appended verbatim — a not-yet-created
+     * tail cannot contain symlinks. When nothing along the path exists, the
+     * lexical canonical form is returned unchanged.
+     */
+    private function canonicalizeResolvingSymlinks(string $path): string
+    {
+        // Path::canonicalize() only rewrites backslashes on Windows; normalize
+        // them on every OS so a Windows-style path stays checkable from tests
+        // and tooling running on POSIX.
+        $path = Path::canonicalize(\str_replace('\\', '/', $path));
+        $remainder = '';
+        $probe = $path;
+
+        while (true) {
+            $existingAncestor = \realpath($probe);
+
+            if (false !== $existingAncestor) {
+                return \rtrim(Path::canonicalize($existingAncestor), '/').$remainder;
+            }
+
+            $parent = Path::getDirectory($probe);
+
+            if ('' === $parent || $parent === $probe) {
+                return $path;
+            }
+
+            $remainder = '/'.\basename($probe).$remainder;
+            $probe = $parent;
         }
     }
 

@@ -10,7 +10,15 @@ Only grant `deploytasks:run` access to trusted operators (deploy scripts, CI/CD 
 
 ## Filesystem Storage
 
-The default path (`var/deploy-tasks/`) must not be web-accessible. `FilesystemStorage` **throws** a `StorageException` if the configured path contains a `public`, `public_html`, `web`, `html`, `htdocs`, `wwwroot`, or `httpdocs` segment (case-insensitive). The check is lexical — it does not resolve symlinks, so a path that reaches a docroot only via symlink is not detected. Add the storage directory to `.gitignore`.
+The default path (`var/deploy-tasks/`) must not be web-accessible. `FilesystemStorage` **throws** a `StorageException` when the storage path contains a path segment named like a public web root — `pub`, `public`, `public_html`, `web`, `html`, `htdocs`, `wwwroot`, or `httpdocs` (case-insensitive).
+
+The check is scoped to the project directory: the bundle passes `kernel.project_dir` to the storage, and only the storage path portion **at or below** the project directory is inspected. Segments above it name the server's deploy layout, not the app's docroot, so a project deployed under `/var/www/html/` is not falsely refused. When the storage path lies outside the project directory (or none is known, e.g. direct construction), every segment of the path is checked conservatively.
+
+Both the storage path and the project directory are canonicalized with symlinks resolved (down to the deepest existing ancestor — the storage directory itself may not exist yet), so a storage path that only reaches the docroot through a symlink is refused too.
+
+**Limitations.** If the project directory itself is the served docroot (e.g. shared hosting with the app rooted at `/home/user/public_html`), the guard cannot detect it — every path inside the project then looks like a plain project subdirectory. Rely on the file permissions below and on web-server configuration to deny serving the storage directory. Symlinks are also resolved at construction time only; a symlink created afterwards is out of the guard's reach.
+
+This guard is a defense-in-depth layer, not the primary protection: the state directory is created with mode `0700` and each record file is written `0600`, re-applied on every save. Add the storage directory to `.gitignore`.
 
 ## Database Storage
 

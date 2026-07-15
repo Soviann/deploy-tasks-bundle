@@ -453,7 +453,10 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 break;
             case 'filesystem':
                 $services->set('soviann_deploy_tasks.storage', FilesystemStorage::class)
-                    ->args([self::anchorToProjectDir($storageConfig['filesystem']['path'])])
+                    ->args([
+                        self::anchorToProjectDir($storageConfig['filesystem']['path']),
+                        param('kernel.project_dir'),
+                    ])
                 ;
 
                 break;

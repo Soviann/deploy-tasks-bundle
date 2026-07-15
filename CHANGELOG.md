@@ -49,4 +49,8 @@ so it executes exactly once per environment.
 - `deploytasks:run` no longer reports "No deploy tasks registered." when tasks exist but every one of them is restricted to a different environment (e.g. all `prod`-only tasks under `APP_ENV=dev`): it now names the count and the environment, so an operator can tell a filtered-out run apart from a broken discovery.
 - Storage backends no longer disagree on edge-case input: an empty-string group name is now rejected by all three backends with the same clear error (the database and in-memory backends used to silently alias it to the default slot), and database storage now truncates an over-long task error message (multibyte-safe, marked `[truncated]`) instead of risking losing the whole execution record to a strict database. The `findByTaskId()` ordering contract is now documented (unordered at the interface level; each backend documents its own natural order), and the lock TTL description no longer overstates safety: the lease is refreshed between tasks, so the TTL must outlast the longest single task, not the whole deploy.
 
+### Security
+
+- The web-root storage guard no longer refuses valid paths under `/var/www/html` and now recognizes additional public roots.
+
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

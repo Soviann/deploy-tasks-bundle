@@ -42,6 +42,12 @@ final class ProjectDirTest extends TestCase
         $resolvedPath = $container->getParameterBag()->resolveValue($storage->getArgument(0));
 
         self::assertSame($this->projectDir.'/var/deploy-tasks', $resolvedPath);
+
+        // The web-root guard scopes its check to the project dir — the wiring
+        // must hand it over, or the guard degrades to the whole-path check.
+        $resolvedProjectDir = $container->getParameterBag()->resolveValue($storage->getArgument(1));
+
+        self::assertSame($this->projectDir, $resolvedProjectDir);
     }
 
     public function testGenerateCommandReceivesResolvedProjectDir(): void

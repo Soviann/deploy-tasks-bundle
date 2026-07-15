@@ -123,8 +123,10 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         yield 'html segment (Apache default docroot)' => ['/var/www/html/deploy-tasks', true];
         yield 'wwwroot segment' => ['/srv/site/wwwroot/var', true];
         yield 'httpdocs segment' => ['/var/www/vhosts/example.com/httpdocs/var', true];
+        yield 'pub segment (Magento-style docroot)' => ['/srv/site/pub/state', true];
         yield 'substring xhtml is safe' => ['/srv/xhtml/state', false];
         yield 'substring html-reports is safe' => ['/var/html-reports/state', false];
+        yield 'substring pub-cache is safe' => ['/var/pub-cache/state', false];
         yield 'substring my-public is safe' => ['/var/my-public/state', false];
         yield 'substring public-static is safe' => ['/public-static/state', false];
         yield 'substring publication is safe' => ['/var/publications/state', false];
@@ -240,6 +242,80 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
 
         new FilesystemStorage('/var/lib/deploy-tasks');
         new FilesystemStorage('/srv/republican-data/storage');
+    }
+
+    public function testDeployRootSegmentsAboveTheProjectDirAreIgnored(): void
+    {
+        // "html" names the server's deploy root here, not the app's docroot —
+        // scoped to the project dir, the storage path is a plain var/ subdirectory.
+        $this->expectNotToPerformAssertions();
+
+        new FilesystemStorage('/var/www/html/app/var/deploy-tasks', '/var/www/html/app');
+    }
+
+    public function testPublicSegmentBelowTheProjectDirIsRefused(): void
+    {
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Refusing to store deploy-task records under a public web-root path/');
+
+        new FilesystemStorage('/var/www/html/app/public/deploy-tasks', '/var/www/html/app');
+    }
+
+    public function testPubSegmentBelowTheProjectDirIsRefused(): void
+    {
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Refusing to store deploy-task records under a public web-root path/');
+
+        new FilesystemStorage('/var/www/html/app/pub/deploy-tasks', '/var/www/html/app');
+    }
+
+    public function testPathOutsideTheProjectDirKeepsTheWholePathCheck(): void
+    {
+        // Outside the project dir the guard cannot scope, so it stays conservative.
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/Refusing to store deploy-task records under a public web-root path/');
+
+        new FilesystemStorage('/srv/site/public_html/var', '/srv/other-app');
+    }
+
+    public function testStoragePathReachingThePublicRootViaSymlinkIsRefused(): void
+    {
+        $project = FilesystemTestHelper::tempDir();
+        \mkdir($project.'/public', 0o755);
+        \symlink($project.'/public', $project.'/state');
+
+        try {
+            new FilesystemStorage($project.'/state/deploy-tasks', $project);
+            self::fail('Expected StorageException for a storage path reaching public/ via symlink, none thrown.');
+        } catch (StorageException $e) {
+            self::assertMatchesRegularExpression(
+                '/Refusing to store deploy-task records under a public web-root path/',
+                $e->getMessage(),
+            );
+        } finally {
+            \unlink($project.'/state');
+            FilesystemTestHelper::cleanup($project);
+        }
+    }
+
+    public function testSymlinkedProjectDirIsResolvedConsistentlyWithTheStoragePath(): void
+    {
+        // Capistrano-style layout: kernel.project_dir is a "current" symlink under
+        // a deploy root named html. Both sides must canonicalize identically,
+        // otherwise the storage path would fall out of the project scope and hit
+        // the conservative whole-path check.
+        $base = FilesystemTestHelper::tempDir();
+        \mkdir($base.'/html/releases/r1', 0o755, true);
+        \symlink($base.'/html/releases/r1', $base.'/html/current');
+
+        try {
+            $this->expectNotToPerformAssertions();
+
+            new FilesystemStorage($base.'/html/current/var/deploy-tasks', $base.'/html/current');
+        } finally {
+            \unlink($base.'/html/current');
+            FilesystemTestHelper::cleanup($base);
+        }
     }
 
     public function testCorruptJsonThrowsStorageExceptionWithJsonExceptionChained(): void

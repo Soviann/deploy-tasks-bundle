@@ -63,7 +63,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 - `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
 - `Dbal\DbalStorage` — implements `TransactionalStorageInterface` + `SchemaManageable`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
 - `Dbal\DbalStorageConfiguration` — table/column names DTO (id, status, executed_at, error, task_group columns + lengths)
-- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot. Atomic writes via `Filesystem::dumpFile()` + `LOCK_EX`. Directory mode `0700`, files `0600`. Default slot → `<id>.json`; grouped slot → `<id>@<group>.json` (verbatim, no transformation — group names constrained to `AsDeployTask::GROUP_NAME_PATTERN`). Throws `StorageException` if path contains a `public`/`public_html`/`web`/`htdocs` segment.
+- `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot. Atomic writes via `Filesystem::dumpFile()` + `LOCK_EX`. Directory mode `0700`, files `0600`. Default slot → `<id>.json`; grouped slot → `<id>@<group>.json` (verbatim, no transformation — group names constrained to `AsDeployTask::GROUP_NAME_PATTERN`). Throws `StorageException` when the path (symlinks resolved) contains a public web-root segment (`pub`/`public`/`public_html`/`web`/`html`/`htdocs`/`wwwroot`/`httpdocs`) at or below the project dir — see `docs/security.md`.
 - `InMemory\InMemoryStorage` — array-backed storage for tests
 
 ## Configuration
