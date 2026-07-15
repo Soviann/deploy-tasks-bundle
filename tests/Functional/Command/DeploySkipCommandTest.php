@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\CommandMessages;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipCommand;
+use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
@@ -215,6 +216,89 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
         self::assertStringNotContainsString('in group', $display);
+    }
+
+    public function testSkipOfAlreadyRanSlotWarnsAndAbortsOnDecline(): void
+    {
+        $ranAt = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $this->storage()->save(new TaskExecution('test.simple', TaskStatus::Ran, $ranAt));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('already ran', $display);
+        self::assertStringContainsString('Aborted', $display);
+
+        $execution = $this->storage()->get('test.simple');
+        \assert(null !== $execution);
+        self::assertSame(TaskStatus::Ran, $execution->status);
+        self::assertEquals($ranAt, $execution->executedAt);
+    }
+
+    public function testSkipOfAlreadyRanSlotAbortsOnBareEnter(): void
+    {
+        $ranAt = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $this->storage()->save(new TaskExecution('test.simple', TaskStatus::Ran, $ranAt));
+
+        $this->tester->setInputs(['']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+
+        $execution = $this->storage()->get('test.simple');
+        \assert(null !== $execution);
+        self::assertSame(TaskStatus::Ran, $execution->status);
+    }
+
+    public function testSkipOfAlreadyRanSlotProceedsOnConfirmation(): void
+    {
+        $ranAt = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $this->storage()->save(new TaskExecution('test.simple', TaskStatus::Ran, $ranAt));
+
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $execution = $this->storage()->get('test.simple');
+        \assert(null !== $execution);
+        self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    public function testSkipOfAlreadyRanSlotProceedsUnderNoInteraction(): void
+    {
+        $ranAt = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $this->storage()->save(new TaskExecution('test.simple', TaskStatus::Ran, $ranAt));
+
+        $this->tester->execute(['id' => 'test.simple'], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        $execution = $this->storage()->get('test.simple');
+        \assert(null !== $execution);
+        self::assertSame(TaskStatus::Skipped, $execution->status);
+    }
+
+    public function testSkipOfAlreadyRanGroupedSlotWarnsAndPreservesOtherSlot(): void
+    {
+        // Grouped slots must get the same overwrite guard as the default slot.
+        $ranAt = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $this->storage()->save(new TaskExecution('test.multi_group', TaskStatus::Ran, $ranAt, null, 'predeploy'));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(['id' => 'test.multi_group', '--group' => 'predeploy'], ['interactive' => true]);
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('in group "predeploy"', $display);
+        self::assertStringContainsString('already ran', $display);
+
+        $execution = $this->storage()->get('test.multi_group', 'predeploy');
+        \assert(null !== $execution);
+        self::assertSame(TaskStatus::Ran, $execution->status);
+        self::assertFalse($this->storage()->has('test.multi_group', 'postdeploy'));
     }
 
     protected static function getKernelClass(): string

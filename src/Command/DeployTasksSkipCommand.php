@@ -103,10 +103,12 @@ final class DeployTasksSkipCommand extends Command
 
         $slot = $slots[0];
 
+        // Read the slot before writing to it: an existing record (especially a Ran one, i.e.
+        // real execution history) must not be silently overwritten by a blind save().
+        $existing = $this->storage->get($id, $slot);
+
         if ($input->isInteractive()) {
-            $prompt = null === $slot
-                ? \sprintf('Skip task "%s"? This marks it done without executing.', $id)
-                : \sprintf('Skip task "%s" in group "%s"? This marks it done without executing.', $id, $slot);
+            $prompt = $this->buildConfirmationPrompt($id, $slot, $existing);
 
             if (!$this->confirmOrAbort($io, $prompt)) {
                 return Command::FAILURE;
@@ -120,5 +122,34 @@ final class DeployTasksSkipCommand extends Command
             : \sprintf('Task "%s" marked as skipped in group "%s".', $id, $slot));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Builds the confirmation prompt for one resolved slot. Written as a per-slot helper
+     * (id + group + existing record in, prompt string out) so a future caller resolving
+     * multiple slots can call it once per slot instead of needing a one-shot rewrite.
+     */
+    private function buildConfirmationPrompt(string $id, ?string $slot, ?TaskExecution $existing): string
+    {
+        $target = null === $slot ? \sprintf('"%s"', $id) : \sprintf('"%s" in group "%s"', $id, $slot);
+
+        if (null === $existing) {
+            return \sprintf('Skip task %s? This marks it done without executing.', $target);
+        }
+
+        if (TaskStatus::Ran === $existing->status) {
+            return \sprintf(
+                'Task %s already ran on %s. Skipping now will overwrite that record and erase its execution history. Continue?',
+                $target,
+                $existing->executedAt->format('Y-m-d H:i:s'),
+            );
+        }
+
+        return \sprintf(
+            'Task %s already has a "%s" record from %s. Skipping now will overwrite it. Continue?',
+            $target,
+            $existing->status->value,
+            $existing->executedAt->format('Y-m-d H:i:s'),
+        );
     }
 }
