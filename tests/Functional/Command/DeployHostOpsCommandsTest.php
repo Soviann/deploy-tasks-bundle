@@ -480,6 +480,24 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertStringNotContainsString("\r", $raw);
     }
 
+    public function testSkipHostAppendHealsUnterminatedFinalLine(): void
+    {
+        $this->makeScript('a');
+        $this->makeScript('b');
+        // Hand-edited log whose final line lost its terminating newline.
+        \file_put_contents($this->logPath, 'a');
+
+        $tester = $this->tester('deploytasks:skip:host');
+        $exitCode = $tester->execute(['id' => 'b'], ['interactive' => false]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        // Without a trailing-newline guard the log would read "ab\n" — the pre-existing
+        // id and the appended one merged into a single line neither the runner's
+        // `grep -Fxq` nor readHostLog() can ever match again.
+        self::assertSame("a\nb\n", (string) \file_get_contents($this->logPath));
+        self::assertSame(['a', 'b'], $this->logLines());
+    }
+
     public function testRollupHostAppendKeepsLogGrepFxqClean(): void
     {
         $this->makeScript('a');

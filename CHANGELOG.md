@@ -40,5 +40,6 @@ so it executes exactly once per environment.
 - Resetting filesystem storage, or clearing all slots for one task, no longer risks leaving a stray record behind: the record set is now captured before any file is deleted, instead of deleting while still walking the live directory listing.
 - `deploytasks:skip` no longer silently erases an existing execution record (especially a `Ran` one) when re-skipping a slot: the confirmation prompt now warns and requires an explicit "yes" before overwriting; `--no-interaction` still proceeds since skip remains reversible via `deploytasks:reset`.
 - A custom id generator whose class cannot be resolved at compile time (e.g. a factory-built service) no longer fails the container build with false "Duplicate deploy task ID" errors: compile-time id validation now skips the tasks that depend on the generator instead of checking ids the default generator would have produced.
+- `deploytasks:skip:host` and `deploytasks:rollup:host` no longer corrupt a hand-edited host completion log whose final line lost its newline: the append now heals the missing terminator instead of merging the last recorded id and the first appended one into a single line the host runner could never match again.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

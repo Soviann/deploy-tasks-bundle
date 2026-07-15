@@ -65,6 +65,11 @@ trait HostLogManipulationTrait
     }
 
     /**
+     * Must be called while holding the host runner's flock (see withHostLock()):
+     * the trailing-newline probe below reads the log *before* the locked write,
+     * so only the caller-held lock makes the probe+append pair race-free against
+     * a concurrent bin/deploy-tasks-host.sh run or another ops command.
+     *
      * @param list<string> $ids
      */
     private function appendManyToHostLog(string $logPath, array $ids): void
@@ -78,12 +83,47 @@ trait HostLogManipulationTrait
             $chunk .= $id."\n";
         }
 
+        // A hand-edited log can lose its terminating newline; appending verbatim
+        // would concatenate its last id with the first appended one, making both
+        // unmatchable by the runner's `grep -Fxq`. Folding the heal into the
+        // single write call only guarantees the "\n" and the ids cannot be torn
+        // apart; the probe itself runs outside the write's LOCK_EX, so the
+        // read+append race protection comes from the caller-held host flock
+        // (see the docblock above).
+        if ($this->hostLogEndsMidLine($logPath)) {
+            $chunk = "\n".$chunk;
+        }
+
         // The native warning is suppressed because the return value is checked
         // right below; the failure surfaces as an IOException instead.
         $bytes = @\file_put_contents($logPath, $chunk, \FILE_APPEND | \LOCK_EX);
         if (\strlen($chunk) !== $bytes) {
             throw new IOException(\sprintf('Failed to append to host completion log "%s".', $logPath), path: $logPath);
         }
+    }
+
+    /**
+     * True when the log's last byte is not "\n" — i.e. a hand-edit left the final
+     * line un-terminated. Any probe failure (filesize() or the last-byte read)
+     * also returns true, so uncertainty always errs toward healing: the resulting
+     * extra "\n" only produces an empty line, which both the runner's `grep -Fxq`
+     * and readHostLog() (FILE_SKIP_EMPTY_LINES) ignore.
+     */
+    private function hostLogEndsMidLine(string $logPath): bool
+    {
+        if (!\is_file($logPath)) {
+            return false;
+        }
+
+        $size = @\filesize($logPath);
+        if (false === $size) {
+            return true;
+        }
+        if (0 === $size) {
+            return false;
+        }
+
+        return "\n" !== @\file_get_contents($logPath, offset: $size - 1, length: 1);
     }
 
     /**
