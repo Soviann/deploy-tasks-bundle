@@ -114,7 +114,9 @@ final class DeployTasksShowCommand extends Command
         ];
 
         if (null !== $execution->error) {
-            $rows[] = ['Error' => ConsoleSanitizer::sanitize($execution->error)];
+            // definitionList() renders through Table, whose cells interpret
+            // formatter tags: escape the untrusted stored error, don't just strip.
+            $rows[] = ['Error' => ConsoleSanitizer::sanitizeForFormatter($execution->error)];
         }
 
         $io->definitionList(...$rows);

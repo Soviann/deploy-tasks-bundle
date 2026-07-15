@@ -7,7 +7,6 @@ namespace Soviann\DeployTasksBundle\Command;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -100,7 +99,7 @@ final class DeployTasksRollupHostCommand extends Command
             \implode(', ', \array_map(
                 // Defense in depth: pending ids already passed isValidHostTaskId(),
                 // which excludes control bytes and formatter tag characters.
-                static fn (string $id): string => OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
+                ConsoleSanitizer::sanitizeForFormatter(...),
                 $pendingPreview,
             )),
         ))) {

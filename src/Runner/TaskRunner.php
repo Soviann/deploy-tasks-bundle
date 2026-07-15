@@ -568,10 +568,13 @@ final readonly class TaskRunner
         float $duration,
         OutputInterface $output,
     ): TaskOutcome {
+        // The message is untrusted (task code / bubbled-up runtime data) and this
+        // writeln() interprets formatter tags: escape as well as control-strip.
+        // $taskId is safe raw — registered ids match AsDeployTask::TASK_ID_PATTERN.
         $output->writeln(\sprintf(
             '<error>Task "%s" failed: %s</error>',
             $taskId,
-            ConsoleSanitizer::sanitize($e->getMessage()),
+            ConsoleSanitizer::sanitizeForFormatter($e->getMessage()),
         ));
         $this->logger->error('Deploy task failed', [
             'task_id' => $taskId,

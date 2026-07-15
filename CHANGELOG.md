@@ -53,5 +53,6 @@ so it executes exactly once per environment.
 
 - The web-root storage guard no longer refuses valid paths under `/var/www/html` and now recognizes additional public roots.
 - `#[AsDeployTask]` no longer accepts a task id or group name with a trailing newline (e.g. `"abc\n"`): `TASK_ID_PATTERN` and `GROUP_NAME_PATTERN` now anchor with `\z` instead of `$`, which PCRE would otherwise match just before a trailing `\n` — unifying with the host-log path, which already treats ids as exact lines.
+- A hostile task or process error message can no longer smuggle console formatter tags (e.g. an `<href=…>` terminal-hyperlink or color spoof) into `deploytasks:run`, `:status`, or `:show` output: every untrusted text rendered in a formatter-interpreting context is now both stripped of control bytes and tag-escaped through a single `ConsoleSanitizer::sanitizeForFormatter()` helper, so the two halves of the protection can no longer be applied separately.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

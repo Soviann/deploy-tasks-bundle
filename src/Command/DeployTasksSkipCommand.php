@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Command;
 use Psr\Clock\ClockInterface;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupRequiredException;
+use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Helper\SystemClock;
 use Soviann\DeployTasksBundle\Runner\SlotResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
@@ -96,7 +97,10 @@ final class DeployTasksSkipCommand extends Command
         try {
             $slots = SlotResolver::resolve($id, $task, null === $group ? [] : [$group]);
         } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
-            $io->error($e->getMessage());
+            // Mismatch messages embed the raw --group value. error() escapes
+            // formatter tags itself, so sanitize-only covers the missing half
+            // (control bytes) without double-escaping.
+            $io->error(ConsoleSanitizer::sanitize($e->getMessage()));
 
             return Command::INVALID;
         }

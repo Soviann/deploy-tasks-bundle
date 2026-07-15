@@ -9,6 +9,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\HostileErrorTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyGroupedTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
@@ -34,6 +35,21 @@ final class DeployRunEnvTest extends FunctionalTestCase
         self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
         self::assertStringContainsString('test.failing', $this->tester->getDisplay());
         self::assertStringContainsString('failed', $this->tester->getDisplay());
+    }
+
+    public function testHostileErrorMessageRendersEscapedAndControlStripped(): void
+    {
+        $this->bootAndBuildTester(['extraTasks' => [HostileErrorTask::class]]);
+
+        $this->tester->execute([]);
+
+        $display = $this->tester->getDisplay();
+        // The formatter tag must be shown literally — not interpreted as a
+        // terminal hyperlink (the tag would be silently consumed) — and the raw
+        // ESC byte must be stripped (ANSI injection).
+        self::assertStringContainsString('<href=', $display);
+        self::assertStringContainsString('spoof', $display);
+        self::assertStringNotContainsString("\x1b", $display);
     }
 
     public function testFailedTaskIsRecordedInStorage(): void

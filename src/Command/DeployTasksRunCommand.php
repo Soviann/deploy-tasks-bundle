@@ -201,13 +201,18 @@ final class DeployTasksRunCommand extends Command
         try {
             $taskResult = $this->runner->runOne($taskId, $output, new RunOptions(dryRun: $dryRun, rerunAll: $rerunAll, groups: $groups));
         } catch (TaskEnvironmentMismatchException $e) {
-            $io->error($e->getMessage());
+            // The message embeds the raw `env` attribute value. error() escapes
+            // formatter tags itself, so sanitize-only — escaping here too would
+            // double-escape; control bytes are the half the sink doesn't cover.
+            $io->error(ConsoleSanitizer::sanitize($e->getMessage()));
 
             // Under --require-some an env mismatch IS "no task matched the filters":
             // exit with the documented usage code instead of the generic invalid one.
             return $requireSome ? self::EX_USAGE : Command::INVALID;
         } catch (TaskGroupRequiredException|TaskGroupMismatchException $e) {
-            $io->error($e->getMessage());
+            // Mismatch messages embed raw --group values; same sanitize-only
+            // reasoning as above (error() already tag-escapes).
+            $io->error(ConsoleSanitizer::sanitize($e->getMessage()));
 
             return Command::INVALID;
         } catch (AllOrNothingFailureException $e) {
@@ -231,6 +236,8 @@ final class DeployTasksRunCommand extends Command
      */
     private function writeRolledBackSummary(SymfonyStyle $io, AllOrNothingFailureException $e): void
     {
+        // Sanitize-only on purpose: error() escapes formatter tags itself, so the
+        // untrusted cause message only needs the control-byte half here.
         $io->error(\sprintf(
             'Task "%s" failed — the transaction was rolled back, no changes were persisted (%d ran, %d skipped before the failure). Cause: %s',
             $e->failedTaskId,

@@ -14,7 +14,6 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -239,7 +238,7 @@ final class DeployTasksStatusCommand extends Command
             // Script basenames are attacker-influencable filesystem input: strip control
             // bytes (ANSI injection) and escape formatter tags before rendering.
             $rows[] = [
-                OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
+                ConsoleSanitizer::sanitizeForFormatter($id),
                 $isDone ? '<info>done</info>' : '<comment>pending</comment>',
             ];
         }
@@ -293,8 +292,11 @@ final class DeployTasksStatusCommand extends Command
 
         $status = CommandMessages::statusTag($execution->status);
 
+        // Stored error text is untrusted and table cells interpret formatter tags:
+        // sanitize AND escape. Truncating after the escape is safe — a cut can at
+        // worst strand a cosmetic trailing backslash, never un-escape a tag.
         $errorCell = TaskStatus::Failed === $execution->status && null !== $execution->error
-            ? u(ConsoleSanitizer::sanitize($execution->error))
+            ? u(ConsoleSanitizer::sanitizeForFormatter($execution->error))
                 ->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')
                 ->toString()
             : '';

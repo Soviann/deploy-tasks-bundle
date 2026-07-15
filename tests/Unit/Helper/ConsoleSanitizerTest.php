@@ -44,4 +44,23 @@ final class ConsoleSanitizerTest extends TestCase
     {
         self::assertSame('café[2J日本語', ConsoleSanitizer::sanitize("café\x1b[2J\x07日本語"));
     }
+
+    public function testSanitizeForFormatterStripsControlBytesAndEscapesTags(): void
+    {
+        // The combined helper applies BOTH halves at once: control bytes are
+        // stripped (ANSI injection) and formatter tags are escaped (terminal
+        // hyperlink / color spoofing) — no caller can end up with half the pair.
+        self::assertSame(
+            '[31m\<href=https://evil.example\>click\</\>',
+            ConsoleSanitizer::sanitizeForFormatter("\x1b[31m<href=https://evil.example>click</>"),
+        );
+    }
+
+    public function testSanitizeForFormatterLeavesPlainTextUntouched(): void
+    {
+        self::assertSame(
+            'Task failed: connection refused',
+            ConsoleSanitizer::sanitizeForFormatter('Task failed: connection refused'),
+        );
+    }
 }

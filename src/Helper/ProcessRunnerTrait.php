@@ -7,7 +7,6 @@ namespace Soviann\DeployTasksBundle\Helper;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\TaskResult;
-use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ExceptionInterface as ProcessExceptionInterface;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -70,7 +69,7 @@ trait ProcessRunnerTrait
                 // Child output is untrusted (it can embed attacker-influenced data):
                 // strip control bytes and escape formatter tags before the terminal —
                 // the same ConsoleSanitizer discipline as every other untrusted path.
-                $sanitized = OutputFormatter::escape(ConsoleSanitizer::sanitize($buffer));
+                $sanitized = ConsoleSanitizer::sanitizeForFormatter($buffer);
 
                 if (Process::ERR === $type) {
                     $output->write(\sprintf('<error>%s</error>', $sanitized));
@@ -90,7 +89,7 @@ trait ProcessRunnerTrait
         } catch (ProcessExceptionInterface $e) {
             $output->writeln(\sprintf(
                 '<error>Process error: %s</error>',
-                ConsoleSanitizer::sanitize($e->getMessage()),
+                ConsoleSanitizer::sanitizeForFormatter($e->getMessage()),
             ));
 
             return TaskResult::FAILURE;
