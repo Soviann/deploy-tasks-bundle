@@ -52,5 +52,6 @@ so it executes exactly once per environment.
 ### Security
 
 - The web-root storage guard no longer refuses valid paths under `/var/www/html` and now recognizes additional public roots.
+- `#[AsDeployTask]` no longer accepts a task id or group name with a trailing newline (e.g. `"abc\n"`): `TASK_ID_PATTERN` and `GROUP_NAME_PATTERN` now anchor with `\z` instead of `$`, which PCRE would otherwise match just before a trailing `\n` — unifying with the host-log path, which already treats ids as exact lines.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

@@ -27,14 +27,18 @@ final class AsDeployTask
     /**
      * Allowlist for group names — mirrors the task-ID allowlist and keeps every
      * accepted value safe for use in filesystem paths, DB primary keys, and URLs.
+     *
+     * Anchored with \z instead of $: PCRE's $ matches before a trailing "\n", which
+     * would let "abc\n" through and break the host-log path's exact-line semantics
+     * (HostLogManipulationTrait::isValidHostTaskId() uses the same \z anchor).
      */
-    public const GROUP_NAME_PATTERN = '/^'.self::IDENTIFIER_CHAR.'+$/';
+    public const GROUP_NAME_PATTERN = '/^'.self::IDENTIFIER_CHAR.'+\z/';
 
     /**
      * Allowlist for task IDs — identical to GROUP_NAME_PATTERN; every accepted value
      * is safe as a filesystem name, DB primary-key value, and terminal output.
      */
-    public const TASK_ID_PATTERN = '/^'.self::IDENTIFIER_CHAR.'+$/';
+    public const TASK_ID_PATTERN = '/^'.self::IDENTIFIER_CHAR.'+\z/';
 
     /** @var array<class-string, ?self> */
     private static array $cache = [];

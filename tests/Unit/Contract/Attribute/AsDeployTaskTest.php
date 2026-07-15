@@ -225,6 +225,14 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame('', (new AsDeployTask())->id);
     }
 
+    public function testRejectsIdWithTrailingNewline(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid task id/');
+
+        new AsDeployTask(id: "abc\n");
+    }
+
     #[DataProvider('invalidGroupNameProvider')]
     public function testConstructorRejectsGroupsContainingDisallowedCharacters(string $group): void
     {
@@ -232,6 +240,14 @@ final class AsDeployTaskTest extends TestCase
         $this->expectExceptionMessageMatches('/Invalid group name/');
 
         new AsDeployTask(id: 'task.bad-group', groups: $group);
+    }
+
+    public function testConstructorRejectsGroupWithTrailingNewline(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid group name/');
+
+        new AsDeployTask(id: 'task.bad-group', groups: "abc\n");
     }
 
     public function testConstructorRejectsBadEntryInsideGroupArray(): void
