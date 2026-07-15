@@ -11,9 +11,12 @@ use Soviann\DeployTasksBundle\Command\DeployTasksSkipHostCommand;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
+use Soviann\DeployTasksBundle\Tests\Support\FirstReadHookStream;
 use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\HttpKernel\Kernel;
@@ -367,6 +370,34 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $tester->execute(['--force' => true], ['interactive' => false]);
     }
 
+    public function testRollupHostDoesNotDoubleMarkTaskSkippedDuringConfirmation(): void
+    {
+        $this->makeScript('a');
+        $this->makeScript('b');
+
+        // While the operator considers the prompt, a concurrent skip:host marks "b" done.
+        [$exitCode, $display] = $this->rollupHostWithLogAppendDuringConfirmation("b\n");
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        // Without a re-read under the lock the command would append its stale
+        // pre-prompt set ["a", "b"], duplicating "b" and reporting 2 tasks rolled up.
+        self::assertSame("b\na\n", (string) \file_get_contents($this->logPath));
+        self::assertStringContainsString('marked 1 host task(s) as done', $display);
+    }
+
+    public function testRollupHostReportsAlreadyDoneWhenEverythingCompletesDuringConfirmation(): void
+    {
+        $this->makeScript('a');
+
+        // The only pending task completes concurrently during the prompt: the rollup
+        // must come out empty-handed and say so, not append a duplicate line.
+        [$exitCode, $display] = $this->rollupHostWithLogAppendDuringConfirmation("a\n");
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame("a\n", (string) \file_get_contents($this->logPath));
+        self::assertStringContainsString('already marked as done', $display);
+    }
+
     // --- lock contention (the runner's flock) ---
 
     public function testResetHostRefusesWhileHostRunHoldsTheLock(): void
@@ -550,6 +581,38 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     private function tester(string $name): CommandTester
     {
         return new CommandTester($this->application->find($name));
+    }
+
+    /**
+     * Runs rollup:host interactively, answering "yes" — but appends
+     * $concurrentChunk to the completion log at the exact moment the command
+     * reads the answer, i.e. after it computed the pending list shown in the
+     * prompt and before it takes the host lock. This reproduces a concurrent
+     * skip:host (or a host run finishing) landing during operator think-time.
+     *
+     * @return array{int, string} exit code and captured display
+     */
+    private function rollupHostWithLogAppendDuringConfirmation(string $concurrentChunk): array
+    {
+        FirstReadHookStream::register("yes\n", function () use ($concurrentChunk): void {
+            \file_put_contents($this->logPath, $concurrentChunk, \FILE_APPEND);
+        });
+
+        try {
+            $stream = \fopen(FirstReadHookStream::PROTOCOL.'://answer', 'r');
+            self::assertNotFalse($stream);
+
+            $input = new ArrayInput([]);
+            $input->setInteractive(true);
+            $input->setStream($stream);
+            $output = new BufferedOutput();
+
+            $exitCode = $this->application->find('deploytasks:rollup:host')->run($input, $output);
+
+            return [$exitCode, $output->fetch()];
+        } finally {
+            FirstReadHookStream::unregister();
+        }
     }
 
     /**

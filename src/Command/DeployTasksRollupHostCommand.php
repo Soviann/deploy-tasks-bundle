@@ -19,6 +19,8 @@ final class DeployTasksRollupHostCommand extends Command
     use DestructiveCommandTrait;
     use HostLogManipulationTrait;
 
+    private const ALL_DONE_MESSAGE = 'Every host task is already marked as done — nothing to roll up.';
+
     public function __construct(
         /** Directory scanned for host-scope `*.sh` tasks (the host.directory bundle config). */
         private readonly string $hostTasksDir,
@@ -84,28 +86,42 @@ final class DeployTasksRollupHostCommand extends Command
             $io->warning(\sprintf('%d script(s) ignored (invalid id characters).', $ignored));
         }
 
-        $pending = \array_values(\array_diff($validIds, $done));
+        $pendingPreview = \array_values(\array_diff($validIds, $done));
 
-        if ([] === $pending) {
-            $io->note('Every host task is already marked as done — nothing to roll up.');
+        if ([] === $pendingPreview) {
+            $io->note(self::ALL_DONE_MESSAGE);
 
             return Command::SUCCESS;
         }
 
         if (!$force && !$this->confirmOrAbort($io, \sprintf(
             'This will mark %d host task(s) as done: %s. Continue?',
-            \count($pending),
+            \count($pendingPreview),
             \implode(', ', \array_map(
                 // Defense in depth: pending ids already passed isValidHostTaskId(),
                 // which excludes control bytes and formatter tag characters.
                 static fn (string $id): string => OutputFormatter::escape(ConsoleSanitizer::sanitize($id)),
-                $pending,
+                $pendingPreview,
             )),
         ))) {
             return Command::FAILURE;
         }
 
-        return $this->withHostLock($this->hostLockPath, $io, function () use ($io, $pending): int {
+        return $this->withHostLock($this->hostLockPath, $io, function () use ($io, $validIds): int {
+            // The confirmation list above came from an advisory pre-prompt read:
+            // holding the lock through operator think-time would starve a concurrent
+            // bin/deploy-tasks-host.sh run into EX_TEMPFAIL. The set that is actually
+            // appended — and the count reported — is therefore recomputed under the
+            // lock, so a task completed since (skip:host, a host run) is skipped over
+            // instead of being appended, and counted, twice.
+            $pending = \array_values(\array_diff($validIds, $this->readHostLog($this->hostLogPath)));
+
+            if ([] === $pending) {
+                $io->note(self::ALL_DONE_MESSAGE);
+
+                return Command::SUCCESS;
+            }
+
             $this->appendManyToHostLog($this->hostLogPath, $pending);
 
             $io->success(\sprintf('Rolled up: marked %d host task(s) as done.', \count($pending)));
