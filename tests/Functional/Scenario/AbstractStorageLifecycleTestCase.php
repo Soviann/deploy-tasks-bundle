@@ -33,19 +33,29 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
 
         $taskId = AbstractLifecycleScenarioKernel::FIXTURE_TASK_ID;
 
-        // 1. Run → fixture task is Ran
-        self::assertSame(Command::SUCCESS, $run->execute([]));
+        // 1. Run → fixture task is Ran. Phase 3 group semantics: the bare run
+        //    targets every slot, so the grouped fixtures execute too — the
+        //    failing one flips the exit code to FAILURE while the ungrouped
+        //    fixture task still lands as Ran.
+        self::assertSame(Command::FAILURE, $run->execute([]));
         $exec = $storage->get($taskId);
         self::assertNotNull($exec);
         self::assertSame(TaskStatus::Ran, $exec->status);
+        $failing = $storage->get(
+            AbstractLifecycleScenarioKernel::FAILING_TASK_ID,
+            AbstractLifecycleScenarioKernel::FAILING_TASK_GROUP,
+        );
+        self::assertNotNull($failing);
+        self::assertSame(TaskStatus::Failed, $failing->status);
 
-        // 2. Reset → record gone → run → back to Ran
+        // 2. Reset → record gone → run → back to Ran (the failed grouped slot
+        //    is retried and fails again, so the exit code stays FAILURE)
         self::assertSame(
             Command::SUCCESS,
             $reset->execute(['id' => $taskId, '--force' => true], ['interactive' => false]),
         );
         self::assertFalse($storage->has($taskId));
-        self::assertSame(Command::SUCCESS, $run->execute([]));
+        self::assertSame(Command::FAILURE, $run->execute([]));
         $exec = $storage->get($taskId);
         self::assertNotNull($exec);
         self::assertSame(TaskStatus::Ran, $exec->status);

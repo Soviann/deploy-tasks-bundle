@@ -1040,8 +1040,118 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(1, $counting->saveCalls, 'A repeated --group value must not double-persist the slot.');
     }
 
-    public function testRunAllWithoutGroupExcludesGroupedTasks(): void
+    public function testRunAllWithoutGroupRunsEveryDeclaredSlot(): void
     {
+        // Phase 3 rule: absent --group, a run operates on ALL slots — the
+        // default slot of an ungrouped task AND every declared group of a
+        // grouped task (mirrors the rollup command's slot expansion).
+        $runner = $this->createRunner([
+            new SimpleTask('task.default'),
+            new MultiGroupTask(),
+        ]);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(3, $result->ran);
+        self::assertTrue($this->storage->has('task.default'));
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+        self::assertFalse(
+            $this->storage->has('test.multi_group'),
+            'A grouped task must never record the default (null) slot',
+        );
+    }
+
+    public function testRunAllWithoutGroupExecutesMultiGroupTaskOncePerInvocation(): void
+    {
+        // Pins the execution model under bare-run slot expansion: the task body
+        // executes once per invocation (one Before/After event pair) while one
+        // storage row is written per declared group — and the expansion cannot
+        // duplicate a slot (declared groups are dedup-guaranteed by the attribute).
+        $dispatched = [];
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')
+            ->willReturnCallback(static function (object $event) use (&$dispatched): object {
+                $dispatched[] = $event;
+
+                return $event;
+            });
+
+        $counting = new SaveCountingStorageFixture();
+        $runner = $this->createRunner([new MultiGroupTask()], $counting, dispatcher: $dispatcher);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(2, $result->ran, 'Counters tally per slot, not per task execution');
+        self::assertSame(2, $counting->saveCalls, 'Exactly one row per declared group — no duplicate slots');
+        self::assertCount(2, $dispatched, 'Events fire once per task execution, not once per slot');
+        self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
+        self::assertInstanceOf(AfterTaskEvent::class, $dispatched[1]);
+    }
+
+    public function testRunAllWithoutGroupPersistsEveryDeclaredSlotInsidePerTaskTransaction(): void
+    {
+        // The per-task transaction path must cover the expanded slots: with the
+        // default transactional wrapping, the multi-group task's run() and both
+        // slot rows commit inside the same transaction.
+        $storage = new RollbackTransactionalStorageFixture();
+        $runner = $this->createRunner([new MultiGroupTask()], $storage);
+
+        $result = $runner->runAll($this->output);
+
+        self::assertSame(2, $result->ran);
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'postdeploy'));
+        self::assertTrue(
+            $storage->lastSaveInsideTransaction,
+            'Slot rows must be written inside the per-task transaction',
+        );
+    }
+
+    public function testAllOrNothingRollsBackEveryExpandedSlotOnFailure(): void
+    {
+        // Registration order is kept by the stable sorter (equal priority, no
+        // dates in the ids), so the multi-group task writes its two slot rows
+        // before the failing task aborts the run — all_or_nothing must wipe
+        // them all, expanded grouped slots included.
+        $storage = new RollbackTransactionalStorageFixture();
+        $runner = $this->createRunner([new MultiGroupTask(), new FailingTask()], $storage, allOrNothing: true);
+
+        try {
+            $runner->runAll($this->output);
+            self::fail('Expected AllOrNothingFailureException');
+        } catch (AllOrNothingFailureException $e) {
+            self::assertSame('test.failing', $e->failedTaskId);
+            self::assertSame(2, $e->partialResult->ran, 'Both expanded slots ran before the failure');
+        }
+
+        self::assertSame([], $storage->all(), 'Rollback must remove every slot row written during the run');
+    }
+
+    public function testDryRunWithoutGroupCountsEveryDeclaredSlot(): void
+    {
+        // Dry-run must mirror the bare-run slot expansion: one would-run line
+        // per slot, nothing persisted.
+        $runner = $this->createRunner([
+            new SimpleTask('task.default', 'Default task'),
+            new MultiGroupTask(),
+        ]);
+
+        $result = $runner->runAll($this->output, new RunOptions(dryRun: true));
+
+        self::assertSame(3, $result->ran);
+        self::assertSame([], $this->storage->all());
+        $output = $this->output->fetch();
+        self::assertStringContainsString('  [would run] task.default - Default task', $output);
+        self::assertStringContainsString('  [would run] test.multi_group@predeploy', $output);
+        self::assertStringContainsString('  [would run] test.multi_group@postdeploy', $output);
+    }
+
+    public function testRunAllWithoutGroupIncludesGroupedTasks(): void
+    {
+        // Flipped by the Phase 3 group-semantics change: a bare run used to
+        // exclude grouped tasks; it now targets every slot, so the grouped
+        // task runs in its declared group slot alongside the ungrouped one.
         $runner = $this->createRunner([
             new SimpleTask('task.default'),
             new PredeployTask(),
@@ -1049,10 +1159,10 @@ final class TaskRunnerTest extends TestCase
 
         $result = $runner->runAll($this->output);
 
-        self::assertSame(1, $result->ran);
+        self::assertSame(2, $result->ran);
         self::assertTrue($this->storage->has('task.default'));
+        self::assertTrue($this->storage->has('test.predeploy', 'predeploy'));
         self::assertFalse($this->storage->has('test.predeploy'));
-        self::assertFalse($this->storage->has('test.predeploy', 'predeploy'));
     }
 
     public function testRunAllMultiGroupTaskRunsOncePerRequestedSlot(): void
@@ -2654,22 +2764,25 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // computeSlots LogicalAnd (line 668): null !== $group && in_array(...)
+    // computeSlots: a grouped task never targets the default (null) slot
     // -------------------------------------------------------------------------
 
     public function testComputeSlotsDoesNotIncludeNullGroupForGroupedTask(): void
     {
-        // Kills LogicalAnd → LogicalOr (|| mutant on line 668):
-        // with `||`, a null group slot always passes the check and gets included —
-        // the grouped task would incorrectly run in the default slot too.
+        // Flipped by the Phase 3 group-semantics change: a bare run now targets
+        // the grouped task's declared slots — but still never the default (null)
+        // slot. Kills mutants that make computeSlots return [null] (or append
+        // null) for a grouped task on an unfiltered run.
         $runner = $this->createRunner([new PredeployTask()]);
 
-        // runAll without groups → effectiveGroups = [null] → no group slots → task skipped.
         $result = $runner->runAll($this->output);
 
-        self::assertSame(0, $result->ran, 'Grouped task must not run in the default slot (null group)');
-        self::assertFalse($this->storage->has('test.predeploy'));
-        self::assertFalse($this->storage->has('test.predeploy', 'predeploy'));
+        self::assertSame(1, $result->ran);
+        self::assertTrue($this->storage->has('test.predeploy', 'predeploy'));
+        self::assertFalse(
+            $this->storage->has('test.predeploy'),
+            'Grouped task must not run in the default slot (null group)',
+        );
     }
 
     // -------------------------------------------------------------------------

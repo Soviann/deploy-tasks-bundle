@@ -42,9 +42,9 @@ abstract class AbstractLifecycleScenarioKernel extends AbstractTestKernel
         // written. Mirrors the same override in TestKernel.
         $container->services()->set('logger', NullLogger::class)->public();
 
-        // The grouped fixtures never run in the ungrouped flow (deploytasks:run
-        // without --group only executes ungrouped tasks), so registering them
-        // unconditionally leaves the full-lifecycle scenario untouched.
+        // A bare deploytasks:run targets every slot (Phase 3 group semantics),
+        // so the grouped fixtures participate in the full-lifecycle scenario:
+        // it asserts their slots and the failing task's exit code accordingly.
         $container->services()
             ->set('scenario.task.simple', SimpleTask::class)
                 ->args([self::FIXTURE_TASK_ID, 'Lifecycle scenario task'])

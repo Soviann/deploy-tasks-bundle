@@ -66,7 +66,7 @@ final class DeployTasksRunCommand extends Command
                 'group',
                 null,
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                'Run tasks declaring this group (repeatable). Without --group, only ungrouped tasks run.',
+                'Run tasks declaring this group (repeatable); without this flag every slot runs (default slot and every declared group).',
             )
             ->addOption(
                 'id',
@@ -85,8 +85,9 @@ final class DeployTasksRunCommand extends Command
 
                     <info>%command.full_name%</info>
 
-                Without <comment>--group</comment>, only ungrouped tasks run. Use <comment>--group</comment>
-                (repeatable) to run tasks declaring any of the listed groups:
+                Without <comment>--group</comment>, every slot runs — the default slot of ungrouped
+                tasks and every declared group of grouped tasks. Use <comment>--group</comment>
+                (repeatable) to narrow the run to tasks declaring any of the listed groups:
 
                     <info>%command.full_name% --group=predeploy</info>
                     <info>%command.full_name% --group=predeploy --group=postdeploy</info>

@@ -204,8 +204,11 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringNotContainsString('test.skipping ran', $this->tester->getDisplay());
     }
 
-    public function testNoFlagRunsOnlyDefaultTasks(): void
+    public function testNoFlagRunsEverySlot(): void
     {
+        // Flipped by the Phase 3 group-semantics change: without --group the
+        // run used to execute only ungrouped tasks; it now targets every slot —
+        // the default slot AND every declared group of grouped tasks.
         $this->tester->execute([]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
@@ -213,9 +216,10 @@ final class DeployRunCommandTest extends FunctionalTestCase
         \assert($storage instanceof TaskStorageInterface);
 
         self::assertTrue($storage->has('test.simple'));
-        self::assertFalse($storage->has('test.predeploy', 'predeploy'));
-        self::assertFalse($storage->has('test.multi_group', 'predeploy'));
-        self::assertFalse($storage->has('test.multi_group', 'postdeploy'));
+        self::assertTrue($storage->has('test.predeploy', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($storage->has('test.multi_group', 'postdeploy'));
+        self::assertFalse($storage->has('test.multi_group'), 'Grouped tasks never record the default slot');
     }
 
     public function testGroupFlagRunsOnlyMatchingTasks(): void

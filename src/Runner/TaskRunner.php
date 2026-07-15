@@ -97,15 +97,13 @@ final readonly class TaskRunner
 
                 $tasks = \array_values($this->registry->all($this->environment, $options->groups));
                 $sorted = $this->sorter->sort($tasks);
-                /** @var list<?string> $effectiveGroups */
-                $effectiveGroups = [] === $options->groups ? [null] : $options->groups;
 
                 if ($options->dryRun) {
-                    return $this->dryRun($sorted, $output, $effectiveGroups, $options->rerunAll);
+                    return $this->dryRun($sorted, $output, $options->groups, $options->rerunAll);
                 }
 
                 return $this->withAllOrNothingTransaction(
-                    fn (): RunResult => $this->executeAll($sorted, $output, $options->rerunAll, $effectiveGroups, $lock),
+                    fn (): RunResult => $this->executeAll($sorted, $output, $options->rerunAll, $options->groups, $lock),
                 );
             });
 
@@ -241,11 +239,11 @@ final readonly class TaskRunner
      * rerun-all run would re-execute.
      *
      * @param list<DeployTaskInterface> $tasks
-     * @param list<?string>             $effectiveGroups
+     * @param list<string>              $requestedGroups
      *
      * @throws \ReflectionException
      */
-    private function dryRun(array $tasks, OutputInterface $output, array $effectiveGroups, bool $rerunAll): RunResult
+    private function dryRun(array $tasks, OutputInterface $output, array $requestedGroups, bool $rerunAll): RunResult
     {
         $pending = 0;
         $skipped = 0;
@@ -253,7 +251,7 @@ final readonly class TaskRunner
 
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
-            $slots = self::computeSlots($task, $effectiveGroups);
+            $slots = self::computeSlots($task, $requestedGroups);
             $pendingSlots = $this->filterPendingSlots($taskId, $slots, $rerunAll, $executionIndex);
 
             $skipped += \count($slots) - \count($pendingSlots);
@@ -319,7 +317,7 @@ final readonly class TaskRunner
      * hold the lock by now, so continuing would defeat the concurrency protection.
      *
      * @param list<DeployTaskInterface> $tasks
-     * @param list<?string>             $effectiveGroups
+     * @param list<string>              $requestedGroups
      *
      * @throws \ReflectionException
      * @throws \Throwable           When `all_or_nothing` is enabled and a task throws
@@ -328,7 +326,7 @@ final readonly class TaskRunner
         array $tasks,
         OutputInterface $output,
         bool $rerunAll,
-        array $effectiveGroups,
+        array $requestedGroups,
         ?LockInterface $lock = null,
     ): RunResult {
         $ran = 0;
@@ -342,7 +340,7 @@ final readonly class TaskRunner
 
         foreach ($tasks as $task) {
             $taskId = $this->idResolver->resolve($task);
-            $slots = self::computeSlots($task, $effectiveGroups);
+            $slots = self::computeSlots($task, $requestedGroups);
 
             if ([] === $slots) {
                 continue;
@@ -802,26 +800,31 @@ final readonly class TaskRunner
     /**
      * Computes the slots a task participates in for the current invocation.
      *
-     * @param list<?string> $effectiveGroups null means the default slot is requested
+     * Mirrors {@see \Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand::slotsFor()}: with no requested
+     * groups, every slot is targeted — the default slot for an ungrouped task,
+     * every declared group for a grouped one. A non-empty request narrows to
+     * the intersection with the declared groups; the default slot is only ever
+     * targeted by an unfiltered run.
+     *
+     * The expansion can never yield a duplicate slot: requested groups are
+     * deduplicated by {@see RunOptions}, declared groups by the attribute.
+     *
+     * @param list<string> $requestedGroups [] targets every slot
      *
      * @return list<?string>
      */
-    private static function computeSlots(DeployTaskInterface $task, array $effectiveGroups): array
+    private static function computeSlots(DeployTaskInterface $task, array $requestedGroups): array
     {
         $declared = AsDeployTask::groupsOf($task);
 
         if (null === $declared) {
-            return \in_array(null, $effectiveGroups, true) ? [null] : [];
+            return [] === $requestedGroups ? [null] : [];
         }
 
-        $slots = [];
-
-        foreach ($effectiveGroups as $group) {
-            if (null !== $group && \in_array($group, $declared, true)) {
-                $slots[] = $group;
-            }
+        if ([] === $requestedGroups) {
+            return $declared;
         }
 
-        return $slots;
+        return \array_values(\array_intersect($declared, $requestedGroups));
     }
 }
