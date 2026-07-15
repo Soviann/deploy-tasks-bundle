@@ -39,6 +39,7 @@ use Soviann\DeployTasksBundle\TaskResult;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ArrayLogger;
 use Soviann\DeployTasksBundle\Tests\Fixtures\DbalFailingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\HardTimeoutOnlySleepingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\MultiGroupTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProdOnlyTask;
@@ -48,6 +49,8 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\SaveCountingStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SlowThresholdDisabledTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SlowThresholdLoweringTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionDepthProbeTask;
@@ -1363,42 +1366,106 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(TaskResult::SUCCESS, $resultDefault);
     }
 
-    public function testTimeoutExceededLogsWarningWithoutFailing(): void
+    public function testSlowTaskThresholdExceededLogsWarningWithoutFailing(): void
     {
         $logger = new ArrayLogger();
 
-        // 1.1s sleep against a 1s timeout — reliably crosses the threshold without depending
+        // 1.1s sleep against a 1s threshold — reliably crosses it without depending
         // on microsecond-level scheduling. Slow by design (~1.1s per run).
         $runner = $this->createRunner(
             [new SleepingTask('task.1', 1_100_000)],
             logger: $logger,
-            defaultTimeout: 1,
+            slowTaskThreshold: 1,
         );
 
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::SUCCESS, $result);
-        self::assertStringContainsString('exceeded timeout', $this->output->fetch());
-        self::assertTrue($logger->has('warning', 'exceeded timeout'));
+        self::assertStringContainsString('exceeded the slow-task threshold', $this->output->fetch());
+        self::assertTrue($logger->has('warning', 'exceeded slow-task threshold'));
         self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
     }
 
-    public function testDefaultTimeoutZeroDisablesTimeoutCheck(): void
+    public function testSlowTaskThresholdZeroDisablesCheck(): void
     {
         $logger = new ArrayLogger();
 
-        // 50ms sleep against a disabled timeout (0): no warning, regardless of duration.
+        // 50ms sleep against a disabled threshold (0): no warning, regardless of duration.
         $runner = $this->createRunner(
             [new SleepingTask('task.1', 50_000)],
             logger: $logger,
-            defaultTimeout: 0,
+            slowTaskThreshold: 0,
         );
 
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::SUCCESS, $result);
-        self::assertStringNotContainsString('exceeded timeout', $this->output->fetch());
-        self::assertFalse($logger->has('warning', 'exceeded timeout'));
+        self::assertStringNotContainsString('exceeded the slow-task threshold', $this->output->fetch());
+        self::assertFalse($logger->has('warning', 'exceeded slow-task threshold'));
+    }
+
+    public function testAttributeSlowTaskThresholdOverridesConfiguredThreshold(): void
+    {
+        $logger = new ArrayLogger();
+
+        // The task declares slowTaskThreshold: 1 and sleeps ~1.1s; the configured
+        // threshold (3600) alone would never warn, so a warning proves the
+        // attribute override is consulted. Slow by design (~1.1s per run).
+        $runner = $this->createRunner(
+            [new SlowThresholdLoweringTask()],
+            logger: $logger,
+            slowTaskThreshold: 3600,
+        );
+
+        $result = $runner->runOne('test.slow_threshold_lowering', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        // The attribute value (1s), not the configured one (3600s), lands in the message.
+        self::assertMatchesRegularExpression(
+            '/Task "test\.slow_threshold_lowering" exceeded the slow-task threshold \(\d+s elapsed, 1s threshold\)\./',
+            $this->output->fetch(),
+        );
+        self::assertTrue($logger->has('warning', 'exceeded slow-task threshold'));
+    }
+
+    public function testAttributeSlowTaskThresholdZeroDisablesCheckForTask(): void
+    {
+        $logger = new ArrayLogger();
+
+        // The task opts out (slowTaskThreshold: 0) and sleeps ~1.1s past the 1s
+        // configured threshold: no warning may fire. Slow by design (~1.1s per run).
+        $runner = $this->createRunner(
+            [new SlowThresholdDisabledTask()],
+            logger: $logger,
+            slowTaskThreshold: 1,
+        );
+
+        $result = $runner->runOne('test.slow_threshold_disabled', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringNotContainsString('exceeded the slow-task threshold', $this->output->fetch());
+        self::assertFalse($logger->has('warning', 'exceeded slow-task threshold'));
+    }
+
+    public function testAttributeTimeoutDoesNotAffectSlowTaskCheck(): void
+    {
+        $logger = new ArrayLogger();
+
+        // `timeout:` drives only the hard Process kill (ProcessRunnerTrait). The task
+        // declares timeout: 3600 and sleeps ~1.1s past the 1s configured threshold:
+        // the slow-task warning must still fire — the hard knob no longer doubles as
+        // a per-task soft override. Slow by design (~1.1s per run).
+        $runner = $this->createRunner(
+            [new HardTimeoutOnlySleepingTask()],
+            logger: $logger,
+            slowTaskThreshold: 1,
+        );
+
+        $result = $runner->runOne('test.hard_timeout_only', $this->output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('exceeded the slow-task threshold', $this->output->fetch());
+        self::assertTrue($logger->has('warning', 'exceeded slow-task threshold'));
     }
 
     public function testTransactionalTaskUnderNoneModeRunsUnwrapped(): void
@@ -1468,21 +1535,21 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(2, $result->skipped);
     }
 
-    public function testTimeoutWarningMessageIncludesExactValues(): void
+    public function testSlowTaskWarningMessageIncludesExactValues(): void
     {
         // Pins the exact warning format — kills Minus/CastInt mutants on the `(int) $duration` and
         // `$duration - $start` lines.
         $runner = $this->createRunner(
             [new SleepingTask('task.1', 1_100_000)],
-            defaultTimeout: 1,
+            slowTaskThreshold: 1,
         );
 
         $runner->runOne('task.1', $this->output);
 
-        // Exact format: `Task "{id}" exceeded timeout ({duration}s elapsed, {limit}s limit)`.
+        // Exact format: `Task "{id}" exceeded the slow-task threshold ({duration}s elapsed, {threshold}s threshold)`.
         $output = $this->output->fetch();
         self::assertMatchesRegularExpression(
-            '/Task "task\.1" exceeded timeout \(\d+s elapsed, 1s limit\)\./',
+            '/Task "task\.1" exceeded the slow-task threshold \(\d+s elapsed, 1s threshold\)\./',
             $output,
         );
     }
@@ -1578,18 +1645,18 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(DbalFailingTask::DBAL_MESSAGE, $context['previous_message'] ?? null);
     }
 
-    public function testTimeoutExceedsLogsWarning(): void
+    public function testSlowTaskThresholdExceededDuringRunAllLogsWarning(): void
     {
         $logger = new ArrayLogger();
         $runner = $this->createRunner(
             [new SleepingTask('task.1', 1_100_000)],
             logger: $logger,
-            defaultTimeout: 1,
+            slowTaskThreshold: 1,
         );
 
         $runner->runAll($this->output);
 
-        self::assertTrue($logger->has('warning', 'exceeded timeout'));
+        self::assertTrue($logger->has('warning', 'exceeded slow-task threshold'));
     }
 
     public function testLockDeniedLogsWarning(): void
@@ -2402,42 +2469,42 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // Timeout boundary (line 417): strictly > not >=
+    // Slow-task threshold boundary: strictly > not >=
     // -------------------------------------------------------------------------
 
-    public function testTimeoutWarningNotTriggeredWhenDurationEqualsTimeout(): void
+    public function testSlowTaskWarningNotTriggeredWhenDurationBelowThreshold(): void
     {
-        // Kills GreaterThan (>= mutant on line 417).
-        // This test uses a near-instant task (0 sleep) with a 300s timeout — duration
-        // will be far below timeout. The key is the boundary: `$duration > $timeout`
-        // must NOT fire when duration < timeout. We verify the normal case holds
-        // and the warning is absent without a sleep (duration ≈ 0, timeout = 300).
+        // Kills GreaterThan (>= mutant on the `$duration > $threshold` comparison).
+        // This test uses a near-instant task (0 sleep) with a 300s threshold — duration
+        // will be far below it. The key is the boundary: `$duration > $threshold`
+        // must NOT fire when duration < threshold. We verify the normal case holds
+        // and the warning is absent without a sleep (duration ≈ 0, threshold = 300).
         $logger = new ArrayLogger();
         $runner = $this->createRunner(
             [new SimpleTask('task.1', 'First')],
             logger: $logger,
-            defaultTimeout: 300,
+            slowTaskThreshold: 300,
         );
 
         $runner->runOne('task.1', $this->output);
 
-        self::assertFalse($logger->has('warning', 'exceeded timeout'), 'Timeout must not fire when duration << limit');
-        self::assertStringNotContainsString('exceeded timeout', $this->output->fetch());
+        self::assertFalse($logger->has('warning', 'exceeded slow-task threshold'), 'Warning must not fire when duration << threshold');
+        self::assertStringNotContainsString('exceeded the slow-task threshold', $this->output->fetch());
     }
 
-    public function testTimeoutWarningLogIncludesTaskId(): void
+    public function testSlowTaskWarningLogIncludesTaskId(): void
     {
-        // Kills ArrayItemRemoval on line 424 ('task_id' key in timeout warning log).
+        // Kills ArrayItemRemoval ('task_id' key in the slow-task warning log).
         $logger = new ArrayLogger();
         $runner = $this->createRunner(
             [new SleepingTask('task.slow', 1_100_000)],
             logger: $logger,
-            defaultTimeout: 1,
+            slowTaskThreshold: 1,
         );
 
         $runner->runOne('task.slow', $this->output);
 
-        $records = $logger->recordsMatching('warning', 'exceeded timeout');
+        $records = $logger->recordsMatching('warning', 'exceeded slow-task threshold');
         self::assertCount(1, $records);
         self::assertSame('task.slow', $records[0]['context']['task_id'] ?? null);
     }
@@ -3167,7 +3234,7 @@ final class TaskRunnerTest extends TestCase
         ?EventDispatcherInterface $dispatcher = null,
         ?LoggerInterface $logger = null,
         ?LockFactory $lockFactory = null,
-        int $defaultTimeout = 300,
+        int $slowTaskThreshold = 300,
         ?TransactionMode $transactionMode = null,
         int $lockTtl = 3600,
         ?string $environment = null,
@@ -3186,7 +3253,7 @@ final class TaskRunnerTest extends TestCase
             new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),
-            $defaultTimeout,
+            $slowTaskThreshold,
             $transactionMode,
             $lockTtl,
             lockDisabledByConfig: $lockDisabledByConfig,

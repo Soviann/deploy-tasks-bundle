@@ -120,7 +120,7 @@ The host runner is intentionally a flat, ordered, once-per-machine script runner
 (~100 lines of bash). The following are **non-goals** and will not be added:
 
 - groups / stages, env-based task filtering, priorities
-- lifecycle events, per-task timeouts
+- lifecycle events, per-task timeouts or slow-task thresholds
 - storage backends beyond the append-only log
 - richer `.env` parsing (expansion, inline comments, multiline) — use
   `deploy-tasks-host.local.sh` for anything the parser can't express

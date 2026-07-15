@@ -96,7 +96,7 @@ Tasks that shell out to external binaries can opt into the `ProcessRunnerTrait`,
 ```yaml
 # config/packages/soviann_deploy_tasks.yaml
 soviann_deploy_tasks:
-    default_timeout: 300         # seconds
+    slow_task_threshold: 300     # seconds; warn when a task runs longer (nothing is killed)
     storage:
         type: filesystem         # filesystem | database | custom
         filesystem:

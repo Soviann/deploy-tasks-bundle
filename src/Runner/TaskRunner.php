@@ -56,7 +56,7 @@ final readonly class TaskRunner
         private TaskSorterInterface $sorter,
         private TaskIdResolver $idResolver,
         private TaskDescriptionResolver $descriptionResolver,
-        private int $defaultTimeout,
+        private int $slowTaskThreshold,
         private TransactionMode $transactionMode,
         private int $lockTtl,
         /** True when lock.enabled is false in config — a deliberate opt-out, not a missing symfony/lock. */
@@ -429,7 +429,7 @@ final readonly class TaskRunner
     }
 
     /**
-     * Executes a single task with event dispatching, timeout check, and transactional wrapping.
+     * Executes a single task with event dispatching, slow-task check, and transactional wrapping.
      *
      * Emits a `[current/total] FQCN` progress line before execution and a
      * `→ status (ms)` completion line after.
@@ -457,7 +457,7 @@ final readonly class TaskRunner
         array $pendingSlots,
     ): TaskOutcome {
         $attribute = AsDeployTask::of($task);
-        $timeout = null !== $attribute && null !== $attribute->timeout ? $attribute->timeout : $this->defaultTimeout;
+        $slowTaskThreshold = $attribute->slowTaskThreshold ?? $this->slowTaskThreshold;
 
         if (!$output->isQuiet()) {
             $output->writeln(\sprintf(' [%d/%d] %s', $current, $total, $task::class));
@@ -476,7 +476,7 @@ final readonly class TaskRunner
         // is converted into a TaskReturnedFailureException, so it follows the same path
         // as a thrown failure inside any wrapping transaction: rollback, Failed record,
         // TaskFailedEvent, all_or_nothing abort.
-        $run = function () use ($task, $output, $taskId, $timeout, $start, &$taskRanSuccessfully): TaskOutcome {
+        $run = function () use ($task, $output, $taskId, $slowTaskThreshold, $start, &$taskRanSuccessfully): TaskOutcome {
             $result = $task->run($output);
 
             if (TaskResult::FAILURE === $result) {
@@ -485,7 +485,7 @@ final readonly class TaskRunner
 
             $taskRanSuccessfully = true;
 
-            return $this->buildSuccessOutcome($taskId, $result, \microtime(true) - $start, $timeout, $output);
+            return $this->buildSuccessOutcome($taskId, $result, \microtime(true) - $start, $slowTaskThreshold, $output);
         };
 
         try {
@@ -546,20 +546,20 @@ final readonly class TaskRunner
         string $taskId,
         TaskResult $result,
         float $duration,
-        int $timeout,
+        int $slowTaskThreshold,
         OutputInterface $output,
     ): TaskOutcome {
-        if ($timeout > 0 && $duration > $timeout) {
+        if ($slowTaskThreshold > 0 && $duration > $slowTaskThreshold) {
             $output->writeln(\sprintf(
-                '<comment>Task "%s" exceeded timeout (%ds elapsed, %ds limit).</comment>',
+                '<comment>Task "%s" exceeded the slow-task threshold (%ds elapsed, %ds threshold).</comment>',
                 $taskId,
                 (int) $duration,
-                $timeout,
+                $slowTaskThreshold,
             ));
-            $this->logger->warning('Deploy task exceeded timeout', [
+            $this->logger->warning('Deploy task exceeded slow-task threshold', [
                 'task_id' => $taskId,
                 'duration_s' => $duration,
-                'timeout_s' => $timeout,
+                'threshold_s' => $slowTaskThreshold,
             ]);
         }
 

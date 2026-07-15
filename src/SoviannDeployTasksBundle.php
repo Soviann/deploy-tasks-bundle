@@ -102,10 +102,10 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                     ->defaultNull()
                     ->info('Service ID of a custom PSR-3 LoggerInterface, or null to auto-detect the application logger (with monolog channel "soviann_deploy_tasks" when monolog-bundle is installed).')
                 ->end()
-                ->integerNode('default_timeout')
+                ->integerNode('slow_task_threshold')
                     ->defaultValue(300)
                     ->min(0)
-                    ->info('Default task execution timeout in seconds. 0 disables the timeout check entirely (no warning emitted, regardless of duration).')
+                    ->info('Duration in seconds above which a completed task is logged as slow — a warning only, nothing is killed. 0 disables the check entirely (no warning emitted, regardless of duration).')
                 ->end()
                 ->append((new StorageConfigNode())->buildRoot())
                 ->append((new EventsConfigNode())->buildRoot())
@@ -231,7 +231,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$descriptionResolver' => service('soviann_deploy_tasks.description_resolver'),
                 '$dispatcher' => null, // set by compiler pass
                 '$lockFactory' => null, // set by compiler pass
-                '$defaultTimeout' => $config['default_timeout'],
+                '$slowTaskThreshold' => $config['slow_task_threshold'],
                 '$environment' => param('kernel.environment'),
                 '$transactionMode' => $transactionMode,
                 '$logger' => null, // set below

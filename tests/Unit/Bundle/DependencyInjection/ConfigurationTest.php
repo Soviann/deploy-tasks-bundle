@@ -51,7 +51,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'storage' => [
                     'type' => 'filesystem',
                     'filesystem' => [
@@ -119,7 +119,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'events' => ['enabled' => true],
                 'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
@@ -169,7 +169,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'events' => ['enabled' => true],
                 'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
@@ -190,7 +190,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => 'app.id',
                 'sorter' => 'app.sorter',
                 'logger' => 'app.logger',
-                'default_timeout' => 600,
+                'slow_task_threshold' => 600,
                 'storage' => [
                     'type' => 'database',
                     'filesystem' => ['path' => '/custom/fs'],
@@ -222,7 +222,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => 'app.id',
                 'sorter' => 'app.sorter',
                 'logger' => 'app.logger',
-                'default_timeout' => 600,
+                'slow_task_threshold' => 600,
                 'storage' => [
                     'type' => 'database',
                     'filesystem' => [
@@ -290,7 +290,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'events' => ['enabled' => true],
                 'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
@@ -313,7 +313,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'storage' => [
                     'type' => 'filesystem',
                     'filesystem' => [
@@ -358,7 +358,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'storage' => [
                     'type' => 'filesystem',
                     'filesystem' => [
@@ -433,7 +433,7 @@ final class ConfigurationTest extends TestCase
                 'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
-                'default_timeout' => 300,
+                'slow_task_threshold' => 300,
                 'events' => ['enabled' => true],
                 'lock' => ['enabled' => true, 'ttl' => 3600],
                 'generate' => [
@@ -661,21 +661,31 @@ final class ConfigurationTest extends TestCase
         ]);
     }
 
-    public function testDefaultTimeoutZeroIsAccepted(): void
+    public function testSlowTaskThresholdZeroIsAccepted(): void
     {
         // Mutants 146 (IncrementInteger: min(0→1)) and 147 (DecrementInteger: min(0→-1)).
-        // Value 0 must be valid (disables timeout check).
-        $config = self::processConfig(['default_timeout' => 0]);
+        // Value 0 must be valid (disables the slow-task check).
+        $config = self::processConfig(['slow_task_threshold' => 0]);
 
-        self::assertSame(0, $config['default_timeout']);
+        self::assertSame(0, $config['slow_task_threshold']);
     }
 
-    public function testDefaultTimeoutRejectsNegativeValue(): void
+    public function testSlowTaskThresholdRejectsNegativeValue(): void
     {
-        // min(0) on default_timeout: -1 must be rejected.
+        // min(0) on slow_task_threshold: -1 must be rejected.
         $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
 
-        self::processConfig(['default_timeout' => -1]);
+        self::processConfig(['slow_task_threshold' => -1]);
+    }
+
+    public function testRemovedDefaultTimeoutKeyIsRejected(): void
+    {
+        // The knob was renamed (it never killed anything): the old key must fail
+        // loudly instead of being silently dropped while the default takes over.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/Unrecognized option "default_timeout"/');
+
+        self::processConfig(['default_timeout' => 300]);
     }
 
     public function testUnknownStorageTypeIsRejected(): void

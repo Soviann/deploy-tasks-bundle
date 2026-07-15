@@ -44,26 +44,24 @@ If the lock cannot be acquired, the command exits with code `75` (`EX_TEMPFAIL`,
 
 Disable locking by setting `lock.enabled: false` or by not installing `symfony/lock`.
 
-## Timeout Behavior
+## Slow-Task Threshold
 
-The default timeout is 300 seconds (5 minutes). Override globally or per task.
+After a task completes, the runner compares its wall-clock duration against a threshold and logs a warning when the task ran longer. Nothing is ever killed — the check exists to flag tasks that are slower than expected, not to enforce a limit. (For a real kill, see the hard `Process` timeout in [`docs/creating-tasks.md` → Running shell commands](creating-tasks.md#running-shell-commands).)
 
-Global override:
+The default threshold is 300 seconds (5 minutes). Override globally:
 
 ```yaml
 soviann_deploy_tasks:
-    default_timeout: 600  # 10 minutes
+    slow_task_threshold: 600  # 10 minutes
 ```
 
-Per-task override via the attribute:
+Or per task, for one that is legitimately slow and should not warn on every deploy:
 
 ```php
-#[AsDeployTask(id: 'task_heavy_migration', timeout: 1800)]  // 30 minutes
+#[AsDeployTask(id: 'task_heavy_migration', slowTaskThreshold: 1800)]  // 30 minutes
 ```
 
-Timeout is tracked but does not kill the running task — a warning is logged when the threshold is exceeded. Design long-running tasks to handle interruption gracefully.
-
-Set `default_timeout: 0` to disable the check entirely: no warning is emitted regardless of duration. Per-task timeouts set via `#[AsDeployTask(timeout: 0)]` are treated the same way.
+Set `slow_task_threshold: 0` to disable the check entirely: no warning is emitted regardless of duration. `#[AsDeployTask(slowTaskThreshold: 0)]` does the same for a single task.
 
 ## Transaction Wrapping
 

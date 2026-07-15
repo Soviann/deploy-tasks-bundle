@@ -12,7 +12,7 @@ One-time deploy tasks for Symfony — tracked, ordered, transactional.
 | [Events](events.md) | `BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` |
 | [Logging](logging.md) | PSR-3 wiring, Monolog channel, message reference |
 | [Security](security.md) | Trust model, permissions, secrets handling, hardening notes |
-| [Advanced](advanced.md) | Custom sorters and ID generators, locks, timeouts, transactions |
+| [Advanced](advanced.md) | Custom sorters and ID generators, locks, the slow-task threshold, transactions |
 | [Testing](testing.md) | Unit and functional testing of tasks and storage |
 | [Troubleshooting](troubleshooting.md) | Symptom-first FAQ |
 

@@ -20,7 +20,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 ### Role-based folders
 
 **`Attribute/`**
-- `AsDeployTask` — task metadata (id, priority, env, timeout, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
+- `AsDeployTask` — task metadata (id, priority, env, timeout, slowTaskThreshold, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
 
 **`Command/`** — 9 console commands (`Deploy*Command.php`) plus `CommandMessages.php` (shared user-facing strings).
 
@@ -75,7 +75,7 @@ soviann_deploy_tasks:
     id_generator: ~                         # service ID or null (default: DefaultTaskIdGenerator)
     sorter: ~                               # service ID or null (default: DefaultTaskSorter)
     logger: ~                               # PSR-3 service ID; null = autodetect app logger, NullLogger fallback
-    default_timeout: 300                    # seconds (>= 0); 0 disables the check
+    slow_task_threshold: 300                # seconds (>= 0); warn past it, kill nothing; 0 disables the check
     storage:
         type: filesystem                    # filesystem | database | custom
         filesystem:
@@ -119,7 +119,7 @@ Validation: `type: database` requires `doctrine/dbal` at compile time. `type: cu
 Any class implementing `DeployTaskInterface` is automatically tagged `soviann_deploy_tasks.task`.
 
 ### Attribute
-`#[AsDeployTask(id, priority, env, timeout, transactional, description, groups)]` provides task metadata. `AsDeployTask::of($task)` is the only attribute reader in the codebase. The `description` attribute is the fallback when `getDescription()` returns an empty string — same pattern as `id` resolution.
+`#[AsDeployTask(id, priority, env, timeout, slowTaskThreshold, transactional, description, groups)]` provides task metadata — `timeout` = hard Process kill (ProcessRunnerTrait only), `slowTaskThreshold` = per-task override of the runner's slow-task warning. `AsDeployTask::of($task)` is the only attribute reader in the codebase. The `description` attribute is the fallback when `getDescription()` returns an empty string — same pattern as `id` resolution.
 
 ### Service Aliases (autowirable)
 - `TaskStorageInterface` → active storage backend

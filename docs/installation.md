@@ -48,7 +48,7 @@ To customise the storage backend or other options, publish a configuration file:
 ```yaml
 # config/packages/soviann_deploy_tasks.yaml
 soviann_deploy_tasks:
-    default_timeout: 300          # seconds (>= 0). 0 disables the timeout check entirely (no warning emitted).
+    slow_task_threshold: 300      # seconds (>= 0); warn when a task runs longer — nothing is killed. 0 disables the check.
     storage:
         type: filesystem           # or: database, custom
         filesystem:

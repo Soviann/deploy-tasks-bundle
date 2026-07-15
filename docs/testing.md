@@ -22,13 +22,13 @@ $runner = new TaskRunner(
     new DefaultTaskSorter($idResolver),
     $idResolver,
     new TaskDescriptionResolver(),
-    defaultTimeout: 300,
+    slowTaskThreshold: 300,
     transactionMode: TransactionMode::None,
     lockTtl: 3600,
 );
 ```
 
-`TaskRunner`'s constructor takes eight required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $defaultTimeout`, `TransactionMode $transactionMode`, `int $lockTtl` — followed by five optional ones, not all defaulting to `null`: `?EventDispatcherInterface $dispatcher = null`, `?LockFactory $lockFactory = null`, `?string $environment = null`, `ClockInterface $clock = new SystemClock()` (real wall-clock time unless overridden — inject a fake clock for deterministic timestamps in tests), and `?LoggerInterface $logger = null` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed. A `transactionMode` other than `none` throws `IncompatibleStorageException` unless `$storage` implements `TransactionalStorageInterface`.
+`TaskRunner`'s constructor takes eight required arguments — `TaskRegistry $registry`, `TaskStorageInterface $storage`, `TaskSorterInterface $sorter`, `TaskIdResolver $idResolver`, `TaskDescriptionResolver $descriptionResolver`, `int $slowTaskThreshold`, `TransactionMode $transactionMode`, `int $lockTtl` — followed by five optional ones, not all defaulting to `null`: `?EventDispatcherInterface $dispatcher = null`, `?LockFactory $lockFactory = null`, `?string $environment = null`, `ClockInterface $clock = new SystemClock()` (real wall-clock time unless overridden — inject a fake clock for deterministic timestamps in tests), and `?LoggerInterface $logger = null` (a `NullLogger` is used when no logger is given). The example above supplies only the required arguments; add optional ones as needed. A `transactionMode` other than `none` throws `IncompatibleStorageException` unless `$storage` implements `TransactionalStorageInterface`.
 
 ## Functional Testing with a Test Kernel
 

@@ -197,7 +197,8 @@ final class DeployTasksGenerateCommand extends Command
                 //     id: __TASK_ID__,       // optional; auto-derived from FQCN if omitted. Renaming this class rotates the auto-ID.
                 //     priority: 0,           // higher runs first
                 //     env: 'prod',           // or ['prod', 'staging']; null = all envs
-                //     timeout: 60,           // seconds; null = default_timeout from config
+                //     timeout: 60,           // seconds; hard kill for processes run via ProcessRunnerTrait::runProcess()
+                //     slowTaskThreshold: 60, // seconds before the runner logs a slow-task warning; null = slow_task_threshold from config
                 //     transactional: false,  // opt out of the per-task transaction (only read when storage.transaction_mode is per_task)
                 //     groups: 'default',     // or ['a', 'b']; null = default slot
                 // )]

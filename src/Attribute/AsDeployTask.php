@@ -44,25 +44,32 @@ final class AsDeployTask
     private static array $cache = [];
 
     /**
-     * @param string               $id            Unique task identifier (empty = use TaskIdProviderInterface or
-     *                                            FQCN auto-deduction). Non-empty values must match
-     *                                            AsDeployTask::TASK_ID_PATTERN.
-     * @param int                  $priority      Execution priority (higher runs first, default 0)
-     * @param string|string[]|null $env           Restrict to specific environment(s), null for all
-     * @param int|null             $timeout       Max execution time in seconds, null for default. 0 disables the
-     *                                            runner's soft timeout check. Must be >= 0.
-     * @param bool|null            $transactional Per-task override of the transaction wrapping, only honored when
-     *                                            `storage.<backend>.transaction_mode` is `per_task`: false opts the
-     *                                            task out of its per-task transaction, true spells out the mode's
-     *                                            default. Null = follow the configured mode. Conflicting declarations
-     *                                            (false under `all_or_nothing`, true under `none`) fail the container
-     *                                            build.
-     * @param string|null          $description   Human-readable description (overrides
-     *                                            DeployTaskInterface::getDescription())
-     * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when
-     *                                            deploytasks:run is called without --group). Names must match
-     *                                            AsDeployTask::GROUP_NAME_PATTERN and each name must be unique,
-     *                                            ignoring letter case.
+     * @param string               $id                Unique task identifier (empty = use TaskIdProviderInterface or
+     *                                                FQCN auto-deduction). Non-empty values must match
+     *                                                AsDeployTask::TASK_ID_PATTERN.
+     * @param int                  $priority          Execution priority (higher runs first, default 0)
+     * @param string|string[]|null $env               Restrict to specific environment(s), null for all
+     * @param int|null             $timeout           Hard timeout in seconds for processes run through
+     *                                                ProcessRunnerTrait::runProcess(): a value > 0 becomes the
+     *                                                Process's own timeout (the process is killed past it). 0 or
+     *                                                null leaves the Process untouched; the value has no effect
+     *                                                outside that trait. Must be >= 0.
+     * @param int|null             $slowTaskThreshold Per-task override of the runner's `slow_task_threshold`
+     *                                                config (seconds): a completed task slower than this is logged
+     *                                                with a warning — nothing is killed. 0 disables the check for
+     *                                                this task, null follows the configured threshold. Must be >= 0.
+     * @param bool|null            $transactional     Per-task override of the transaction wrapping, only honored when
+     *                                                `storage.<backend>.transaction_mode` is `per_task`: false opts the
+     *                                                task out of its per-task transaction, true spells out the mode's
+     *                                                default. Null = follow the configured mode. Conflicting declarations
+     *                                                (false under `all_or_nothing`, true under `none`) fail the container
+     *                                                build.
+     * @param string|null          $description       Human-readable description (overrides
+     *                                                DeployTaskInterface::getDescription())
+     * @param string|string[]|null $groups            Groups the task belongs to; null = default group (runs only when
+     *                                                deploytasks:run is called without --group). Names must match
+     *                                                AsDeployTask::GROUP_NAME_PATTERN and each name must be unique,
+     *                                                ignoring letter case.
      *
      * @throws \InvalidArgumentException When a non-empty id does not match TASK_ID_PATTERN
      * @throws \InvalidArgumentException When env is an empty array
@@ -72,12 +79,14 @@ final class AsDeployTask
      * @throws \InvalidArgumentException When a group name does not match GROUP_NAME_PATTERN
      * @throws \InvalidArgumentException When the same group name appears more than once, or two group names differ only by letter case
      * @throws \InvalidArgumentException When timeout is negative
+     * @throws \InvalidArgumentException When slowTaskThreshold is negative
      */
     public function __construct(
         public readonly string $id = '',
         public readonly int $priority = 0,
         public readonly string|array|null $env = null,
         public readonly ?int $timeout = null,
+        public readonly ?int $slowTaskThreshold = null,
         public readonly ?bool $transactional = null,
         public readonly ?string $description = null,
         public readonly string|array|null $groups = null,
@@ -147,6 +156,10 @@ final class AsDeployTask
 
         if (null !== $timeout && $timeout < 0) {
             throw new \InvalidArgumentException(\sprintf('Invalid timeout %d in #[AsDeployTask]: must be >= 0.', $timeout));
+        }
+
+        if (null !== $slowTaskThreshold && $slowTaskThreshold < 0) {
+            throw new \InvalidArgumentException(\sprintf('Invalid slowTaskThreshold %d in #[AsDeployTask]: must be >= 0.', $slowTaskThreshold));
         }
     }
 
@@ -236,7 +249,8 @@ final class AsDeployTask
     }
 
     /**
-     * Declared timeout of a task class, or null when the class has no
+     * Declared hard-process timeout of a task class (consumed by
+     * ProcessRunnerTrait::runProcess()), or null when the class has no
      * attribute or the attribute declares no timeout.
      *
      * @param class-string|DeployTaskInterface $classOrTask

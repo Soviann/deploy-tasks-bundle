@@ -24,7 +24,7 @@ soviann_deploy_tasks:
 | `info` | `Deploy task executed` | `task_id`, `result`, `duration_ms` |
 | `info` | `Deploy task skipped (already executed)` | `task_id` |
 | `info` | `Deploy tasks run finished` | `ran`, `skipped`, `failed`, `locked` |
-| `warning` | `Deploy task exceeded timeout` | `task_id`, `duration_s`, `timeout_s` |
+| `warning` | `Deploy task exceeded slow-task threshold` | `task_id`, `duration_s`, `threshold_s` |
 | `warning` | `Deploy tasks run skipped: another process is already running` | — |
 | `warning` | `Deploy tasks runner has no lock factory — concurrent execution is not protected` | — |
 | `error` | `Deploy task failed` | `task_id`, `duration_ms`, plus either `exception` or, when a DBAL exception sits in the failure chain, `exception_class`/`exception_message`/`previous_message` (see below) |

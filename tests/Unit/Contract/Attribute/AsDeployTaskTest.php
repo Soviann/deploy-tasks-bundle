@@ -23,6 +23,7 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(0, $attribute->priority);
         self::assertNull($attribute->env);
         self::assertNull($attribute->timeout);
+        self::assertNull($attribute->slowTaskThreshold);
         self::assertNull($attribute->transactional);
         self::assertNull($attribute->description);
     }
@@ -34,6 +35,7 @@ final class AsDeployTaskTest extends TestCase
             priority: 10,
             env: ['prod', 'staging'],
             timeout: 60,
+            slowTaskThreshold: 45,
             transactional: true,
             description: 'Seeds the category table',
         );
@@ -42,6 +44,7 @@ final class AsDeployTaskTest extends TestCase
         self::assertSame(10, $attribute->priority);
         self::assertSame(['prod', 'staging'], $attribute->env);
         self::assertSame(60, $attribute->timeout);
+        self::assertSame(45, $attribute->slowTaskThreshold);
         self::assertTrue($attribute->transactional);
         self::assertSame('Seeds the category table', $attribute->description);
     }
@@ -306,6 +309,19 @@ final class AsDeployTaskTest extends TestCase
     public function testAcceptsZeroTimeoutAsLegalValue(): void
     {
         self::assertSame(0, (new AsDeployTask(id: 'task.zero-timeout', timeout: 0))->timeout);
+    }
+
+    public function testRejectsNegativeSlowTaskThreshold(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Invalid slowTaskThreshold/');
+
+        new AsDeployTask(id: 'task.bad-threshold', slowTaskThreshold: -1);
+    }
+
+    public function testAcceptsZeroSlowTaskThresholdAsLegalValue(): void
+    {
+        self::assertSame(0, (new AsDeployTask(id: 'task.zero-threshold', slowTaskThreshold: 0))->slowTaskThreshold);
     }
 
     /**

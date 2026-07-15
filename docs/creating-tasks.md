@@ -15,7 +15,7 @@ The generated file is placed in `src/DeployTasks/Task/` by default and contains 
 
 ## Attribute-based tasks (recommended)
 
-Add `#[AsDeployTask]` to your class to attach metadata such as priority, environment restriction, and timeout.
+Add `#[AsDeployTask]` to your class to attach metadata such as priority, environment restriction, and a slow-task threshold.
 
 ```php
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
@@ -43,7 +43,7 @@ final class SeedCategoriesTask implements DeployTaskInterface
 
 ## Interface-only tasks
 
-If you do not need the metadata provided by the attribute, you can implement `DeployTaskInterface` directly without it. The task will still be discovered and executed, but it will have no priority, no environment restriction, no timeout override, no transactional flag, and no group assignment.
+If you do not need the metadata provided by the attribute, you can implement `DeployTaskInterface` directly without it. The task will still be discovered and executed, but it will have no priority, no environment restriction, no timeout or slow-task threshold override, no transactional flag, and no group assignment.
 
 ## Attribute options
 
@@ -52,7 +52,8 @@ If you do not need the metadata provided by the attribute, you can implement `De
 | `id` | `string` | `''` | Unique task identifier. Resolution order: `TaskIdProviderInterface::getTaskId()` if the task implements it and returns non-empty, then this `id` if non-empty, then the configured `TaskIdGeneratorInterface::generate()` (default: `DefaultTaskIdGenerator`). |
 | `priority` | `int` | `0` | Higher value runs first |
 | `env` | `string\|string[]\|null` | `null` | Restrict execution to one or more environments; `null` runs everywhere |
-| `timeout` | `?int` | `null` | Override the bundle's `default_timeout` for this task (seconds) |
+| `timeout` | `?int` | `null` | Hard timeout in seconds for processes run through `ProcessRunnerTrait::runProcess()` — the process is killed past it. No effect outside that trait; see [Running shell commands](#running-shell-commands) |
+| `slowTaskThreshold` | `?int` | `null` | Per-task override of the bundle's `slow_task_threshold` (seconds): the runner logs a warning when the task runs longer — nothing is killed. `0` disables the check for this task; `null` follows the configured threshold |
 | `transactional` | `?bool` | `null` | Per-task override, only meaningful under `storage.<backend>.transaction_mode: per_task`: `null`/unset wraps the task like every other one, `false` opts it out. `true` on a storage that doesn't implement `TransactionalStorageInterface`, `true` under `transaction_mode: none`, or `false` under `transaction_mode: all_or_nothing` all fail the container build — see [`docs/storage.md` → Transaction mode](storage.md#transaction-mode). |
 | `description` | `?string` | `null` | Human-readable description used when `getDescription()` returns an empty string. Mirrors the `id` resolution: interface method wins when non-empty, attribute fallback otherwise. |
 | `groups` | `string\|string[]\|null` | `null` | Group(s) the task belongs to; `null` = default slot (runs when `deploytasks:run` is called without `--group`) |
@@ -191,14 +192,14 @@ Behavior notes:
 - **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, but only when `N > 0` — in that case it overrides any timeout already set on the `Process` instance. When the attribute timeout is `null` or `0`, `runProcess()` leaves the `Process`'s own timeout untouched (see the trap below). Use `runProcessWithTimeout()` to apply a different explicit limit per call.
 - **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
 - **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.
-- A hard-killed process will typically also trip the runner's post-run soft-timeout warning in the log (same run — the two are redundant, not contradictory).
+- **A hard-killed process is recorded as a plain failure.** The runner's [slow-task warning](advanced.md#slow-task-threshold) is a separate mechanism: it fires only for tasks that run to completion, and never kills anything.
 
-### Timeout traps
+### Hard-timeout traps
 
-- **symfony/process has its own default timeout of 60 seconds**, independent of the bundle's `timeout` attribute and the [wall-clock soft-timeout warning](advanced.md#timeout-behavior). On the bundle side, `timeout: null` (the default) falls back to the configured `default_timeout` (300 seconds unless configured) and the soft check stays active with that value, while an explicit `timeout: 0` disables the soft check entirely. In **both** cases, though, `runProcess()` skips the automatic hard-timeout override and does not touch the `Process` instance's own timeout — a `Process` you construct without an explicit `timeout` argument will still be hard-killed by symfony/process after 60 seconds. For a genuinely unlimited process, pass `timeout: null` to the `Process` constructor (or call `$process->setTimeout(null)` before running it):
+- **symfony/process has its own default timeout of 60 seconds**, independent of the `timeout` attribute. `runProcess()` only overrides the `Process`'s own timeout when the attribute declares `timeout: N` with `N > 0` — with `timeout: null` (the default) or an explicit `timeout: 0`, the `Process` instance is left untouched, so a `Process` you construct without an explicit `timeout` argument will still be hard-killed by symfony/process after 60 seconds. For a genuinely unlimited process, pass `timeout: null` to the `Process` constructor (or call `$process->setTimeout(null)` before running it):
 
   ```php
   $process = new Process(['rsync', '-a', $src, $dest], timeout: null);
   ```
 
-- **A hard kill (from either timeout) signals the direct child process only** — background children and pipeline stages it spawned (`&`, `|`, nested shells) are not reached and keep running. If your command forks background work, run it in its own process group (e.g. wrap it with `setsid …`) so it can be killed as a unit, or reap the children yourself. Left unmanaged, these orphans keep mutating state after the deploy has already recorded `TaskResult::FAILURE`.
+- **A hard kill signals the direct child process only** — background children and pipeline stages it spawned (`&`, `|`, nested shells) are not reached and keep running. If your command forks background work, run it in its own process group (e.g. wrap it with `setsid …`) so it can be killed as a unit, or reap the children yourself. Left unmanaged, these orphans keep mutating state after the deploy has already recorded `TaskResult::FAILURE`.

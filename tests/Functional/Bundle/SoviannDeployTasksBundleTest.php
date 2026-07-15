@@ -258,16 +258,16 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         self::bootKernel();
     }
 
-    public function testDefaultTimeoutConfigValueIsThreeHundred(): void
+    public function testSlowTaskThresholdConfigValueIsThreeHundred(): void
     {
-        // Pins the `default_timeout` config default (300) — kills Increment/DecrementInteger mutants.
+        // Pins the `slow_task_threshold` config default (300) — kills Increment/DecrementInteger mutants.
         // Reflection is intentional here: the literal is a constructor-arg integer with no public observable.
         self::bootKernel();
         $runner = self::getContainer()->get(TaskRunner::class);
         \assert($runner instanceof TaskRunner);
 
-        $defaultTimeout = new \ReflectionProperty(TaskRunner::class, 'defaultTimeout');
-        self::assertSame(300, $defaultTimeout->getValue($runner));
+        $slowTaskThreshold = new \ReflectionProperty(TaskRunner::class, 'slowTaskThreshold');
+        self::assertSame(300, $slowTaskThreshold->getValue($runner));
     }
 
     public function testDbalIdColumnLengthDefaultIsTwoHundredFiftyFive(): void

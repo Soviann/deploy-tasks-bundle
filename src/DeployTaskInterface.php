@@ -11,12 +11,12 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * Implement this interface to register a task that will be discovered
  * and executed by the deploy runner. Optionally add #[AsDeployTask] to
- * configure id, priority, environment filtering, timeout, transactional
+ * configure id, priority, environment filtering, timeouts, transactional
  * behavior, description, and group membership.
  *
  * @see TaskIdProviderInterface  Optional interface to provide a dynamic task ID
- * @see Attribute\AsDeployTask   Attribute for static configuration (id, priority, env, timeout, transactional,
- *                               description, groups)
+ * @see Attribute\AsDeployTask   Attribute for static configuration (id, priority, env, timeout,
+ *                               slowTaskThreshold, transactional, description, groups)
  */
 interface DeployTaskInterface
 {
