@@ -12,6 +12,7 @@ use Doctrine\DBAL\Platforms\SQLitePlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -337,5 +338,114 @@ final class DbalStorageTest extends TestCase
             $ids,
             'Rows must be returned in ascending UTC chronological order regardless of stored TZ offset.',
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // Runtime id/group length guard
+    // -------------------------------------------------------------------------
+
+    /**
+     * A task implementing TaskIdProviderInterface produces its id only at runtime, so
+     * the compile-time id_column_length check cannot cover it. Without a runtime guard
+     * a lenient database (e.g. MySQL without STRICT_TRANS_TABLES) silently truncates
+     * the over-long key: the stored key then differs from the runtime key, the pending
+     * check misses it, and the task re-runs on every deploy. get() (the pending check),
+     * has(), and save() must all reject the key before it reaches the database — for
+     * get() that means before the task ever executes.
+     *
+     * @param \Closure(DbalStorage): void $operation
+     */
+    #[DataProvider('overLongKeyProvider')]
+    public function testRejectsKeyExceedingConfiguredColumnLength(\Closure $operation, string $expectedMessage): void
+    {
+        $storage = self::createShortColumnStorage();
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessage($expectedMessage);
+
+        $operation($storage);
+    }
+
+    /**
+     * @return iterable<string, array{0: \Closure(DbalStorage): void, 1: string}>
+     */
+    public static function overLongKeyProvider(): iterable
+    {
+        $longId = \str_repeat('i', 33);
+        $longGroup = \str_repeat('g', 17);
+        $executedAt = new \DateTimeImmutable('2026-04-28T10:00:00+00:00');
+
+        $idMessage = 'is 33 characters, exceeding the configured id_column_length of 32';
+        $groupMessage = 'is 17 characters, exceeding the configured group_column_length of 16';
+
+        yield 'get() with an over-long id' => [
+            static function (DbalStorage $storage) use ($longId): void {
+                $storage->get($longId);
+            },
+            $idMessage,
+        ];
+
+        yield 'has() with an over-long id' => [
+            static function (DbalStorage $storage) use ($longId): void {
+                $storage->has($longId);
+            },
+            $idMessage,
+        ];
+
+        yield 'save() with an over-long id' => [
+            static function (DbalStorage $storage) use ($longId, $executedAt): void {
+                $storage->save(new TaskExecution($longId, TaskStatus::Ran, $executedAt));
+            },
+            $idMessage,
+        ];
+
+        yield 'get() with an over-long group' => [
+            static function (DbalStorage $storage) use ($longGroup): void {
+                $storage->get('task.fits', $longGroup);
+            },
+            $groupMessage,
+        ];
+
+        yield 'has() with an over-long group' => [
+            static function (DbalStorage $storage) use ($longGroup): void {
+                $storage->has('task.fits', $longGroup);
+            },
+            $groupMessage,
+        ];
+
+        yield 'save() with an over-long group' => [
+            static function (DbalStorage $storage) use ($longGroup, $executedAt): void {
+                $storage->save(new TaskExecution('task.fits', TaskStatus::Ran, $executedAt, null, $longGroup));
+            },
+            $groupMessage,
+        ];
+    }
+
+    /**
+     * Boundary pin: keys exactly at the configured column length must pass the guard
+     * and round-trip intact — protects against an off-by-one in the comparison.
+     */
+    public function testKeysAtExactColumnLengthRoundTrip(): void
+    {
+        $storage = self::createShortColumnStorage();
+        $maxId = \str_repeat('i', 32);
+        $maxGroup = \str_repeat('g', 16);
+
+        $storage->save(new TaskExecution($maxId, TaskStatus::Ran, new \DateTimeImmutable('2026-04-28T10:00:00+00:00'), null, $maxGroup));
+
+        self::assertTrue($storage->has($maxId, $maxGroup));
+
+        $fetched = $storage->get($maxId, $maxGroup);
+
+        self::assertNotNull($fetched);
+        self::assertSame($maxId, $fetched->id);
+        self::assertSame($maxGroup, $fetched->group);
+    }
+
+    private static function createShortColumnStorage(): DbalStorage
+    {
+        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
+
+        return new DbalStorage($connection, new DbalStorageConfiguration(groupColumnLength: 16, idColumnLength: 32));
     }
 }

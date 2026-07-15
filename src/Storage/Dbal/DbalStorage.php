@@ -96,6 +96,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      */
     public function has(string $taskId, ?string $group = null): bool
     {
+        $this->assertKeyLengths($taskId, $group);
         $this->ensureInitialized();
 
         try {
@@ -121,6 +122,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      */
     public function get(string $taskId, ?string $group = null): ?TaskExecution
     {
+        $this->assertKeyLengths($taskId, $group);
         $this->ensureInitialized();
 
         try {
@@ -150,6 +152,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
      */
     public function save(TaskExecution $execution): void
     {
+        $this->assertKeyLengths($execution->id, $execution->group);
         $this->ensureInitialized();
 
         // Normalize to UTC so cross-timezone ORDER BY works on platforms that store
@@ -433,6 +436,33 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         }
 
         $this->initialized = true;
+    }
+
+    /**
+     * Guards get()/has()/save() against keys longer than their configured columns.
+     *
+     * The compile-time id_column_length check cannot cover tasks whose id only exists
+     * at runtime (TaskIdProviderInterface), and a lenient database (e.g. MySQL without
+     * STRICT_TRANS_TABLES) silently truncates an over-long value instead of erroring:
+     * the stored key then differs from the runtime key, the pending check misses it,
+     * and the task re-runs on every deploy. Rejecting before the query keeps truncated
+     * keys out of the table — the pending check (get()) fails before the task executes.
+     *
+     * Lengths are compared in bytes via strlen(), which equals the character count
+     * VARCHAR(n) constrains because ids and groups are limited to single-byte ASCII
+     * (AsDeployTask::IDENTIFIER_CHAR) — the same convention as the compile-time check.
+     *
+     * @throws StorageException When the id or group exceeds its configured column length
+     */
+    private function assertKeyLengths(string $taskId, ?string $group): void
+    {
+        if (\strlen($taskId) > $this->configuration->idColumnLength) {
+            throw new StorageException(\sprintf('Task id "%s" is %d characters, exceeding the configured id_column_length of %d — the database could silently truncate it. Increase soviann_deploy_tasks.storage.database.id_column_length or shorten the task id.', $taskId, \strlen($taskId), $this->configuration->idColumnLength));
+        }
+
+        if (null !== $group && \strlen($group) > $this->configuration->groupColumnLength) {
+            throw new StorageException(\sprintf('Group name "%s" is %d characters, exceeding the configured group_column_length of %d — the database could silently truncate it. Increase soviann_deploy_tasks.storage.database.group_column_length or shorten the group name.', $group, \strlen($group), $this->configuration->groupColumnLength));
+        }
     }
 
     /**
