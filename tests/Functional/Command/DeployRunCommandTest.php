@@ -483,7 +483,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
     // Already covered by DeployRunLockCommandTest; but add output assertion here:
     public function testLockedSingleTaskShowsWarning(): void
     {
-        // Use lock kernel to exercise the LOCKED path through executeOne
+        // Use lock kernel to exercise the locked (null) path through executeOne
         self::ensureKernelShutdown();
         self::$testKernelOptions = ['lockEnabled' => true];
         self::bootKernel();

@@ -221,7 +221,8 @@ final class DeployTasksRunCommand extends Command
             return Command::FAILURE;
         }
 
-        if (TaskResult::LOCKED === $taskResult) {
+        // null = lock contention, the runner's withLock()/runOne() convention.
+        if (null === $taskResult) {
             $io->warning('Run skipped: another process is already running.');
 
             return self::EX_TEMPFAIL;

@@ -56,7 +56,7 @@ final class LoggerIntegrationTest extends FunctionalTestCase
         // the same info message — the `result` context key distinguishes them.
         $executed = $logger->recordsMatching('info', 'Deploy task executed');
         $results = \array_map(static fn (array $r): mixed => $r['context']['result'] ?? null, $executed);
-        self::assertContains(TaskResult::SUCCESS->value, $results);
-        self::assertContains(TaskResult::SKIPPED->value, $results);
+        self::assertContains(TaskResult::SUCCESS->name, $results);
+        self::assertContains(TaskResult::SKIPPED->name, $results);
     }
 }

@@ -98,13 +98,11 @@ The date is extracted from the **resolved** task ID, so a custom `TaskIdGenerato
 
 `run()` must return one of the `TaskResult` enum cases:
 
-| Constant | Value | Meaning |
-|---|---|---|
-| `TaskResult::SUCCESS` | `0` | Task completed successfully; recorded as `ran` |
-| `TaskResult::FAILURE` | `1` | Task failed; recorded as `failed` and will be retried on the next run |
-| `TaskResult::SKIPPED` | `2` | Task decided to skip itself; recorded as `skipped` in storage |
-
-`TaskResult::LOCKED` exists but is produced by the runner when a concurrent lock is held; do not return it from `run()`.
+| Constant | Meaning |
+|---|---|
+| `TaskResult::SUCCESS` | Task completed successfully; recorded as `ran` |
+| `TaskResult::FAILURE` | Task failed; recorded as `failed` and will be retried on the next run |
+| `TaskResult::SKIPPED` | Task decided to skip itself; recorded as `skipped` in storage |
 
 ## Task ID resolution
 

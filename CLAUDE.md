@@ -14,7 +14,7 @@ Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout with
 Primary public surface — matches DoctrineFixturesBundle pattern.
 
 - `DeployTaskInterface` — task contract: `getDescription(): string`, `run(OutputInterface): TaskResult`
-- `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`, `LOCKED`
+- `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`
 - `SoviannDeployTasksBundle` — `AbstractBundle`. `configure()` builds the config tree; `loadExtension()` registers services; `build()` autoconfigures `DeployTaskInterface` with tag `soviann_deploy_tasks.task`.
 
 ### Role-based folders

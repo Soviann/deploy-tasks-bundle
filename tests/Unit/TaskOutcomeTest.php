@@ -70,6 +70,5 @@ final class TaskOutcomeTest extends TestCase
         yield 'success persists as ran' => [TaskResult::SUCCESS, TaskStatus::Ran];
         yield 'skipped persists as skipped' => [TaskResult::SKIPPED, TaskStatus::Skipped];
         yield 'failure persists as failed' => [TaskResult::FAILURE, TaskStatus::Failed];
-        yield 'runner-reserved locked persists as failed' => [TaskResult::LOCKED, TaskStatus::Failed];
     }
 }

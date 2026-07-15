@@ -143,6 +143,10 @@ final readonly class TaskRunner
      *
      * Slot resolution (`$groups` being `$options->groups`) is owned by {@see SlotResolver}.
      *
+     * Returns null when the run lock is already held by another process,
+     * matching {@see withLock()}'s own convention — callers map it to their
+     * locked exit path.
+     *
      * @throws TaskEnvironmentMismatchException When the task declares an env constraint that does not match the
      *                                          runner's environment
      * @throws TaskGroupMismatchException
@@ -157,9 +161,9 @@ final readonly class TaskRunner
      * @throws \Throwable                       When the mode is not `all_or_nothing` and the task throws — the raw
      *                                          exception escapes
      */
-    public function runOne(string $taskId, OutputInterface $output, RunOptions $options = new RunOptions()): TaskResult
+    public function runOne(string $taskId, OutputInterface $output, RunOptions $options = new RunOptions()): ?TaskResult
     {
-        $result = $this->withLock(
+        return $this->withLock(
             $output,
             function (?LockInterface $lock) use ($taskId, $output, $options): TaskResult {
                 $task = $this->registry->get($taskId);
@@ -203,15 +207,13 @@ final readonly class TaskRunner
                     }
                 });
             });
-
-        return $result ?? TaskResult::LOCKED;
     }
 
     /**
      * Acquires the shared run lock, executes the operation, and releases on the way out.
      *
-     * Returns null when the lock is already held by another process — caller must map that
-     * to its own sentinel (RunResult::$locked or TaskResult::LOCKED).
+     * Returns null when the lock is already held by another process — runAll() maps that
+     * to RunResult::$locked, runOne() forwards the null as its own locked sentinel.
      *
      * @template T
      *
@@ -471,15 +473,14 @@ final readonly class TaskRunner
         $taskRanSuccessfully = false;
 
         // Runs the task and builds its success outcome. A returned TaskResult::FAILURE
-        // (or the runner-reserved TaskResult::LOCKED) is converted into a
-        // TaskReturnedFailureException, so it follows the same path as a thrown failure
-        // inside any wrapping transaction: rollback, Failed record, TaskFailedEvent,
-        // all_or_nothing abort.
+        // is converted into a TaskReturnedFailureException, so it follows the same path
+        // as a thrown failure inside any wrapping transaction: rollback, Failed record,
+        // TaskFailedEvent, all_or_nothing abort.
         $run = function () use ($task, $output, $taskId, $timeout, $start, &$taskRanSuccessfully): TaskOutcome {
             $result = $task->run($output);
 
-            if (TaskResult::FAILURE === $result || TaskResult::LOCKED === $result) {
-                throw TaskReturnedFailureException::create($taskId, $result);
+            if (TaskResult::FAILURE === $result) {
+                throw TaskReturnedFailureException::create($taskId);
             }
 
             $taskRanSuccessfully = true;
@@ -564,7 +565,7 @@ final readonly class TaskRunner
 
         $this->logger->info('Deploy task executed', [
             'task_id' => $taskId,
-            'result' => $result->value,
+            'result' => $result->name,
             'duration_ms' => (int) \round($duration * 1000),
         ]);
 

@@ -31,7 +31,7 @@ soviann_deploy_tasks:
 | `error` | `Deploy tasks run failed — transaction rolled back.` | same exception fields as `Deploy task failed` |
 | `error` | `Deploy task listener failed` | `event`, `task`, `exception` |
 
-`task_id` is always a string. `result` is an `int` — the backing value of the `TaskResult` enum (logger records `$result->value`). `duration_ms` is an int (rounded), `duration_s` a float. `exception` is the raw `\Throwable` per PSR-3 — Monolog's default formatter renders class, message, and trace. When the failure chain contains a `Doctrine\DBAL\Exception`, the runner drops the raw throwable and substitutes `exception_class`, `exception_message`, and `previous_message` (all strings) instead, to avoid forwarding a DSN-bearing trace — see the credential-safety section below.
+`task_id` is always a string. `result` is a `string` — the `TaskResult` case name, e.g. `SUCCESS` (logger records `$result->name`). `duration_ms` is an int (rounded), `duration_s` a float. `exception` is the raw `\Throwable` per PSR-3 — Monolog's default formatter renders class, message, and trace. When the failure chain contains a `Doctrine\DBAL\Exception`, the runner drops the raw throwable and substitutes `exception_class`, `exception_message`, and `previous_message` (all strings) instead, to avoid forwarding a DSN-bearing trace — see the credential-safety section below.
 
 ## Monolog Routing
 

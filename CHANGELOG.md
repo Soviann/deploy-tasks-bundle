@@ -13,7 +13,7 @@ so it executes exactly once per environment.
 
 ### Added
 
-- **Task contract** — `DeployTaskInterface` (`getDescription()`, `run(OutputInterface): TaskResult`) with the `#[AsDeployTask]` attribute (id, priority, env, timeout, transactional, description, groups) and automatic service tagging. `TaskResult` return enum: `SUCCESS`, `FAILURE`, `SKIPPED`, `LOCKED`.
+- **Task contract** — `DeployTaskInterface` (`getDescription()`, `run(OutputInterface): TaskResult`) with the `#[AsDeployTask]` attribute (id, priority, env, timeout, transactional, description, groups) and automatic service tagging. `TaskResult` return enum: `SUCCESS`, `FAILURE`, `SKIPPED`.
 - **Task runner** — executes pending tasks in a deterministic order (priority, then the date embedded in the task id, then registration order), with dry-run, single-task (`--id`), re-run-all, and per-run group targeting, plus a live `[i/N]` progress line and per-task duration.
 - **Storage backends** — filesystem (default; one JSON record per slot, `0700`/`0600` permissions, atomic writes, refusal to store under a web-served path), Doctrine DBAL (SQLite/MySQL/MariaDB/PostgreSQL, composite `(id, group)` key, optional table auto-creation), and in-memory (testing). Plug in any backend through `TaskStorageInterface` / `TransactionalStorageInterface`; opt into DDL provisioning with `SchemaManageable`.
 - **Transactions** — optional per-task database transactions and an all-or-nothing whole-run transaction that rolls back every side effect on failure.
@@ -32,6 +32,11 @@ so it executes exactly once per environment.
 
 - **Breaking (pre-1.0):** `deploytasks:run` (and `status`/`skip`/`reset`/`run --id`) now operate on all slots when no `--group` is given — ungrouped and every grouped slot — matching `deploytasks:rollup`. `--group` narrows as before. `TaskGroupRequiredException` is removed.
 - **Breaking (pre-1.0):** `storage.database.transactional`/`all_or_nothing` (and the `custom.*` pair) are replaced by a single `storage.<backend>.transaction_mode: none|per_task|all_or_nothing`. Per-task `#[AsDeployTask(transactional:)]` applies only in `per_task` mode.
+- **Breaking (pre-1.0):** `TaskResult` is no longer int-backed — the backing values were never used as exit codes or persisted. The `result` key in `Deploy task executed` log records now carries the case name (e.g. `SUCCESS`) instead of the int.
+
+### Removed
+
+- **Breaking (pre-1.0):** `TaskResult::LOCKED` is removed; `TaskRunner::runOne()` returns `?TaskResult` (null on lock contention).
 
 ### Fixed
 

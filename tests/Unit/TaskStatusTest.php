@@ -43,7 +43,5 @@ final class TaskStatusTest extends TestCase
         self::assertSame(TaskStatus::Ran, TaskResult::SUCCESS->toStatus());
         self::assertSame(TaskStatus::Skipped, TaskResult::SKIPPED->toStatus());
         self::assertSame(TaskStatus::Failed, TaskResult::FAILURE->toStatus());
-        // LOCKED is runner-reserved: a task returning it is recorded as a failure.
-        self::assertSame(TaskStatus::Failed, TaskResult::LOCKED->toStatus());
     }
 }

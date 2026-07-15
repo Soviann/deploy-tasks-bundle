@@ -1291,9 +1291,10 @@ final class TaskRunnerTest extends TestCase
 
         $result = $runner->runOne('task.1', $this->output);
 
-        self::assertSame(TaskResult::LOCKED, $result);
+        // Lock contention is null, matching withLock()'s own convention.
+        self::assertNull($result);
         // Presentation belongs to the command layer: the runner only returns the
-        // LOCKED sentinel (and logs), it must not write to the caller's output.
+        // null sentinel (and logs), it must not write to the caller's output.
         self::assertSame('', $this->output->fetch());
         self::assertFalse($this->storage->has('task.1'));
     }
@@ -2959,20 +2960,6 @@ final class TaskRunnerTest extends TestCase
 
         $this->expectException(AllOrNothingFailureException::class);
         $runner->runAll($this->output);
-    }
-
-    public function testReturnedLockedIsRecordedAsFailed(): void
-    {
-        $runner = $this->createRunner([new ReturnsFailureTask(TaskResult::LOCKED)]);
-
-        $result = $runner->runAll($this->output);
-
-        self::assertSame(1, $result->failed);
-
-        $execution = $this->storage->get('test.returns_failure');
-        self::assertNotNull($execution);
-        self::assertSame(TaskStatus::Failed, $execution->status);
-        self::assertStringContainsString('returned TaskResult::LOCKED', (string) $execution->error);
     }
 
     public function testReturnedFailureUnderPerTaskTransactionIsRecordedAsFailed(): void
