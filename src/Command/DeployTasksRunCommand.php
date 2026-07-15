@@ -294,10 +294,10 @@ final class DeployTasksRunCommand extends Command
      * misleading when tasks exist but none run in this environment — so that
      * case gets its own wording.
      *
-     * The environment check is scoped to the run's actual candidates — the
-     * default-slot tasks, since this branch only runs without a group filter.
-     * A registry holding only grouped tasks must not blame the environment:
-     * those tasks would not have run here even in a matching environment.
+     * The environment check is scoped to the run's actual candidates. Absent a
+     * group filter, every task — grouped or not — is a candidate, so a registry
+     * whose tasks are all excluded by the environment filter blames the
+     * environment regardless of how those tasks are grouped.
      *
      * @throws \ReflectionException When the #[AsDeployTask] attribute lookup fails for a registered task
      */

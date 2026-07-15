@@ -262,17 +262,20 @@ final class TaskRegistryTest extends TestCase
         new TaskRegistry([$task1, $task2], $this->idResolver);
     }
 
-    public function testAllWithNoGroupsReturnsOnlyDefaultTasks(): void
+    public function testAllWithoutGroupFilterIncludesGroupedTasks(): void
     {
+        // Phase 3 rule: an empty group request matches every task — grouped and
+        // ungrouped alike. Absent --group, every slot is in scope; --group=X
+        // narrows the selection instead of being required to reach group X.
         $default = new SimpleTask('task.default');
         $predeploy = new PredeployTask();
 
         $registry = new TaskRegistry([$default, $predeploy], $this->idResolver);
 
-        $all = $registry->all();
+        $all = $registry->all('prod', []);
 
         self::assertArrayHasKey('task.default', $all);
-        self::assertArrayNotHasKey('test.predeploy', $all);
+        self::assertArrayHasKey('test.predeploy', $all);
     }
 
     public function testAllWithGroupFilterReturnsTasksInGroup(): void

@@ -67,7 +67,7 @@ final class TaskRegistry
      *
      * - Env: null environment matches every task; otherwise keep tasks whose `env`
      *   is null or contains the requested environment.
-     * - Groups: empty array returns default-only tasks (those with no declared groups);
+     * - Groups: empty array matches every task, grouped and ungrouped alike;
      *   a non-empty array returns tasks whose declared groups intersect with it.
      *
      * @param list<string> $groups
@@ -145,17 +145,21 @@ final class TaskRegistry
     }
 
     /**
+     * An empty request matches every task — grouped and ungrouped alike — so an
+     * unfiltered invocation operates on all slots. A non-empty request narrows
+     * the selection to tasks whose declared groups intersect the requested ones.
+     *
      * @param list<string> $requestedGroups
      *
      * @throws \ReflectionException
      */
     private static function matchesGroups(DeployTaskInterface $task, array $requestedGroups): bool
     {
-        $declared = AsDeployTask::groupsOf($task);
-
         if ([] === $requestedGroups) {
-            return null === $declared;
+            return true;
         }
+
+        $declared = AsDeployTask::groupsOf($task);
 
         if (null === $declared) {
             return false;

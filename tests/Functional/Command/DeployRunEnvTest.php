@@ -234,13 +234,13 @@ final class DeployRunEnvTest extends FunctionalTestCase
         self::assertStringNotContainsString('none match environment', $display);
     }
 
-    public function testGroupedOnlyRegistryWithoutGroupFlagDoesNotBlameEnvironment(): void
+    public function testGroupedOnlyRegistryUnderMismatchedEnvBlamesEnvironment(): void
     {
-        // The only registered task is BOTH grouped and env-restricted. Without
-        // --group it would not run even in a matching environment, so the empty
-        // run must not blame the environment — that would point the operator at
-        // the wrong cause. The env check is scoped to default-slot candidates,
-        // of which there are none here, so the generic message applies.
+        // Phase 3 rule: absent --group, every task — grouped or not — is a
+        // genuine candidate of a bare run. The only registered task is grouped
+        // AND env-restricted; being a candidate, its exclusion here is caused by
+        // the environment filter alone, so the empty run must say so instead of
+        // pretending the registry is empty.
         self::useConfigurableKernel(
             KernelConfig::customStorageExtension(),
             KernelConfig::customStorageServices() + [
@@ -258,8 +258,8 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $display = $tester->getDisplay();
-        self::assertStringNotContainsString('none match environment', $display);
-        self::assertStringContainsString('No deploy tasks registered.', $display);
+        self::assertStringContainsString('1 task(s) registered, none match environment "dev".', $display);
+        self::assertStringNotContainsString('No deploy tasks registered.', $display);
     }
 
     /**
