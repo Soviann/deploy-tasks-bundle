@@ -88,7 +88,7 @@ final class HostRunnerConfig
         $values = [];
 
         foreach (self::ENV_VARS as $envVar) {
-            if (1 === \preg_match('/^export '.$envVar."='([^']*)'$/m", $contents, $matches)) {
+            if (1 === \preg_match('/^export '.$envVar."='([^']*)'\r?$/m", $contents, $matches)) {
                 $values[$envVar] = $matches[1];
             }
         }

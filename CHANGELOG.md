@@ -42,5 +42,6 @@ so it executes exactly once per environment.
 - A custom id generator whose class cannot be resolved at compile time (e.g. a factory-built service) no longer fails the container build with false "Duplicate deploy task ID" errors: compile-time id validation now skips the tasks that depend on the generator instead of checking ids the default generator would have produced.
 - `deploytasks:skip:host` and `deploytasks:rollup:host` no longer corrupt a hand-edited host completion log whose final line lost its newline: the append now heals the missing terminator instead of merging the last recorded id and the first appended one into a single line the host runner could never match again.
 - `deploytasks:rollup:host` no longer double-marks a task completed concurrently (by `deploytasks:skip:host` or a finishing host run) while its confirmation prompt was open: the pending set is now recomputed under the host lock right before the append, so the completion log gets no duplicate line and the reported count only covers tasks the rollup actually marked.
+- `deploytasks:status` no longer reports a false "config drifted" warning for a `deploy-tasks-host.local.sh` saved with CRLF line endings (e.g. edited on Windows): the generated-file parser now tolerates the trailing `\r`.
 
 [Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/fbba7bf...HEAD

@@ -72,4 +72,26 @@ final class HostRunnerConfigTest extends TestCase
 
         \unlink($path);
     }
+
+    public function testReadGeneratedLocalShParsesCrlfLineEndings(): void
+    {
+        $path = \tempnam(\sys_get_temp_dir(), 'dt-localsh-');
+        self::assertNotFalse($path);
+        \file_put_contents($path, \str_replace(
+            "\n",
+            "\r\n",
+            HostRunnerConfig::GENERATED_MARKER." — regenerate after changing soviann_deploy_tasks.host.*\nexport DEPLOY_TASKS_HOST_DIR='deploy/host-tasks'\nexport DEPLOY_TASKS_HOST_STORAGE='.deploy-tasks-host.log'\nexport DEPLOY_TASKS_HOST_LOCK='.deploy-tasks-host.lock'\n",
+        ));
+
+        self::assertSame(
+            [
+                'DEPLOY_TASKS_HOST_DIR' => 'deploy/host-tasks',
+                'DEPLOY_TASKS_HOST_STORAGE' => '.deploy-tasks-host.log',
+                'DEPLOY_TASKS_HOST_LOCK' => '.deploy-tasks-host.lock',
+            ],
+            HostRunnerConfig::readGeneratedLocalSh($path),
+        );
+
+        \unlink($path);
+    }
 }
