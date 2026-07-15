@@ -14,6 +14,7 @@ use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
+use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
@@ -46,6 +47,9 @@ final readonly class TaskRunner
 {
     private LoggerInterface $logger;
 
+    /**
+     * @throws IncompatibleStorageException When $transactionMode requires transactions the storage cannot provide
+     */
     public function __construct(
         private TaskRegistry $registry,
         private TaskStorageInterface $storage,
@@ -64,6 +68,16 @@ final readonly class TaskRunner
         private ClockInterface $clock = new SystemClock(),
         ?LoggerInterface $logger = null,
     ) {
+        // Runtime twin of the DI layer's compile-time check: a mode other than "none"
+        // promises rollback, and a backend without transactions cannot keep it. The
+        // compiler pass covers every storage whose class it can resolve; it reads null
+        // for the rest (synthetic services, child definitions) and skips rather than
+        // guess. Refusing here — on the real instance, before any task runs — closes
+        // that gap without the false positives a class-name guess would produce.
+        if (TransactionMode::None !== $transactionMode && !$storage instanceof TransactionalStorageInterface) {
+            throw IncompatibleStorageException::modeRequiresTransactional($transactionMode, $storage::class);
+        }
+
         $this->logger = $logger ?? new NullLogger();
     }
 
@@ -123,9 +137,9 @@ final readonly class TaskRunner
      * Dry-run, rerun-all, and group targeting semantics are documented on the
      * {@see RunOptions} properties.
      *
-     * When the mode is `all_or_nothing` and the storage backend is transactional,
-     * execution and persistence run inside a single transaction, mirroring runAll():
-     * a failure rolls back every side-effect before the exception escapes.
+     * When the mode is `all_or_nothing`, execution and persistence run inside a
+     * single transaction, mirroring runAll(): a failure rolls back every side-effect
+     * before the exception escapes.
      *
      * Slot resolution (`$groups` being `$options->groups`) is owned by {@see SlotResolver}.
      *
@@ -264,7 +278,8 @@ final readonly class TaskRunner
 
     /**
      * Runs the operation inside a single run-wide transaction when the mode is
-     * `all_or_nothing` and the storage backend supports it; runs it directly otherwise.
+     * `all_or_nothing`; runs it directly otherwise. The storage is known to support
+     * transactions in that mode — the constructor rejects any other pairing.
      *
      * @template T
      *
@@ -276,9 +291,12 @@ final readonly class TaskRunner
      */
     private function withAllOrNothingTransaction(\Closure $operation): mixed
     {
-        if (TransactionMode::AllOrNothing !== $this->transactionMode || !$this->storage instanceof TransactionalStorageInterface) {
+        if (TransactionMode::AllOrNothing !== $this->transactionMode) {
             return $operation();
         }
+
+        // Guaranteed by the constructor guard, as in wrapInTransaction().
+        \assert($this->storage instanceof TransactionalStorageInterface);
 
         try {
             return $this->storage->transactional($operation);
@@ -645,8 +663,7 @@ final readonly class TaskRunner
 
     /**
      * Runs the task and persists its success outcome, folding both into a single
-     * per-task transaction when the mode is `per_task` and the storage backend
-     * supports it.
+     * per-task transaction when the mode is `per_task`.
      *
      * The fold closes the split-transaction window: with run() side effects and the
      * execution record committing together, a crash or storage failure between them
@@ -658,9 +675,10 @@ final readonly class TaskRunner
      * (`false` under `all_or_nothing`, `true` under `none`) are rejected at compile
      * time by the DI layer.
      *
-     * The split (run bare, then persist) remains for non-transactional backends,
-     * tasks that opted out of wrapping, mode `none`, and all_or_nothing runs, where
-     * the run-wide transaction already provides the same guarantee.
+     * The split (run bare, then persist) remains for tasks that opted out of
+     * wrapping, mode `none` (whose backend may have no transactions at all), and
+     * all_or_nothing runs, where the run-wide transaction already provides the same
+     * guarantee.
      *
      * @param \Closure(): TaskOutcome $run          Runs the task and builds its success outcome
      * @param list<?string>           $pendingSlots
@@ -677,21 +695,16 @@ final readonly class TaskRunner
             $shouldWrap = $attribute->transactional ?? true;
 
             if ($shouldWrap) {
-                if ($this->storage instanceof TransactionalStorageInterface) {
-                    return $this->storage->transactional(function () use ($run, $taskId, $pendingSlots): TaskOutcome {
-                        $outcome = $run();
-                        $this->persistOutcome($taskId, $outcome, $pendingSlots);
+                // The mode alone proves the capability: the constructor refuses per_task
+                // on a storage that cannot roll back.
+                \assert($this->storage instanceof TransactionalStorageInterface);
 
-                        return $outcome;
-                    });
-                }
+                return $this->storage->transactional(function () use ($run, $taskId, $pendingSlots): TaskOutcome {
+                    $outcome = $run();
+                    $this->persistOutcome($taskId, $outcome, $pendingSlots);
 
-                // Only reachable on a hand-constructed runner: the DI compiler pass rejects
-                // per_task mode on a non-transactional storage at compile time.
-                $this->logger->warning(
-                    'Task requested transactional execution but the storage backend does not support transactions — running unwrapped.',
-                    ['task_id' => $taskId],
-                );
+                    return $outcome;
+                });
             }
         }
 
@@ -705,9 +718,10 @@ final readonly class TaskRunner
      * Persists the task outcome for each pending slot, wrapping the saves in a single
      * per-save transaction when the storage backend supports it.
      *
-     * Used by the split success path only — non-transactional backends, tasks that
-     * opted out of wrapping, and all_or_nothing runs (where the record commits or
-     * rolls back with the run-wide transaction anyway). Transactionally-wrapped tasks
+     * Used by the split success path only — mode `none` (whose backend may have no
+     * transactions at all), tasks that opted out of wrapping, and all_or_nothing runs
+     * (where the record commits or rolls back with the run-wide transaction anyway).
+     * The instanceof check therefore stays load-bearing here. Transactionally-wrapped tasks
      * persist inside their own run() transaction instead ({@see wrapInTransaction}).
      * If storage throws during any save the exception propagates to the caller (which
      * re-raises it), and the per-save transaction keeps a partial-write within a

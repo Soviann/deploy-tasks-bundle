@@ -16,6 +16,7 @@ use Soviann\DeployTasksBundle\Event\BeforeTaskEvent;
 use Soviann\DeployTasksBundle\Event\TaskFailedEvent;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\EventListenerException;
+use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
@@ -657,25 +658,43 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(TaskStatus::Ran, $storage->get('test.transactional')?->status);
     }
 
-    public function testTransactionalTaskOnNonTransactionalStorageWarnsAndRunsUnwrapped(): void
+    public function testConstructorRefusesPerTaskModeOnStorageThatCannotRollBack(): void
     {
-        // Only reachable on a hand-constructed runner: in DI the compiler pass rejects
-        // transactional config on a non-transactional storage at compile time. The
-        // fall-through must be loud (warning) instead of silently skipping the wrap.
-        $logger = new ArrayLogger();
-        $runner = $this->createRunner([new TransactionalTask()], logger: $logger);
+        // The compiler pass covers this when the storage class is resolvable; a
+        // storage whose class only exists at runtime reaches the runner unchecked.
+        // Refusing at construction is the runtime twin of that compile-time
+        // rejection: no task may run under a mode whose rollback promise the
+        // storage cannot keep.
+        $this->expectException(IncompatibleStorageException::class);
+        $this->expectExceptionMessage(\sprintf(
+            'Configuration "transaction_mode: per_task" requires a storage backend that supports transactions. Configured storage ("%s") does not.',
+            InMemoryStorage::class,
+        ));
+
+        $this->createRunner([new SimpleTask('task.1', 'First')], $this->storage, transactionMode: TransactionMode::PerTask);
+    }
+
+    public function testConstructorRefusesAllOrNothingModeOnStorageThatCannotRollBack(): void
+    {
+        $this->expectException(IncompatibleStorageException::class);
+        $this->expectExceptionMessage(\sprintf(
+            'Configuration "transaction_mode: all_or_nothing" requires a storage backend that supports transactions. Configured storage ("%s") does not.',
+            InMemoryStorage::class,
+        ));
+
+        $this->createRunner([new SimpleTask('task.1', 'First')], $this->storage, transactionMode: TransactionMode::AllOrNothing);
+    }
+
+    public function testConstructorAcceptsNoneModeOnStorageThatCannotRollBack(): void
+    {
+        // Mode "none" promises no rollback, so a non-transactional backend honors it
+        // fully — it is the documented default for custom storage and must keep working.
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')], $this->storage, transactionMode: TransactionMode::None);
 
         $result = $runner->runAll($this->output);
 
         self::assertSame(1, $result->ran);
-        self::assertSame(TaskStatus::Ran, $this->storage->get('test.transactional')?->status);
-
-        $records = $logger->recordsMatching(
-            'warning',
-            'does not support transactions — running unwrapped',
-        );
-        self::assertCount(1, $records);
-        self::assertSame('test.transactional', $records[0]['context']['task_id'] ?? null);
+        self::assertSame(TaskStatus::Ran, $this->storage->get('task.1')?->status);
     }
 
     public function testRunOneFailingTask(): void
@@ -876,20 +895,22 @@ final class TaskRunnerTest extends TestCase
         self::assertInstanceOf(AllOrNothingFailureException::class, $rollback[0]['context']['exception']);
     }
 
-    public function testAllOrNothingWithNonTransactionalStorageRunsUnwrapped(): void
+    public function testAllOrNothingWithNonTransactionalStorageRunsNothingAtAll(): void
     {
-        // Non-transactional storage bypasses the transactional wrap on line 69
-        // (`storage instanceof TransactionalStorageInterface`).
-        // A mutant that inverts the instanceof check would call `transactional()` on InMemoryStorage and crash.
-        $runner = $this->createAllOrNothingRunner(
-            [new SimpleTask('task.1', 'First')],
-            $this->storage,
-        );
+        // The old contract let this run unwrapped: every task applied, nothing
+        // rollback-able, and a failure mid-run left the earlier tasks committed —
+        // exactly the silent no-op the guard exists to kill. Now no task runs at all.
+        try {
+            $this->createAllOrNothingRunner(
+                [new SimpleTask('task.1', 'First')],
+                $this->storage,
+            );
+            self::fail('Expected IncompatibleStorageException to be thrown.');
+        } catch (IncompatibleStorageException $e) {
+            self::assertStringContainsString('all_or_nothing', $e->getMessage());
+        }
 
-        $result = $runner->runAll($this->output);
-
-        self::assertSame(1, $result->ran);
-        self::assertTrue($this->storage->has('task.1'));
+        self::assertFalse($this->storage->has('task.1'), 'The refused run must not have applied any task.');
     }
 
     public function testAllOrNothingThrowsTypedExceptionWithPartialResult(): void
@@ -1379,9 +1400,14 @@ final class TaskRunnerTest extends TestCase
         self::assertFalse($logger->has('warning', 'exceeded timeout'));
     }
 
-    public function testTransactionalTaskWithNonTransactionalStorageRunsUnwrapped(): void
+    public function testTransactionalTaskUnderNoneModeRunsUnwrapped(): void
     {
-        $runner = $this->createRunner([new TransactionalTask()]);
+        // #[AsDeployTask(transactional: true)] is only honored in per_task mode, so
+        // under "none" the task runs unwrapped on a non-transactional backend and the
+        // runner is constructible. (The DI layer rejects this pairing at compile time
+        // — IncompatibleStorageException::taskOptInConflictsWithModeNone — but the
+        // runner itself does not read the attribute here, and must not refuse it.)
+        $runner = $this->createRunner([new TransactionalTask()], transactionMode: TransactionMode::None);
 
         $result = $runner->runAll($this->output);
 
@@ -2547,7 +2573,9 @@ final class TaskRunnerTest extends TestCase
             }
         };
 
-        $runner = $this->createRunner([$task], transactionMode: TransactionMode::AllOrNothing);
+        // A transactional backend is now the only legal pairing for all_or_nothing:
+        // the constructor refuses the mode on storage that cannot roll back.
+        $runner = $this->createRunner([$task], new TransactionalInMemoryStorageFixture(), transactionMode: TransactionMode::AllOrNothing);
 
         $result = $runner->runAll($this->output);
 
@@ -3139,6 +3167,12 @@ final class TaskRunnerTest extends TestCase
 
     /**
      * @param array<\Soviann\DeployTasksBundle\DeployTaskInterface> $tasks
+     * @param TransactionMode|null                                  $transactionMode Defaults to the strongest mode the
+     *                                                                               storage can honor, mirroring how the
+     *                                                                               extension derives it from the active
+     *                                                                               backend — the runner refuses any
+     *                                                                               transaction-requiring mode on a
+     *                                                                               storage that cannot roll back
      */
     private function createRunner(
         array $tasks,
@@ -3147,17 +3181,21 @@ final class TaskRunnerTest extends TestCase
         ?LoggerInterface $logger = null,
         ?LockFactory $lockFactory = null,
         int $defaultTimeout = 300,
-        TransactionMode $transactionMode = TransactionMode::PerTask,
+        ?TransactionMode $transactionMode = null,
         int $lockTtl = 3600,
         ?string $environment = null,
         ?ClockInterface $clock = null,
         bool $lockDisabledByConfig = false,
     ): TaskRunner {
         $idResolver = new TaskIdResolver();
+        $storage ??= $this->storage;
+        $transactionMode ??= $storage instanceof TransactionalStorageInterface
+            ? TransactionMode::PerTask
+            : TransactionMode::None;
 
         return new TaskRunner(
             new TaskRegistry($tasks, $idResolver),
-            $storage ?? $this->storage,
+            $storage,
             new DefaultTaskSorter($idResolver),
             $idResolver,
             new TaskDescriptionResolver(),

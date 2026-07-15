@@ -270,9 +270,10 @@ final class RegisterTasksCompilerPassTest extends TestCase
 
     public function testAllOrNothingModeWithClasslessStorageDefinitionBuilds(): void
     {
-        // Storage class unresolvable at compile time (factory-built) → the
-        // transactional-capability check is skipped rather than rejecting the build.
-        // The runtime guard for this hole is tracked separately (Task 4.2).
+        // Storage class unresolvable at compile time (synthetic service, child
+        // definition) → the transactional-capability check is skipped rather than
+        // rejecting the build. TaskRunner's constructor guard covers the real
+        // instance, so nothing runs unwrapped.
         $container = $this->baseContainer();
         $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'all_or_nothing');
         $container->setDefinition('soviann_deploy_tasks.storage', new Definition()); // class is null
@@ -284,9 +285,9 @@ final class RegisterTasksCompilerPassTest extends TestCase
 
     public function testPerTaskModeWithClasslessStorageDefinitionBuilds(): void
     {
-        // Same skip for per_task: a factory-built storage cannot be checked at
-        // compile time, and rejecting it outright would refuse setups whose
-        // factory-built class does implement TransactionalStorageInterface.
+        // Same skip for per_task: an unresolvable storage class cannot be checked at
+        // compile time, and rejecting it outright would refuse setups whose real
+        // instance does implement TransactionalStorageInterface.
         $container = $this->baseContainer();
         $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'per_task');
         $container->setDefinition('soviann_deploy_tasks.storage', new Definition()); // class is null

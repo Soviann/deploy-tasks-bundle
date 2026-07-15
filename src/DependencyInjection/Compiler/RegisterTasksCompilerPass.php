@@ -69,9 +69,11 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * task executions in, and a partial run could not be rolled back.
      *
      * Deferred to the compiler pass because custom storage services are not visible
-     * during extension loading. A storage whose class is unresolvable at compile
-     * time (factory-built) is skipped rather than rejected — the factory-built
-     * class may well implement the interface.
+     * during extension loading. A storage whose class is unresolvable here (synthetic
+     * services, child definitions — resolved only in the later optimization phase) is
+     * skipped rather than rejected: guessing would refuse setups whose real instance
+     * does implement the interface. TaskRunner's constructor guard catches those on
+     * the real instance instead, before any task runs.
      *
      * @throws IncompatibleStorageException
      */

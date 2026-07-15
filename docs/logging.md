@@ -27,7 +27,6 @@ soviann_deploy_tasks:
 | `warning` | `Deploy task exceeded timeout` | `task_id`, `duration_s`, `timeout_s` |
 | `warning` | `Deploy tasks run skipped: another process is already running` | — |
 | `warning` | `Deploy tasks runner has no lock factory — concurrent execution is not protected` | — |
-| `warning` | `Task requested transactional execution but the storage backend does not support transactions — running unwrapped.` | `task_id` |
 | `error` | `Deploy task failed` | `task_id`, `duration_ms`, plus either `exception` or, when a DBAL exception sits in the failure chain, `exception_class`/`exception_message`/`previous_message` (see below) |
 | `error` | `Deploy tasks run failed — transaction rolled back.` | same exception fields as `Deploy task failed` |
 | `error` | `Deploy task listener failed` | `event`, `task`, `exception` |
