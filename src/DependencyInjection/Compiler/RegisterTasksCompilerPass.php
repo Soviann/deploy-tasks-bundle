@@ -9,6 +9,7 @@ use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
+use Soviann\DeployTasksBundle\Runner\TransactionMode;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
@@ -24,9 +25,10 @@ use Symfony\Component\DependencyInjection\Reference;
 final class RegisterTasksCompilerPass implements CompilerPassInterface
 {
     /**
-     * @throws IncompatibleStorageException When all_or_nothing is set with a non-transactional storage
+     * @throws IncompatibleStorageException When transaction_mode requires transactions the storage cannot provide
      * @throws IncompatibleStorageException When the custom storage service does not implement TaskStorageInterface
      * @throws IncompatibleStorageException When a task declares transactional: true on a non-transactional storage
+     * @throws IncompatibleStorageException When a task's transactional flag conflicts with the configured mode
      * @throws \LogicException              When two tagged tasks resolve to the same ID, or to IDs differing only by letter case
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
@@ -34,32 +36,50 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     public function process(ContainerBuilder $container): void
     {
-        $this->validateTaggedTasks($container);
+        $transactionMode = $this->consumeTransactionMode($container);
+
+        $this->validateStorageSupportsTransactionMode($container, $transactionMode);
+        $this->validateTaggedTasks($container, $transactionMode);
         $this->wireOptionalDependencies($container);
         $this->maybeAliasTransactionalCustomStorage($container);
-        $this->validateAllOrNothingStorage($container);
     }
 
     /**
-     * When `all_or_nothing` is enabled, the configured storage MUST implement
-     * TransactionalStorageInterface — otherwise a partial run cannot be rolled back.
+     * Reads and removes the internal transaction-mode parameter set by the extension.
+     *
+     * Null when the extension did not run (hand-built containers) — mode-based
+     * validation is then skipped.
+     */
+    private function consumeTransactionMode(ContainerBuilder $container): ?TransactionMode
+    {
+        if (!$container->hasParameter('soviann_deploy_tasks.runner.transaction_mode')) {
+            return null;
+        }
+
+        /** @var string $mode */
+        $mode = $container->getParameter('soviann_deploy_tasks.runner.transaction_mode');
+        $container->getParameterBag()->remove('soviann_deploy_tasks.runner.transaction_mode');
+
+        return TransactionMode::from($mode);
+    }
+
+    /**
+     * When the mode is `per_task` or `all_or_nothing`, the configured storage MUST
+     * implement TransactionalStorageInterface — otherwise there is nothing to wrap
+     * task executions in, and a partial run could not be rolled back.
      *
      * Deferred to the compiler pass because custom storage services are not visible
-     * during extension loading.
+     * during extension loading. A storage whose class is unresolvable at compile
+     * time (factory-built) is skipped rather than rejected — the factory-built
+     * class may well implement the interface.
      *
      * @throws IncompatibleStorageException
      */
-    private function validateAllOrNothingStorage(ContainerBuilder $container): void
-    {
-        if (!$container->hasParameter('soviann_deploy_tasks.runner.all_or_nothing')) {
-            return;
-        }
-
-        /** @var bool $allOrNothing */
-        $allOrNothing = $container->getParameter('soviann_deploy_tasks.runner.all_or_nothing');
-        $container->getParameterBag()->remove('soviann_deploy_tasks.runner.all_or_nothing');
-
-        if (!$allOrNothing) {
+    private function validateStorageSupportsTransactionMode(
+        ContainerBuilder $container,
+        ?TransactionMode $mode,
+    ): void {
+        if (null === $mode || TransactionMode::None === $mode) {
             return;
         }
 
@@ -70,7 +90,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         }
 
         if (!\is_a($class, TransactionalStorageInterface::class, true)) {
-            throw IncompatibleStorageException::allOrNothingRequiresTransactional($class);
+            throw IncompatibleStorageException::modeRequiresTransactional($mode, $class);
         }
     }
 
@@ -106,41 +126,6 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         if (null !== $class && \is_a($class, TransactionalStorageInterface::class, true)) {
             $container->setAlias(TransactionalStorageInterface::class, 'soviann_deploy_tasks.storage');
         }
-
-        $this->validateCustomTransactionalStorage($container, $customServiceId, $class);
-    }
-
-    /**
-     * When custom storage is configured with transactional: true, the service class
-     * must implement TransactionalStorageInterface — otherwise there is nothing to
-     * wrap per-task executions in.
-     *
-     * Reads the transactional flag from the runner's constructor argument by name
-     * ($transactional), which is set to `$activeStorage['transactional']` by the
-     * extension — true only when `storage.type=custom` and
-     * `storage.custom.transactional=true`.
-     *
-     * @throws IncompatibleStorageException
-     */
-    private function validateCustomTransactionalStorage(
-        ContainerBuilder $container,
-        string $customServiceId,
-        ?string $customStorageClass,
-    ): void {
-        if (!$container->hasDefinition('soviann_deploy_tasks.runner')) {
-            return;
-        }
-
-        $runnerDefinition = $container->findDefinition('soviann_deploy_tasks.runner');
-        $transactional = $runnerDefinition->getArgument('$transactional');
-
-        if (true !== $transactional) {
-            return;
-        }
-
-        if (null === $customStorageClass || !\is_a($customStorageClass, TransactionalStorageInterface::class, true)) {
-            throw new IncompatibleStorageException(\sprintf('Custom storage "%s" is configured with transactional: true but does not implement %s.', $customStorageClass ?? $customServiceId, TransactionalStorageInterface::class));
-        }
     }
 
     /**
@@ -174,19 +159,24 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * and group fits the configured DBAL column length — the attribute itself is
      * storage-agnostic, so the limit can only be checked once storage is known.
      *
-     * Also rejects tasks declaring #[AsDeployTask(transactional: true)] when the
-     * active storage does not implement TransactionalStorageInterface — mirroring
-     * the config-level checks so an explicit per-task transaction demand can never
-     * silently degrade to unwrapped execution.
+     * Also rejects tasks whose #[AsDeployTask(transactional:)] flag cannot be
+     * honored, so an explicit per-task declaration can never be silently ignored:
+     * `transactional: true` when the active storage does not implement
+     * TransactionalStorageInterface, `transactional: true` under
+     * `transaction_mode: none` (the mode disables wrapping), and
+     * `transactional: false` under `transaction_mode: all_or_nothing` (the run-wide
+     * transaction cannot exempt one task). The override only applies in `per_task`
+     * mode.
      *
      * @throws IncompatibleStorageException When a task demands a transaction the storage cannot provide
+     * @throws IncompatibleStorageException When a task's transactional flag conflicts with the configured mode
      * @throws \LogicException              When two tagged tasks resolve to the same ID, or to IDs differing only by letter case
      * @throws \LogicException              When a task ID exceeds the configured id_column_length
      * @throws \LogicException              When a task group exceeds the configured group_column_length
      * @throws \LogicException              When a filesystem-backed task's record file name exceeds 255 bytes
      * @throws \ReflectionException         When the #[AsDeployTask] attribute lookup fails
      */
-    private function validateTaggedTasks(ContainerBuilder $container): void
+    private function validateTaggedTasks(ContainerBuilder $container, ?TransactionMode $mode): void
     {
         $generatorClass = $this->resolveGeneratorClass($container);
         $taggedServices = $container->findTaggedServiceIds('soviann_deploy_tasks.task');
@@ -220,11 +210,23 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
             // Before the TaskIdProviderInterface early-continue: the transactional flag
             // is attribute-declared, so it is compile-time known for provider tasks too.
-            if (null !== $storageClass
-                && true === AsDeployTask::of($class)?->transactional
+            // Storage capability first — for a non-transactional backend the actionable
+            // fix is the storage (or dropping the flag), not the mode.
+            $attributeTransactional = AsDeployTask::of($class)?->transactional;
+
+            if (true === $attributeTransactional
+                && null !== $storageClass
                 && !\is_a($storageClass, TransactionalStorageInterface::class, true)
             ) {
                 throw IncompatibleStorageException::taskRequiresTransactional($class, $storageClass);
+            }
+
+            if (true === $attributeTransactional && TransactionMode::None === $mode) {
+                throw IncompatibleStorageException::taskOptInConflictsWithModeNone($class);
+            }
+
+            if (false === $attributeTransactional && TransactionMode::AllOrNothing === $mode) {
+                throw IncompatibleStorageException::taskOptOutConflictsWithAllOrNothing($class);
             }
 
             if (\is_a($class, TaskIdProviderInterface::class, true)) {
@@ -366,7 +368,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
 
         $runnerDefinition = $container->getDefinition('soviann_deploy_tasks.runner');
 
-        // Event dispatcher (argument index 5)
+        // Event dispatcher
         /** @var bool $eventsEnabled */
         $eventsEnabled = $container->getParameter('soviann_deploy_tasks.events.enabled');
 
@@ -379,7 +381,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             );
         }
 
-        // Lock factory (argument index 6)
+        // Lock factory
         /** @var bool $lockEnabled */
         $lockEnabled = $container->getParameter('soviann_deploy_tasks.lock.enabled');
 

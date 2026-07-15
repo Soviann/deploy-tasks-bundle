@@ -251,50 +251,175 @@ final class RegisterTasksCompilerPassTest extends TestCase
     // wireOptionalDependencies — parameter cleanup (mutants 102, 103, 127, 128)
     // -------------------------------------------------------------------------
 
-    public function testAllOrNothingParameterIsRemovedAfterCompilation(): void
+    public function testTransactionModeParameterIsRemovedAfterCompilation(): void
     {
-        // Mutant 101: validateAllOrNothingStorage removal. The parameter must be
-        // consumed (removed) by the pass so it does not pollute the compiled container.
+        // The parameter must be consumed (removed) by the pass so it does not
+        // pollute the compiled container.
         $container = $this->baseContainer();
-        $container->setParameter('soviann_deploy_tasks.runner.all_or_nothing', false);
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'none');
 
-        // Minimal storage definition so validateAllOrNothingStorage can read it.
+        // Minimal storage definition so the mode validation can read it.
         $storageDef = new Definition('Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage');
         $container->setDefinition('soviann_deploy_tasks.storage', $storageDef);
 
         $pass = new RegisterTasksCompilerPass();
         $pass->process($container);
 
-        self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.all_or_nothing'));
+        self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.transaction_mode'));
     }
 
-    public function testAllOrNothingWithClasslessStorageDefinitionBuilds(): void
+    public function testAllOrNothingModeWithClasslessStorageDefinitionBuilds(): void
     {
         // Storage class unresolvable at compile time (factory-built) → the
         // transactional-capability check is skipped rather than rejecting the build.
+        // The runtime guard for this hole is tracked separately (Task 4.2).
         $container = $this->baseContainer();
-        $container->setParameter('soviann_deploy_tasks.runner.all_or_nothing', true);
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'all_or_nothing');
         $container->setDefinition('soviann_deploy_tasks.storage', new Definition()); // class is null
 
         (new RegisterTasksCompilerPass())->process($container); // must not throw
 
-        self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.all_or_nothing'));
+        self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.transaction_mode'));
     }
 
-    public function testCustomTransactionalStorageErrorFallsBackToServiceIdWhenClassUnknown(): void
+    public function testPerTaskModeWithClasslessStorageDefinitionBuilds(): void
     {
-        // With a class-less custom storage definition, the rejection message cannot
-        // name the class — it must fall back to the service ID so the error still
-        // points at the misconfigured service.
+        // Same skip for per_task: a factory-built storage cannot be checked at
+        // compile time, and rejecting it outright would refuse setups whose
+        // factory-built class does implement TransactionalStorageInterface.
         $container = $this->baseContainer();
-        $container->setParameter('soviann_deploy_tasks.storage.custom_service_id', 'my.classless_storage');
-        $container->setDefinition('my.classless_storage', new Definition()); // class is null
-        $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$transactional', true);
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'per_task');
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition()); // class is null
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        self::assertFalse($container->hasParameter('soviann_deploy_tasks.runner.transaction_mode'));
+    }
+
+    // -------------------------------------------------------------------------
+    // transaction_mode vs storage capability
+    // -------------------------------------------------------------------------
+
+    public function testPerTaskModeOnNonTransactionalStorageThrows(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'per_task');
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition(FilesystemStorage::class));
 
         $this->expectException(\Soviann\DeployTasksBundle\Exception\IncompatibleStorageException::class);
-        $this->expectExceptionMessageMatches('/Custom storage "my\.classless_storage".*transactional: true/');
+        $this->expectExceptionMessageMatches('/transaction_mode: per_task.*FilesystemStorage/s');
 
         (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    public function testAllOrNothingModeOnNonTransactionalStorageThrows(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'all_or_nothing');
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition(FilesystemStorage::class));
+
+        $this->expectException(\Soviann\DeployTasksBundle\Exception\IncompatibleStorageException::class);
+        $this->expectExceptionMessageMatches('/transaction_mode: all_or_nothing.*FilesystemStorage/s');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    public function testNoneModeOnNonTransactionalStorageBuilds(): void
+    {
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'none');
+        $container->setDefinition('soviann_deploy_tasks.storage', new Definition(FilesystemStorage::class));
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // #[AsDeployTask(transactional: ...)] vs transaction_mode conflicts
+    // -------------------------------------------------------------------------
+
+    public function testTransactionalFalseTaskUnderAllOrNothingModeThrows(): void
+    {
+        // all_or_nothing wraps the entire run in one transaction — a per-task
+        // opt-out cannot be honored and must fail the build instead of being
+        // silently ignored.
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'all_or_nothing');
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(TransactionalInMemoryStorageFixture::class),
+        );
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\NonTransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.opt_out', $def);
+
+        $this->expectException(\Soviann\DeployTasksBundle\Exception\IncompatibleStorageException::class);
+        $this->expectExceptionMessageMatches('/NonTransactionalTask.*transactional: false.*all_or_nothing/s');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    public function testTransactionalTrueTaskUnderNoneModeThrows(): void
+    {
+        // transaction_mode: none disables wrapping — an explicit per-task demand
+        // for a transaction must fail the build instead of being silently ignored.
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'none');
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(TransactionalInMemoryStorageFixture::class),
+        );
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.opt_in', $def);
+
+        $this->expectException(\Soviann\DeployTasksBundle\Exception\IncompatibleStorageException::class);
+        $this->expectExceptionMessageMatches('/TransactionalTask.*transactional: true.*none/s');
+
+        (new RegisterTasksCompilerPass())->process($container);
+    }
+
+    public function testTransactionalFalseTaskUnderPerTaskModeBuilds(): void
+    {
+        // per_task is the one mode where the per-task override applies — the
+        // opt-out is honored, not rejected.
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'per_task');
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(TransactionalInMemoryStorageFixture::class),
+        );
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\NonTransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.opt_out', $def);
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testTransactionalTrueTaskUnderAllOrNothingModeBuilds(): void
+    {
+        // The run-wide transaction satisfies a per-task transaction demand —
+        // only the opt-out conflicts with all_or_nothing.
+        $container = $this->baseContainer();
+        $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', 'all_or_nothing');
+        $container->setDefinition(
+            'soviann_deploy_tasks.storage',
+            new Definition(TransactionalInMemoryStorageFixture::class),
+        );
+
+        $def = new Definition(\Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask::class);
+        $def->addTag('soviann_deploy_tasks.task');
+        $container->setDefinition('service.opt_in', $def);
+
+        (new RegisterTasksCompilerPass())->process($container); // must not throw
+
+        $this->addToAssertionCount(1);
     }
 
     public function testCustomStorageServiceIdParameterIsRemovedAfterCompilation(): void
@@ -493,7 +618,6 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $storageDef = new Definition(\Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage::class);
         $container->setDefinition('my.storage', $storageDef);
 
-        // Also register soviann_deploy_tasks.storage alias (needed by validateCustomTransactionalStorage skip).
         $container->setAlias('soviann_deploy_tasks.storage', 'my.storage');
 
         $pass = new RegisterTasksCompilerPass();
@@ -514,9 +638,6 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $storageDef = new Definition(TransactionalInMemoryStorageFixture::class);
         $container->setDefinition('my.transactional_storage', $storageDef);
         $container->setAlias('soviann_deploy_tasks.storage', 'my.transactional_storage');
-
-        // runner $transactional must be false so validateCustomTransactionalStorage doesn't throw.
-        $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$transactional', false);
 
         $pass = new RegisterTasksCompilerPass();
         $pass->process($container);
@@ -658,7 +779,7 @@ final class RegisterTasksCompilerPassTest extends TestCase
     public function testTransactionalTaskWithClasslessStorageDefinitionBuilds(): void
     {
         // Storage class unresolvable at compile time (factory-built) → the check is
-        // skipped, consistent with validateAllOrNothingStorage's null-class handling.
+        // skipped, consistent with the transaction-mode validation's null-class handling.
         $container = $this->baseContainer();
         $container->setDefinition('soviann_deploy_tasks.storage', new Definition());
 
@@ -778,7 +899,6 @@ final class RegisterTasksCompilerPassTest extends TestCase
         );
         $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$dispatcher', null);
         $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$lockFactory', null);
-        $container->getDefinition('soviann_deploy_tasks.runner')->setArgument('$transactional', false);
         $container->setParameter('soviann_deploy_tasks.events.enabled', false);
         $container->setParameter('soviann_deploy_tasks.lock.enabled', false);
 

@@ -198,7 +198,7 @@ final class DeployTasksGenerateCommand extends Command
                 //     priority: 0,           // higher runs first
                 //     env: 'prod',           // or ['prod', 'staging']; null = all envs
                 //     timeout: 60,           // seconds; null = default_timeout from config
-                //     transactional: true,   // wrap run() in a DB transaction (requires TransactionalStorageInterface)
+                //     transactional: false,  // opt out of the per-task transaction (only read when storage.transaction_mode is per_task)
                 //     groups: 'default',     // or ['a', 'b']; null = default slot
                 // )]
                 #[AsDeployTask(description: __DESCRIPTION__)]

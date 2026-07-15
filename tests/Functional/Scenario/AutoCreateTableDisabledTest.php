@@ -23,8 +23,7 @@ final class AutoCreateTableDisabledTest extends FunctionalTestCase
                 'database' => [
                     'connection' => 'default',
                     'table' => 'deploy_task_executions',
-                    'transactional' => false,
-                    'all_or_nothing' => false,
+                    'transaction_mode' => 'none',
                     'auto_create_table' => false,
                 ],
             ],

@@ -14,12 +14,12 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 
 /**
  * Verifies that the compiler pass rejects a custom non-transactional storage
- * configured with transactional: true.
+ * configured with a transaction_mode that requires transactions.
  */
 #[CoversClass(RegisterTasksCompilerPass::class)]
 final class CustomTransactionalStorageValidationTest extends KernelTestCase
 {
-    public function testCustomStorageWithTransactionalTrueButWithoutInterfaceIsRejected(): void
+    public function testCustomStorageWithPerTaskModeButWithoutInterfaceIsRejected(): void
     {
         $kernel = new class('test', true) extends AbstractTestKernel {
             protected static function kernelName(): string
@@ -36,7 +36,7 @@ final class CustomTransactionalStorageValidationTest extends KernelTestCase
                         'type' => 'custom',
                         'custom' => [
                             'service' => 'test.non_transactional_storage',
-                            'transactional' => true,
+                            'transaction_mode' => 'per_task',
                         ],
                     ],
                     'events' => ['enabled' => false],
@@ -55,7 +55,7 @@ final class CustomTransactionalStorageValidationTest extends KernelTestCase
         $kernel->boot();
     }
 
-    public function testCustomStorageWithTransactionalTrueAndInterfaceBoots(): void
+    public function testCustomStorageWithPerTaskModeAndInterfaceBoots(): void
     {
         $kernel = new class('test', true) extends AbstractTestKernel {
             protected static function kernelName(): string
@@ -72,7 +72,7 @@ final class CustomTransactionalStorageValidationTest extends KernelTestCase
                         'type' => 'custom',
                         'custom' => [
                             'service' => 'test.transactional_storage',
-                            'transactional' => true,
+                            'transaction_mode' => 'per_task',
                         ],
                     ],
                     'events' => ['enabled' => false],

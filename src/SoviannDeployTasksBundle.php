@@ -27,6 +27,7 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Runner\TransactionMode;
 use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Sorting\TaskSorterInterface;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
@@ -62,10 +63,9 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
  *         error_column: string,
  *         group_column: string,
  *         group_column_length: int,
- *         transactional: bool,
- *         all_or_nothing: bool,
+ *         transaction_mode: string,
  *     },
- *     custom: array{service: string|null, transactional: bool, all_or_nothing: bool},
+ *     custom: array{service: string|null, transaction_mode: string},
  * }
  * @phpstan-type GenerateConfig array{
  *     directory: string,
@@ -200,29 +200,27 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         $builder->setParameter('soviann_deploy_tasks.events.enabled', $eventsConfig['enabled']);
         $builder->setParameter('soviann_deploy_tasks.lock.enabled', $lockConfig['enabled']);
 
-        // TaskRunner — transactional/all_or_nothing come from the active storage sub-config.
-        // Filesystem storage is inherently non-transactional (no config keys for it).
+        // TaskRunner — transaction_mode comes from the active storage sub-config.
+        // Filesystem storage is inherently non-transactional (no config key for it).
         /**
          * @var array{
          *     type: string,
          *     filesystem: array{path: string},
-         *     database: array{transactional: bool, all_or_nothing: bool},
-         *     custom: array{service: string|null, transactional: bool, all_or_nothing: bool},
+         *     database: array{transaction_mode: string},
+         *     custom: array{service: string|null, transaction_mode: string},
          * } $storageConfig
          */
         $storageConfig = $config['storage'];
 
         if ('filesystem' === $storageConfig['type']) {
-            $transactional = false;
-            $allOrNothing = false;
+            $transactionMode = TransactionMode::None;
         } else {
-            /** @var array{transactional: bool, all_or_nothing: bool} $activeStorage */
+            /** @var array{transaction_mode: string} $activeStorage */
             $activeStorage = $storageConfig[$storageConfig['type']];
-            $transactional = $activeStorage['transactional'];
-            $allOrNothing = $activeStorage['all_or_nothing'];
+            $transactionMode = TransactionMode::from($activeStorage['transaction_mode']);
         }
 
-        $builder->setParameter('soviann_deploy_tasks.runner.all_or_nothing', $allOrNothing);
+        $builder->setParameter('soviann_deploy_tasks.runner.transaction_mode', $transactionMode->value);
 
         $services->set('soviann_deploy_tasks.runner', TaskRunner::class)
             ->args([
@@ -235,8 +233,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$lockFactory' => null, // set by compiler pass
                 '$defaultTimeout' => $config['default_timeout'],
                 '$environment' => param('kernel.environment'),
-                '$transactional' => $transactional,
-                '$allOrNothing' => $allOrNothing,
+                '$transactionMode' => $transactionMode,
                 '$logger' => null, // set below
                 '$lockTtl' => $lockConfig['ttl'],
                 '$lockDisabledByConfig' => !$lockConfig['enabled'],

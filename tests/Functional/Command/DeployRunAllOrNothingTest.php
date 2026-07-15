@@ -34,8 +34,7 @@ final class DeployRunAllOrNothingTest extends FunctionalTestCase
                 'database' => [
                     'connection' => 'default',
                     'table' => 'deploy_task_executions',
-                    'transactional' => true,
-                    'all_or_nothing' => true,
+                    'transaction_mode' => 'all_or_nothing',
                 ],
             ],
             'events' => ['enabled' => false],

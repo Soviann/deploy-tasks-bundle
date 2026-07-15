@@ -44,7 +44,8 @@ final class KernelConfig
 
     /**
      * Extension config of the canonical database-storage scenario
-     * (in-memory sqlite, non-transactional).
+     * (in-memory sqlite, per-task transactions — the mode where the
+     * TransactionalTask fixture's attribute flag is honored).
      *
      * @return array<string, mixed>
      */
@@ -56,8 +57,7 @@ final class KernelConfig
                 'database' => [
                     'connection' => 'default',
                     'table' => 'deploy_task_executions',
-                    'transactional' => false,
-                    'all_or_nothing' => false,
+                    'transaction_mode' => 'per_task',
                 ],
             ],
             'events' => ['enabled' => false],

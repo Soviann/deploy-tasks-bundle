@@ -51,8 +51,12 @@ final class AsDeployTask
      * @param string|string[]|null $env           Restrict to specific environment(s), null for all
      * @param int|null             $timeout       Max execution time in seconds, null for default. 0 disables the
      *                                            runner's soft timeout check. Must be >= 0.
-     * @param bool|null            $transactional Wrap execution in a database transaction. Null = use global config
-     *                                            default.
+     * @param bool|null            $transactional Per-task override of the transaction wrapping, only honored when
+     *                                            `storage.<backend>.transaction_mode` is `per_task`: false opts the
+     *                                            task out of its per-task transaction, true spells out the mode's
+     *                                            default. Null = follow the configured mode. Conflicting declarations
+     *                                            (false under `all_or_nothing`, true under `none`) fail the container
+     *                                            build.
      * @param string|null          $description   Human-readable description (overrides
      *                                            DeployTaskInterface::getDescription())
      * @param string|string[]|null $groups        Groups the task belongs to; null = default group (runs only when

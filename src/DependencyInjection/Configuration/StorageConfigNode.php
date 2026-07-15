@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\DependencyInjection\Configuration;
 
+use Soviann\DeployTasksBundle\Runner\TransactionMode;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\ScalarNodeDefinition;
@@ -66,13 +67,10 @@ final class StorageConfigNode
                             ->min(1)
                             ->info('VARCHAR length for the group column. Override to match an existing column definition.')
                         ->end()
-                        ->booleanNode('transactional')
-                            ->defaultTrue()
-                            ->info('Wrap each task execution in a database transaction. Overridable per-task via #[AsDeployTask(transactional: false)].')
-                        ->end()
-                        ->booleanNode('all_or_nothing')
-                            ->defaultTrue()
-                            ->info('Wrap the entire run in a single transaction — any failure rolls back all tasks.')
+                        ->enumNode('transaction_mode')
+                            ->values(TransactionMode::values())
+                            ->defaultValue(TransactionMode::AllOrNothing->value)
+                            ->info('How task execution is wrapped in database transactions: "none" (no wrapping), "per_task" (one transaction per task; a task opts out via #[AsDeployTask(transactional: false)]), or "all_or_nothing" (one transaction around the whole run — any failure rolls back every task).')
                         ->end()
                     ->end()
                 ->end()
@@ -83,13 +81,10 @@ final class StorageConfigNode
                             ->defaultNull()
                             ->info('Service ID of a custom TaskStorageInterface implementation.')
                         ->end()
-                        ->booleanNode('transactional')
-                            ->defaultFalse()
-                            ->info('Wrap each task execution in a transaction (requires the custom storage to implement TransactionalStorageInterface).')
-                        ->end()
-                        ->booleanNode('all_or_nothing')
-                            ->defaultFalse()
-                            ->info('Wrap the entire run in a single transaction (requires the custom storage to implement TransactionalStorageInterface).')
+                        ->enumNode('transaction_mode')
+                            ->values(TransactionMode::values())
+                            ->defaultValue(TransactionMode::None->value)
+                            ->info('How task execution is wrapped in storage transactions: "none", "per_task", or "all_or_nothing". Modes other than "none" require the custom storage to implement TransactionalStorageInterface.')
                         ->end()
                     ->end()
                 ->end()

@@ -68,13 +68,11 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'error',
                         'group_column' => 'task_group',
                         'group_column_length' => 128,
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                     'custom' => [
                         'service' => null,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                 ],
                 'events' => ['enabled' => true],
@@ -111,13 +109,11 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'error',
                         'group_column' => 'task_group',
                         'group_column_length' => 128,
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                     'custom' => [
                         'service' => null,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                 ],
                 'id_generator' => null,
@@ -151,8 +147,7 @@ final class ConfigurationTest extends TestCase
                     'type' => 'custom',
                     'custom' => [
                         'service' => 'app.my_storage',
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
@@ -168,8 +163,7 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'error',
                         'group_column' => 'task_group',
                         'group_column_length' => 128,
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                 ],
                 'id_generator' => null,
@@ -211,10 +205,9 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'er',
                         'group_column' => 'grp',
                         'group_column_length' => 64,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
-                    'custom' => ['service' => 'c', 'transactional' => true, 'all_or_nothing' => true],
+                    'custom' => ['service' => 'c', 'transaction_mode' => 'all_or_nothing'],
                 ],
                 'events' => ['enabled' => false],
                 'lock' => ['enabled' => false, 'ttl' => 1800],
@@ -246,13 +239,11 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'er',
                         'group_column' => 'grp',
                         'group_column_length' => 64,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                     'custom' => [
                         'service' => 'c',
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                 ],
                 'events' => ['enabled' => false],
@@ -289,13 +280,11 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'error',
                         'group_column' => 'task_group',
                         'group_column_length' => 128,
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                     'custom' => [
                         'service' => null,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                 ],
                 'id_generator' => null,
@@ -341,13 +330,11 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'error',
                         'group_column' => 'task_group',
                         'group_column_length' => 128,
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                     'custom' => [
                         'service' => null,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                 ],
                 'lock' => ['enabled' => true, 'ttl' => 3600],
@@ -388,13 +375,11 @@ final class ConfigurationTest extends TestCase
                         'error_column' => 'error',
                         'group_column' => 'task_group',
                         'group_column_length' => 128,
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                     'custom' => [
                         'service' => null,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                 ],
                 'events' => ['enabled' => true],
@@ -435,16 +420,14 @@ final class ConfigurationTest extends TestCase
                         'status_column' => 'status',
                         'executed_at_column' => 'executed_at',
                         'error_column' => 'error',
-                        'transactional' => true,
-                        'all_or_nothing' => true,
+                        'transaction_mode' => 'all_or_nothing',
                     ],
                     'filesystem' => [
                         'path' => '%kernel.project_dir%/var/deploy-tasks',
                     ],
                     'custom' => [
                         'service' => null,
-                        'transactional' => false,
-                        'all_or_nothing' => false,
+                        'transaction_mode' => 'none',
                     ],
                 ],
                 'id_generator' => null,
@@ -701,6 +684,86 @@ final class ConfigurationTest extends TestCase
         $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
 
         self::processConfig(['storage' => ['type' => 'redis']]);
+    }
+
+    // -------------------------------------------------------------------------
+    // StorageConfigNode — transaction_mode enum node (database / custom)
+    // -------------------------------------------------------------------------
+
+    public function testDatabaseTransactionModePerTaskRoundTrips(): void
+    {
+        $config = self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['transaction_mode' => 'per_task']],
+        ]);
+
+        $storage = $config['storage'];
+        self::assertIsArray($storage);
+        $database = $storage['database'];
+        self::assertIsArray($database);
+        self::assertSame('per_task', $database['transaction_mode']);
+    }
+
+    public function testCustomTransactionModePerTaskRoundTrips(): void
+    {
+        $config = self::processConfig([
+            'storage' => [
+                'type' => 'custom',
+                'custom' => ['service' => 'app.storage', 'transaction_mode' => 'per_task'],
+            ],
+        ]);
+
+        $storage = $config['storage'];
+        self::assertIsArray($storage);
+        $custom = $storage['custom'];
+        self::assertIsArray($custom);
+        self::assertSame('per_task', $custom['transaction_mode']);
+    }
+
+    public function testUnknownDatabaseTransactionModeIsRejected(): void
+    {
+        // enumNode('transaction_mode') only allows none|per_task|all_or_nothing.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['transaction_mode' => 'sometimes']],
+        ]);
+    }
+
+    public function testUnknownCustomTransactionModeIsRejected(): void
+    {
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        self::processConfig([
+            'storage' => [
+                'type' => 'custom',
+                'custom' => ['service' => 'app.storage', 'transaction_mode' => 'always'],
+            ],
+        ]);
+    }
+
+    public function testRemovedDatabaseTransactionalFlagIsRejectedAsUnrecognized(): void
+    {
+        // The transactional/all_or_nothing booleans are replaced by transaction_mode
+        // (pre-1.0 breaking, no shim) — the old keys must fail loudly, not silently no-op.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/Unrecognized option "transactional"/');
+
+        self::processConfig([
+            'storage' => ['type' => 'database', 'database' => ['transactional' => true]],
+        ]);
+    }
+
+    public function testRemovedCustomAllOrNothingFlagIsRejectedAsUnrecognized(): void
+    {
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/Unrecognized option "all_or_nothing"/');
+
+        self::processConfig([
+            'storage' => [
+                'type' => 'custom',
+                'custom' => ['service' => 'app.storage', 'all_or_nothing' => true],
+            ],
+        ]);
     }
 
     public function testEmptyGenerateRootNamespaceIsRejected(): void

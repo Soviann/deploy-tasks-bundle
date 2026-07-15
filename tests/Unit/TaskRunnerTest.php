@@ -26,6 +26,7 @@ use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Runner\RunOptions;
 use Soviann\DeployTasksBundle\Runner\TaskRegistry;
 use Soviann\DeployTasksBundle\Runner\TaskRunner;
+use Soviann\DeployTasksBundle\Runner\TransactionMode;
 use Soviann\DeployTasksBundle\Sorting\DefaultTaskSorter;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
 use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
@@ -48,6 +49,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\SleepingTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalInMemoryStorageFixture;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionDepthProbeTask;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Lock\Exception\LockConflictedException;
@@ -789,7 +791,7 @@ final class TaskRunnerTest extends TestCase
             }
         };
 
-        $runner = $this->createRunner([$task], storage: $spy, allOrNothing: true);
+        $runner = $this->createRunner([$task], storage: $spy, transactionMode: TransactionMode::AllOrNothing);
         $result = $runner->runOne('task.1', $this->output);
 
         self::assertSame(TaskResult::SUCCESS, $result);
@@ -816,7 +818,7 @@ final class TaskRunnerTest extends TestCase
             [new SimpleTask('task.1', 'First'), new FailingTask()],
             $storage,
             logger: $logger,
-            allOrNothing: true,
+            transactionMode: TransactionMode::AllOrNothing,
         );
 
         try {
@@ -850,7 +852,7 @@ final class TaskRunnerTest extends TestCase
             [new FailingTask()],
             $storage,
             logger: $logger,
-            allOrNothing: true,
+            transactionMode: TransactionMode::AllOrNothing,
         );
 
         try {
@@ -907,7 +909,7 @@ final class TaskRunnerTest extends TestCase
         $runner = $this->createRunner(
             [$task1, $task2, $task3],
             $storage,
-            allOrNothing: true,
+            transactionMode: TransactionMode::AllOrNothing,
         );
 
         try {
@@ -934,7 +936,7 @@ final class TaskRunnerTest extends TestCase
         $runner = $this->createRunner(
             [new SimpleTask('task.1', 'First'), new SimpleTask('task.2', 'Second')],
             $storage,
-            allOrNothing: true,
+            transactionMode: TransactionMode::AllOrNothing,
         );
 
         $runner->runAll($this->output);
@@ -1114,7 +1116,7 @@ final class TaskRunnerTest extends TestCase
         // before the failing task aborts the run — all_or_nothing must wipe
         // them all, expanded grouped slots included.
         $storage = new RollbackTransactionalStorageFixture();
-        $runner = $this->createRunner([new MultiGroupTask(), new FailingTask()], $storage, allOrNothing: true);
+        $runner = $this->createRunner([new MultiGroupTask(), new FailingTask()], $storage, transactionMode: TransactionMode::AllOrNothing);
 
         try {
             $runner->runAll($this->output);
@@ -2545,7 +2547,7 @@ final class TaskRunnerTest extends TestCase
             }
         };
 
-        $runner = $this->createRunner([$task], allOrNothing: true);
+        $runner = $this->createRunner([$task], transactionMode: TransactionMode::AllOrNothing);
 
         $result = $runner->runAll($this->output);
 
@@ -2556,78 +2558,44 @@ final class TaskRunnerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // wrapInTransaction: attribute.transactional coalesce / ternary
+    // wrapInTransaction: transaction_mode gating + attribute override (per_task only)
     // -------------------------------------------------------------------------
 
-    public function testAttributeTransactionalFalseOverridesGlobalDefault(): void
+    public function testPerTaskModeWrapsRunByDefault(): void
     {
-        // Kills Coalesce and Ternary mutants on the shouldWrap line:
-        // `$attribute->transactional ?? $this->transactional` — when the attribute sets
-        // transactional: true and the global is false, the attribute must win. Since the
-        // success persist is folded into the task's transaction, wrap and split both
-        // call transactional() exactly once — the discriminating observable is run()
-        // executing INSIDE storage->transactional(), probed via the transaction depth.
+        // Kills the `?? true` default and the PerTask comparison mutants on the
+        // shouldWrap line: an attribute-less task under per_task must run INSIDE
+        // storage->transactional(), probed via the transaction depth.
         $storage = new RollbackTransactionalStorageFixture();
 
-        // Attribute transactional: true; global is false.
-        $task = new #[AsDeployTask(id: 'test.attribute-transactional', transactional: true)] class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface {
-            public bool $ranInsideTransaction = false;
+        $task = new TransactionDepthProbeTask('task.default-wrap', $storage);
 
-            public function __construct(private readonly RollbackTransactionalStorageFixture $storage)
-            {
-            }
-
-            public function getDescription(): string
-            {
-                return 'Probes the transaction depth at run() time';
-            }
-
-            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
-            {
-                $this->ranInsideTransaction = $this->storage->transactionDepth > 0;
-
-                return TaskResult::SUCCESS;
-            }
-        };
-
-        $runner = $this->createRunner(
-            [$task],
-            $storage,
-            transactional: false, // global OFF — attribute must override
-        );
+        $runner = $this->createRunner([$task], $storage, transactionMode: TransactionMode::PerTask);
 
         $runner->runAll($this->output);
 
         self::assertTrue(
             $task->ranInsideTransaction,
-            'Attribute transactional:true must override global transactional:false',
+            'per_task mode must wrap an attribute-less task by default',
         );
         self::assertTrue(
-            $storage->has('test.attribute-transactional'),
+            $storage->has('task.default-wrap'),
             'The execution record must persist through the wrapped path',
         );
     }
 
-    public function testGlobalTransactionalFalseSkipsWrapWhenAttributeIsNull(): void
+    public function testPerTaskModeHonorsAttributeTransactionalFalse(): void
     {
-        // Kills LogicalAndSingleSubExprNegation on the shouldWrap line: with !$shouldWrap,
-        // a task that should NOT wrap (shouldWrap=false) would be wrapped instead. The
-        // transactional() call count is 1 either way (the wrap folds the persist in; the
-        // split wraps the persist alone), so the discriminator is run() executing
-        // OUTSIDE any transaction while the split persist still wraps its saves.
+        // The per-task opt-out only applies in per_task mode — and there it MUST
+        // apply: run() executes OUTSIDE any transaction while the split persist
+        // still wraps its saves. Kills Coalesce mutants on the shouldWrap line.
         $storage = new RollbackTransactionalStorageFixture();
 
-        // No #[AsDeployTask] attribute — global config controls wrapping.
-        $task = new class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface, \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface {
+        $task = new #[AsDeployTask(id: 'test.attribute-opt-out', transactional: false)] class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface {
             public bool $ranInsideTransaction = false;
 
             public function __construct(private readonly RollbackTransactionalStorageFixture $storage)
             {
-            }
-
-            public function getTaskId(): string
-            {
-                return 'task.unwrapped';
             }
 
             public function getDescription(): string
@@ -2643,21 +2611,86 @@ final class TaskRunnerTest extends TestCase
             }
         };
 
-        $runner = $this->createRunner(
-            [$task],
-            $storage,
-            transactional: false, // should NOT wrap
-        );
+        $runner = $this->createRunner([$task], $storage, transactionMode: TransactionMode::PerTask);
 
         $runner->runAll($this->output);
 
         self::assertFalse(
             $task->ranInsideTransaction,
-            'wrapInTransaction must not open a transaction around run() when shouldWrap=false',
+            '#[AsDeployTask(transactional: false)] must opt the task out of the per_task wrap',
+        );
+        self::assertTrue(
+            $storage->has('test.attribute-opt-out'),
+            'The opted-out task must still persist its execution record',
         );
         self::assertTrue(
             $storage->lastSaveInsideTransaction,
             'The split-path persist must still wrap its saves in a per-save transaction',
+        );
+    }
+
+    public function testNoneModeSkipsPerTaskWrap(): void
+    {
+        // Under transaction_mode: none the runner must not open a transaction
+        // around run() even on a transactional storage; the split persist still
+        // wraps its saves.
+        $storage = new RollbackTransactionalStorageFixture();
+
+        $task = new TransactionDepthProbeTask('task.unwrapped', $storage);
+
+        $runner = $this->createRunner([$task], $storage, transactionMode: TransactionMode::None);
+
+        $runner->runAll($this->output);
+
+        self::assertFalse(
+            $task->ranInsideTransaction,
+            'wrapInTransaction must not open a transaction around run() under mode none',
+        );
+        self::assertTrue(
+            $storage->lastSaveInsideTransaction,
+            'The split-path persist must still wrap its saves in a per-save transaction',
+        );
+    }
+
+    public function testNoneModeIgnoresAttributeTransactionalTrue(): void
+    {
+        // The attribute override applies only in per_task mode. In DI this
+        // conflict is rejected at compile time; a hand-constructed runner under
+        // mode none must run the task unwrapped rather than let the attribute
+        // leak a per-task transaction into a mode that disables them.
+        $storage = new RollbackTransactionalStorageFixture();
+
+        $task = new #[AsDeployTask(id: 'test.attribute-opt-in', transactional: true)] class($storage) implements \Soviann\DeployTasksBundle\DeployTaskInterface {
+            public bool $ranInsideTransaction = false;
+
+            public function __construct(private readonly RollbackTransactionalStorageFixture $storage)
+            {
+            }
+
+            public function getDescription(): string
+            {
+                return 'Probes the transaction depth at run() time';
+            }
+
+            public function run(\Symfony\Component\Console\Output\OutputInterface $output): TaskResult
+            {
+                $this->ranInsideTransaction = $this->storage->transactionDepth > 0;
+
+                return TaskResult::SUCCESS;
+            }
+        };
+
+        $runner = $this->createRunner([$task], $storage, transactionMode: TransactionMode::None);
+
+        $runner->runAll($this->output);
+
+        self::assertFalse(
+            $task->ranInsideTransaction,
+            'transactional: true must not wrap outside per_task mode',
+        );
+        self::assertTrue(
+            $storage->has('test.attribute-opt-in'),
+            'The task must still run and persist its execution record',
         );
     }
 
@@ -2691,7 +2724,7 @@ final class TaskRunnerTest extends TestCase
         };
 
         $storage = new TransactionalInMemoryStorageFixture();
-        $runner = $this->createRunner([$task], $storage, transactional: true);
+        $runner = $this->createRunner([$task], $storage, transactionMode: TransactionMode::PerTask);
 
         $runner->runAll($this->output);
 
@@ -2706,13 +2739,13 @@ final class TaskRunnerTest extends TestCase
     {
         // Kills ReturnRemoval in persistOutcomeTransactional: without the `return` after
         // the transactional() call, the code falls through to the bare persistOutcome()
-        // and saves each slot a second time. Global transactional: false routes the
-        // success persist through persistOutcomeTransactional (wrapped tasks persist
-        // inside their run() transaction and never reach it).
+        // and saves each slot a second time. Mode none routes the success persist
+        // through persistOutcomeTransactional (wrapped tasks persist inside their
+        // run() transaction and never reach it).
         $saveCount = 0;
         $storage = $this->makeSaveCountingTransactionalStorage($saveCount);
 
-        $runner = $this->createRunner([new SimpleTask('task.1', 'First')], $storage, transactional: false);
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')], $storage, transactionMode: TransactionMode::None);
 
         $runner->runAll($this->output);
 
@@ -2810,7 +2843,7 @@ final class TaskRunnerTest extends TestCase
         $runner = $this->createRunner(
             [new FailingTask()],
             $storage,
-            allOrNothing: true,
+            transactionMode: TransactionMode::AllOrNothing,
         );
 
         try {
@@ -2894,7 +2927,7 @@ final class TaskRunnerTest extends TestCase
     public function testReturnedFailureAbortsAllOrNothingRun(): void
     {
         $storage = new TransactionalInMemoryStorageFixture();
-        $runner = $this->createRunner([new ReturnsFailureTask()], storage: $storage, allOrNothing: true);
+        $runner = $this->createRunner([new ReturnsFailureTask()], storage: $storage, transactionMode: TransactionMode::AllOrNothing);
 
         $this->expectException(AllOrNothingFailureException::class);
         $runner->runAll($this->output);
@@ -2920,8 +2953,7 @@ final class TaskRunnerTest extends TestCase
         $runner = $this->createRunner(
             [new ReturnsFailureTask()],
             storage: $storage,
-            transactional: true,
-            allOrNothing: false,
+            transactionMode: TransactionMode::PerTask,
         );
 
         $result = $runner->runAll($this->output);
@@ -3028,7 +3060,7 @@ final class TaskRunnerTest extends TestCase
      */
     private function createAllOrNothingRunner(array $tasks, TaskStorageInterface $storage): TaskRunner
     {
-        return $this->createRunner($tasks, $storage, allOrNothing: true);
+        return $this->createRunner($tasks, $storage, transactionMode: TransactionMode::AllOrNothing);
     }
 
     private function makeFailingTask(string $taskId): \Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface
@@ -3115,8 +3147,7 @@ final class TaskRunnerTest extends TestCase
         ?LoggerInterface $logger = null,
         ?LockFactory $lockFactory = null,
         int $defaultTimeout = 300,
-        bool $transactional = true,
-        bool $allOrNothing = false,
+        TransactionMode $transactionMode = TransactionMode::PerTask,
         int $lockTtl = 3600,
         ?string $environment = null,
         ?ClockInterface $clock = null,
@@ -3131,8 +3162,7 @@ final class TaskRunnerTest extends TestCase
             $idResolver,
             new TaskDescriptionResolver(),
             $defaultTimeout,
-            $transactional,
-            $allOrNothing,
+            $transactionMode,
             $lockTtl,
             lockDisabledByConfig: $lockDisabledByConfig,
             dispatcher: $dispatcher,

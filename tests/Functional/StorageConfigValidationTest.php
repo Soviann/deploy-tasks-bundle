@@ -15,8 +15,9 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 /**
  * Verifies that impossible storage configurations are rejected at boot.
  *
- * - `filesystem.transactional` / `filesystem.all_or_nothing` → the filesystem node no longer
- *   defines these keys, so the config tree rejects them as unrecognized options
+ * - `filesystem.transactional` / `filesystem.all_or_nothing` / `filesystem.transaction_mode` →
+ *   filesystem storage is inherently non-transactional, so the filesystem node defines no
+ *   transaction keys and the config tree rejects them as unrecognized options
  *   (InvalidConfigurationException).
  * - custom storage service not implementing TaskStorageInterface → caught at compiler-pass validation
  *   (IncompatibleStorageException)
@@ -83,6 +84,37 @@ final class StorageConfigValidationTest extends KernelTestCase
 
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessageMatches('/Unrecognized option "all_or_nothing"/');
+
+        $kernel->boot();
+    }
+
+    public function testFilesystemTransactionModeIsRejectedAsUnrecognizedOption(): void
+    {
+        $kernel = new class('test', true) extends AbstractTestKernel {
+            protected static function kernelName(): string
+            {
+                return 'fs-transaction-mode-'.\uniqid('', true);
+            }
+
+            protected function configureContainer(ContainerConfigurator $container): void
+            {
+                $container->extension('framework', $this->frameworkConfig());
+
+                $container->extension('soviann_deploy_tasks', [
+                    'storage' => [
+                        'type' => 'filesystem',
+                        'filesystem' => [
+                            'transaction_mode' => 'per_task',
+                        ],
+                    ],
+                    'events' => ['enabled' => false],
+                    'lock' => ['enabled' => false],
+                ]);
+            }
+        };
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/Unrecognized option "transaction_mode"/');
 
         $kernel->boot();
     }
