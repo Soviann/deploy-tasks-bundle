@@ -49,7 +49,7 @@ If you do not need the metadata provided by the attribute, you can implement `De
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `string` | `''` | Unique task identifier. Resolution order: `TaskIdProviderInterface::getTaskId()` if the task implements it and returns non-empty, then this `id` if non-empty, then the configured `TaskIdGeneratorInterface::generate()` (default: `DefaultTaskIdGenerator`). |
+| `id` | `string` | `''` | Unique task identifier. Resolution order: `TaskIdProviderInterface::getTaskId()` if the task implements it and returns non-empty, then this `id` if non-empty, then auto-derived from the class name (see [Task ID resolution](#task-id-resolution)). |
 | `priority` | `int` | `0` | Higher value runs first |
 | `env` | `string\|string[]\|null` | `null` | Restrict execution to one or more environments; `null` runs everywhere |
 | `timeout` | `?int` | `null` | Hard timeout in seconds for processes run through `ProcessRunnerTrait::runProcess()` — the process is killed past it. No effect outside that trait; see [Running shell commands](#running-shell-commands) |
@@ -93,7 +93,7 @@ Execution is scoped per `(task, group)` slot. The uniform rule across `deploytas
 2. Same priority: the date extracted from the task ID (format `YYYYMMDD` embedded anywhere in the ID string) determines order — oldest date first.
 3. Same date or no date: original service registration order.
 
-The date is extracted from the **resolved** task ID, so a custom `TaskIdGeneratorInterface` producing IDs without an embedded `YYYYMMDD` substring silently falls back to registration order for ties.
+The date is extracted from the **resolved** task ID, so an ID without an embedded `YYYYMMDD` substring silently falls back to registration order for ties.
 
 ## Return values
 
@@ -111,7 +111,7 @@ The bundle resolves task IDs in this order:
 
 1. **`TaskIdProviderInterface::getTaskId()`** — if the task implements `TaskIdProviderInterface` and returns a non-empty value, it wins.
 2. **Attribute `id`** — if `#[AsDeployTask(id: '...')]` is present and non-empty.
-3. **Configured `TaskIdGeneratorInterface`** — by default `DefaultTaskIdGenerator` strips `Task`/`DeployTask` prefix/suffix, converts CamelCase to snake_case, and prefixes numeric remainders with `task_` (see [`docs/advanced.md`](advanced.md#custom-id-generator)). Examples: `SeedCategoriesTask` → `seed_categories`, `DeployTask20260412143000` → `task_20260412143000`.
+3. **Auto-derived from the class name** — the built-in generator strips the `Task`/`DeployTask` prefix/suffix, converts CamelCase to snake_case, and prefixes numeric remainders with `task_`. Examples: `SeedCategoriesTask` → `seed_categories`, `DeployTask20260412143000` → `task_20260412143000`.
 
 If both `getTaskId()` and the attribute `id` return non-empty **different** values, a `E_USER_WARNING` is triggered and the interface value takes precedence.
 
@@ -137,8 +137,8 @@ final class DynamicIdTask implements TaskIdProviderInterface
 
 Task IDs must be unique across the entire application. Duplication is detected at two layers:
 
-- **Compile time** — the compiler pass calls `TaskIdGeneratorInterface::generateStatic()` for every tagged task without an explicit attribute ID and throws `LogicException` on collision. Tasks implementing `TaskIdProviderInterface` are skipped at compile time — their real ID only exists at runtime, so the registry catches them at boot.
-- **Runtime** — `TaskRegistry` re-checks resolved IDs on boot and throws `DuplicateTaskIdException`. This covers `TaskIdProviderInterface` tasks and any task whose generator returned `null` from `generateStatic()` to opt out of compile-time detection.
+- **Compile time** — the compiler pass derives the ID from the class name for every tagged task without an explicit attribute ID and throws `LogicException` on collision. Tasks implementing `TaskIdProviderInterface` are skipped at compile time — their real ID only exists at runtime, so the registry catches them at boot.
+- **Runtime** — `TaskRegistry` re-checks resolved IDs on boot and throws `DuplicateTaskIdException`. This covers `TaskIdProviderInterface` tasks.
 
 Recommended naming convention: `task_YYYYMMDDHHMMSS_<description_in_snake_case>`.
 

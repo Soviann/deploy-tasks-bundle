@@ -90,10 +90,6 @@ final class SoviannDeployTasksBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->children()
-                ->scalarNode('id_generator')
-                    ->defaultNull()
-                    ->info('Service ID of a custom TaskIdGeneratorInterface, or null for the default generator.')
-                ->end()
                 ->scalarNode('sorter')
                     ->defaultNull()
                     ->info('Service ID of a custom TaskSorterInterface, or null for the default sorter.')
@@ -172,8 +168,9 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         ;
         $services->alias(TaskRegistry::class, 'soviann_deploy_tasks.registry');
 
-        // ID generator
-        $this->registerIdGenerator($config, $services);
+        // ID generator (internal — not configurable)
+        $services->set('soviann_deploy_tasks.id_generator', DefaultTaskIdGenerator::class);
+        $services->alias(TaskIdGeneratorInterface::class, 'soviann_deploy_tasks.id_generator');
 
         // ID resolver (internal — not configurable)
         $services->set('soviann_deploy_tasks.id_resolver', TaskIdResolver::class)
@@ -479,25 +476,6 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         }
 
         $services->alias(TaskStorageInterface::class, 'soviann_deploy_tasks.storage');
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function registerIdGenerator(array $config, ServicesConfigurator $services): void
-    {
-        /** @var string|null $generatorServiceId */
-        $generatorServiceId = $config['id_generator'];
-
-        $services->set('soviann_deploy_tasks.default_id_generator', DefaultTaskIdGenerator::class);
-
-        if (null !== $generatorServiceId) {
-            $services->alias('soviann_deploy_tasks.id_generator', $generatorServiceId);
-        } else {
-            $services->alias('soviann_deploy_tasks.id_generator', 'soviann_deploy_tasks.default_id_generator');
-        }
-
-        $services->alias(TaskIdGeneratorInterface::class, 'soviann_deploy_tasks.id_generator');
     }
 
     /**

@@ -15,8 +15,8 @@ Most common causes, in order:
 
 Two registered task services produced the same task ID. Detection happens at two layers:
 
-- **Compile time** — caught by the `RegisterTasksCompilerPass` whenever `TaskIdGeneratorInterface::generateStatic()` returns a string for both classes. Tasks implementing `TaskIdProviderInterface` are skipped at compile time — their real ID only exists at runtime.
-- **Runtime** — caught by `TaskRegistry` on boot. This catches duplicates that escape compile-time detection (tasks implementing `TaskIdProviderInterface`, or generators that return `null` from `generateStatic()`).
+- **Compile time** — caught by the `RegisterTasksCompilerPass`, which checks the attribute `id` or, absent one, the ID derived from the class name. Tasks implementing `TaskIdProviderInterface` are skipped at compile time — their real ID only exists at runtime.
+- **Runtime** — caught by `TaskRegistry` on boot. This catches duplicates that escape compile-time detection (tasks implementing `TaskIdProviderInterface`).
 
 Fix it by setting an explicit `#[AsDeployTask(id: '...')]` on at least one of the two tasks. The recommended naming convention `task_YYYYMMDDHHMMSS_<snake_case>` makes accidental collisions almost impossible.
 
@@ -87,6 +87,6 @@ If both your method and the attribute are unset (or empty), you get an empty cel
 
 ## My `TaskIdProviderInterface::getTaskId()` returns the wrong value at compile time
 
-`getTaskId()` is an instance method — it is *not* called during the compiler pass. Only `TaskIdGeneratorInterface::generateStatic()` runs at compile time. `TaskIdProviderInterface` resolution happens at runtime via `TaskIdResolver`. If you need a deterministic compile-time ID, use `#[AsDeployTask(id: '...')]` instead of (or in addition to) `TaskIdProviderInterface`.
+`getTaskId()` is an instance method — it is *not* called during the compiler pass, which only knows attribute `id`s and IDs derived from class names. `TaskIdProviderInterface` resolution happens at runtime via `TaskIdResolver`. If you need a deterministic compile-time ID, use `#[AsDeployTask(id: '...')]` instead of (or in addition to) `TaskIdProviderInterface`.
 
 If both `getTaskId()` and `#[AsDeployTask(id: '...')]` return non-empty *different* values, the bundle triggers a `E_USER_WARNING` and `getTaskId()` wins.

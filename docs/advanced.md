@@ -75,39 +75,6 @@ This requires a storage backend implementing `TransactionalStorageInterface`. Th
 
 `transactional` has no effect under `transaction_mode: none` or `all_or_nothing`, and declaring it there fails the container build instead of being silently ignored: `transactional: true` under `none` (nothing to wrap it into), or `transactional: false` under `all_or_nothing` (the run-wide transaction cannot exempt one task). Independently of mode, `transactional: true` on a storage that does not implement `TransactionalStorageInterface` at all always fails the container build with `IncompatibleStorageException` — an explicit per-task transaction demand never silently degrades to unwrapped execution. Switch to `storage.type: database` (or a custom transactional backend), or remove the flag.
 
-## Custom ID Generator
-
-Implement `TaskIdGeneratorInterface` to customize how task IDs are derived from class names. The default generator (`DefaultTaskIdGenerator`) produces IDs like `task_20260412143000` (from `DeployTask20260412143000`) or `seed_categories` (from `SeedCategoriesTask`).
-
-```php
-use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
-
-final class MyIdGenerator implements TaskIdGeneratorInterface
-{
-    public function generate(string $className): string
-    {
-        // Your custom ID generation logic
-    }
-
-    public static function generateStatic(string $className): ?string
-    {
-        // Static variant for compile-time duplicate detection.
-        // Return null if the ID requires runtime context.
-    }
-}
-```
-
-Register it in the bundle configuration:
-
-```yaml
-soviann_deploy_tasks:
-    id_generator: App\Deploy\MyIdGenerator
-```
-
-When `id_generator` is `null` (default), the built-in `DefaultTaskIdGenerator` is used. The generator is the third step of task-ID resolution (see [`creating-tasks.md`](creating-tasks.md#task-id-resolution)): it runs only when neither `TaskIdProviderInterface::getTaskId()` nor the attribute `id` produces a non-empty value, and it is also used by `deploytasks:generate:container` for the initial ID stub.
-
-> **Note:** `generateStatic()` is called at compile time by the compiler pass for duplicate ID detection (see the uniqueness paragraph in [`creating-tasks.md`](creating-tasks.md#task-id-resolution)). If your implementation requires runtime context (e.g. injected services), return `null` to opt out of compile-time detection — duplicates will then be caught at runtime by the `TaskRegistry`.
-
 ## Run summary (`RunResult`)
 
 `TaskRunner::runAll()` returns a `Soviann\DeployTasksBundle\Runner\RunResult` value object summarising the outcome. The built-in `deploytasks:run` command consumes it to decide its exit code and to format the user-facing summary line, and it is the shape you read from any custom wrapper that drives `TaskRunner` directly.

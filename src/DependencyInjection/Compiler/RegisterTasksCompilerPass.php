@@ -7,7 +7,7 @@ namespace Soviann\DeployTasksBundle\DependencyInjection\Compiler;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Exception\IncompatibleStorageException;
-use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
+use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdProviderInterface;
 use Soviann\DeployTasksBundle\Runner\TransactionMode;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
@@ -149,13 +149,10 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      * validation still runs for them — groups are declared on the attribute and are
      * fully known at compile time.
      *
-     * When a custom generator is configured, its generateStatic() is called for
-     * each task without an explicit attribute ID. Returning null opts that task
-     * out of compile-time duplicate detection. When the generator's class itself
-     * cannot be resolved at compile time (factory-defined service, class not yet
-     * loadable), every generator-derived task is skipped the same way — the
-     * default generator's IDs must never stand in for the real generator's, or
-     * legal setups the real generator disambiguates would be rejected.
+     * For tasks without an explicit attribute ID, the ID is derived from the class
+     * name via DefaultTaskIdGenerator::generateStatic() — the same derivation
+     * TaskIdResolver applies at runtime, so compile-time detection always validates
+     * the IDs that will actually exist.
      *
      * When the active storage is database-backed, also enforces that each task ID
      * and group fits the configured DBAL column length — the attribute itself is
@@ -180,7 +177,6 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
      */
     private function validateTaggedTasks(ContainerBuilder $container, ?TransactionMode $mode): void
     {
-        $generatorClass = $this->resolveGeneratorClass($container);
         $taggedServices = $container->findTaggedServiceIds('soviann_deploy_tasks.task');
         [$idColumnLength, $groupColumnLength] = $this->resolveStorageColumnLengths($container);
         $storageClass = $container->hasDefinition('soviann_deploy_tasks.storage')
@@ -240,16 +236,7 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
             }
 
             $attributeId = AsDeployTask::idOf($class);
-
-            if ('' !== $attributeId) {
-                $taskId = $attributeId;
-            } else {
-                $taskId = null === $generatorClass ? null : $generatorClass::generateStatic($class);
-
-                if (null === $taskId) {
-                    continue; // can't know ID at compile time — skip
-                }
-            }
+            $taskId = '' !== $attributeId ? $attributeId : DefaultTaskIdGenerator::generateStatic($class);
 
             if (null !== $idColumnLength && \strlen($taskId) > $idColumnLength) {
                 throw new \LogicException(\sprintf('Deploy task ID "%s" (service "%s") is %d characters, exceeding the configured id_column_length of %d. Increase soviann_deploy_tasks.storage.database.id_column_length or shorten the task ID.', $taskId, $serviceId, \strlen($taskId), $idColumnLength));
@@ -335,31 +322,6 @@ final class RegisterTasksCompilerPass implements CompilerPassInterface
         $groupColumnLength = $definition->getArgument('$groupColumnLength');
 
         return [$idColumnLength, $groupColumnLength];
-    }
-
-    /**
-     * Returns the FQCN of the configured task ID generator, or null when the
-     * generator's class cannot be resolved at compile time (factory-defined
-     * service, class not yet loadable). Callers must then skip generator-derived
-     * ID validation — substituting the default generator would validate phantom
-     * IDs the real generator may never produce.
-     *
-     * @return class-string<TaskIdGeneratorInterface>|null
-     */
-    private function resolveGeneratorClass(ContainerBuilder $container): ?string
-    {
-        $definition = $container->findDefinition('soviann_deploy_tasks.id_generator');
-        $class = $definition->getClass();
-
-        if (null === $class || !\class_exists($class)) {
-            return null;
-        }
-
-        if (!\is_a($class, TaskIdGeneratorInterface::class, true)) {
-            throw new \LogicException(\sprintf('The configured task ID generator "%s" (service "soviann_deploy_tasks.id_generator", config key "soviann_deploy_tasks.id_generator") must implement %s.', $class, TaskIdGeneratorInterface::class));
-        }
-
-        return $class;
     }
 
     private function wireOptionalDependencies(ContainerBuilder $container): void

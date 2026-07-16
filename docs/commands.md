@@ -231,9 +231,9 @@ bin/console deploytasks:generate:container --dir=src/Task/
 |---|---|---|
 | `--dir` | `src/DeployTasks/Task/` | Target directory for the generated file |
 
-The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`) — the command takes no positional argument. The task ID is auto-derived from the class name by the configured `TaskIdGeneratorInterface`: the default generator strips the `DeployTask` prefix and prefixes the purely-numeric remainder with `task_` (e.g. `task_20260412143000`).
+The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`) — the command takes no positional argument. The task ID is auto-derived from the class name: the `DeployTask` prefix is stripped and the purely-numeric remainder prefixed with `task_` (e.g. `task_20260412143000`).
 
-The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute, and provides a stub `run()` method. Rename the class after generation if you want a more descriptive name — the default ID generator also handles `SeedCategoriesTask` and similar CamelCase names.
+The generated file implements `DeployTaskInterface`, includes the `#[AsDeployTask]` attribute, and provides a stub `run()` method. Rename the class after generation if you want a more descriptive name — the ID derivation also handles `SeedCategoriesTask` and similar CamelCase names.
 
 The namespace is built by applying `ucfirst` to each path segment of the target directory; use CamelCase directory names (e.g. `src/DeployTasks/Task/`) to produce a CamelCase namespace (e.g. `App\DeployTasks\Task`). Lowercase segments remain lowercase apart from their first letter. When the directory starts with `src/`, the leading segment is rewritten to the configured root namespace — `soviann_deploy_tasks.generate.root_namespace` (default `App`, mirroring [symfony/maker-bundle](https://symfony.com/bundles/SymfonyMakerBundle/current/index.html#root-namespace)); set it to your `composer.json` PSR-4 root if that is not `App`. Pass `--namespace` to override the derived namespace entirely.
 

@@ -7,14 +7,12 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
-use Soviann\DeployTasksBundle\Identifier\DefaultTaskIdGenerator;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Tests\Fixtures\AttributeOnlyTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\CaseCollidingGroupsTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\NoAttributeSeedCategoriesTask;
-use Soviann\DeployTasksBundle\Tests\Fixtures\NullStaticTaskIdGenerator;
 use Soviann\DeployTasksBundle\Tests\Fixtures\OverlongIdTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\PredeployTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ProviderClash\A\ClashTask as ClashTaskA;
@@ -181,20 +179,16 @@ final class RegisterTasksCompilerPassTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // resolveGeneratorClass — unresolvable generator class skips generator-derived
-    // ID validation instead of substituting the default generator
+    // validateTaggedTasks — IDs derived from class names are validated like
+    // attribute IDs (DefaultTaskIdGenerator::generateStatic() is hardcoded)
     // -------------------------------------------------------------------------
 
-    public function testUnresolvableGeneratorClassDoesNotCauseFalseDuplicateIdError(): void
+    public function testDerivedTaskIdDuplicatesAreDetectedAtCompileTime(): void
     {
-        // A custom generator built by a factory has no class at compile time —
-        // getClass() returns null. Substituting the default generator would
-        // validate phantom IDs: both services below default-generate
-        // "no_attribute_seed_categories", yet the real generator may disambiguate
-        // them at runtime. The pass must skip these tasks instead, exactly as it
-        // does when generateStatic() returns null.
+        // Neither service declares an attribute ID: both IDs are derived from the
+        // short class name ("no_attribute_seed_categories"), so the collision must
+        // fail the build — no generator service is involved anymore.
         $container = $this->baseContainer();
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition()); // class is null
 
         $def1 = new Definition(NoAttributeSeedCategoriesTask::class);
         $def1->addTag('soviann_deploy_tasks.task');
@@ -204,45 +198,25 @@ final class RegisterTasksCompilerPassTest extends TestCase
         $def2->addTag('soviann_deploy_tasks.task');
         $container->setDefinition('service.second', $def2);
 
-        (new RegisterTasksCompilerPass())->process($container); // must not throw
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/Duplicate deploy task ID "no_attribute_seed_categories"/');
 
-        $this->addToAssertionCount(1);
+        (new RegisterTasksCompilerPass())->process($container);
     }
 
-    public function testUnresolvableGeneratorClassSkipsIdColumnLengthValidation(): void
+    public function testDerivedTaskIdExceedingConfiguredColumnLengthThrows(): void
     {
-        // Skipping must cover the id_column_length check too — it would otherwise
-        // run against the same phantom default-generated ID.
+        // The id_column_length check must cover derived IDs too, not only
+        // attribute-declared ones.
         $container = $this->baseContainer();
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition()); // class is null
         $this->withDbalColumnLengths($container, idColumnLength: 3, groupColumnLength: 128);
 
         $def = new Definition(NoAttributeSeedCategoriesTask::class);
         $def->addTag('soviann_deploy_tasks.task');
         $container->setDefinition('service.generated_id', $def);
 
-        (new RegisterTasksCompilerPass())->process($container); // must not throw
-
-        $this->addToAssertionCount(1);
-    }
-
-    public function testUnresolvableGeneratorClassStillValidatesExplicitAttributeIds(): void
-    {
-        // Attribute IDs do not depend on the generator, so their duplicate
-        // detection must survive an unresolvable generator class.
-        $container = $this->baseContainer();
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition()); // class is null
-
-        $def1 = new Definition(AttributeOnlyTask::class);
-        $def1->addTag('soviann_deploy_tasks.task');
-        $container->setDefinition('service.first', $def1);
-
-        $def2 = new Definition(AttributeOnlyTask::class);
-        $def2->addTag('soviann_deploy_tasks.task');
-        $container->setDefinition('service.second', $def2);
-
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches('/Duplicate deploy task ID "attribute_only"/');
+        $this->expectExceptionMessageMatches('/"no_attribute_seed_categories".*exceeding the configured id_column_length of 3/');
 
         (new RegisterTasksCompilerPass())->process($container);
     }
@@ -472,7 +446,6 @@ final class RegisterTasksCompilerPassTest extends TestCase
         // Verify that when no runner is defined, the pass completes silently.
         $container = new ContainerBuilder();
         $container->setDefinition('soviann_deploy_tasks.id_resolver', new Definition(TaskIdResolver::class));
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(DefaultTaskIdGenerator::class));
         // No 'soviann_deploy_tasks.runner' definition.
         $container->setParameter('soviann_deploy_tasks.events.enabled', false);
         $container->setParameter('soviann_deploy_tasks.lock.enabled', false);
@@ -812,59 +785,6 @@ final class RegisterTasksCompilerPassTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // validateTaggedTasks — generateStatic() returning null opts tasks out
-    // -------------------------------------------------------------------------
-
-    public function testGeneratorReturningNullStaticIdSkipsCompileTimeDuplicateDetection(): void
-    {
-        // Two services share the same attribute-ID-less class: the default generator
-        // would derive the same static ID for both and reject the build as a duplicate.
-        // A generator whose generateStatic() returns null opts them out of compile-time
-        // detection — duplicates surface at runtime in the registry instead.
-        $container = $this->baseContainer();
-        $container->setDefinition(
-            'soviann_deploy_tasks.id_generator',
-            new Definition(NullStaticTaskIdGenerator::class),
-        );
-        $this->withDbalColumnLengths($container, idColumnLength: 3, groupColumnLength: 3);
-
-        $def1 = new Definition(NoAttributeSeedCategoriesTask::class);
-        $def1->addTag('soviann_deploy_tasks.task');
-        $container->setDefinition('service.first', $def1);
-
-        $def2 = new Definition(NoAttributeSeedCategoriesTask::class);
-        $def2->addTag('soviann_deploy_tasks.task');
-        $container->setDefinition('service.second', $def2);
-
-        // Must not throw — neither duplicate detection nor the id_column_length
-        // check may run against an ID that does not exist at compile time.
-        (new RegisterTasksCompilerPass())->process($container);
-
-        $this->addToAssertionCount(1);
-    }
-
-    // -------------------------------------------------------------------------
-    // resolveGeneratorClass — misconfigured generator fails loudly
-    // -------------------------------------------------------------------------
-
-    public function testGeneratorClassNotImplementingInterfaceThrows(): void
-    {
-        // Previously guarded by assert() — invisible with zend.assertions=-1, where a
-        // misconfigured generator surfaced later as "call to undefined method".
-        $container = $this->baseContainer();
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(\stdClass::class));
-
-        $def = new Definition(PredeployTask::class);
-        $def->addTag('soviann_deploy_tasks.task');
-        $container->setDefinition('service.task', $def);
-
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches('/stdClass.*must implement/');
-
-        (new RegisterTasksCompilerPass())->process($container);
-    }
-
-    // -------------------------------------------------------------------------
     // validateTaggedTasks — filesystem storage record-filename length
     // -------------------------------------------------------------------------
 
@@ -872,7 +792,6 @@ final class RegisterTasksCompilerPassTest extends TestCase
     {
         $container = new ContainerBuilder();
         $container->setDefinition('soviann_deploy_tasks.storage', new Definition(FilesystemStorage::class));
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(DefaultTaskIdGenerator::class));
         $task = new Definition(OverlongIdTask::class);
         $task->addTag('soviann_deploy_tasks.task');
         $container->setDefinition('app.overlong_task', $task);
@@ -885,15 +804,14 @@ final class RegisterTasksCompilerPassTest extends TestCase
 
     /**
      * Builds a container with the services and parameters the pass needs to run:
-     * id resolver/generator (for ID resolution) and the runner plus its optional
-     * dependency flags (for wireOptionalDependencies).
+     * the id resolver and the runner plus its optional dependency flags (for
+     * wireOptionalDependencies).
      */
     private function baseContainer(): ContainerBuilder
     {
         $container = new ContainerBuilder();
 
         $container->setDefinition('soviann_deploy_tasks.id_resolver', new Definition(TaskIdResolver::class));
-        $container->setDefinition('soviann_deploy_tasks.id_generator', new Definition(DefaultTaskIdGenerator::class));
         $container->setDefinition(
             'soviann_deploy_tasks.runner',
             new Definition('Soviann\DeployTasksBundle\Runner\TaskRunner'),

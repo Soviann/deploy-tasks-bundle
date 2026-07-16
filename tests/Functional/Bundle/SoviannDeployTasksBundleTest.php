@@ -370,7 +370,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
     public function testIdResolverReceivesIdGeneratorAsArgument(): void
     {
         // Mutant 148: ArrayItemRemoval removes service('soviann_deploy_tasks.id_generator') from id_resolver args.
-        // Without the generator arg, TaskIdResolver cannot delegate to the custom generator.
+        // Without the generator arg, TaskIdResolver cannot delegate to the generator.
         // We verify that the id_resolver definition has the id_generator as its first argument.
         self::bootKernel();
         // The simplest observable check: if the arg is missing, instantiating TaskIdResolver

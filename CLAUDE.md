@@ -25,7 +25,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Command/`** — 9 console commands (`Deploy*Command.php`) plus `CommandMessages.php` (shared user-facing strings).
 
 **`DependencyInjection/Compiler/`**
-- `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection (skipped when the generator's static method returns null), and wires optional `event_dispatcher` and `lock.factory` into the runner.
+- `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection on attribute `id`s and class-name-derived IDs (`TaskIdProviderInterface` tasks are skipped — checked at boot instead), and wires optional `event_dispatcher` and `lock.factory` into the runner.
 
 **`Event/`**
 - `BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` — all carry `string $taskId`.
@@ -35,9 +35,9 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 ### Domain-based folders
 
 **`Identifier/`** — task ID + description handling
-- `TaskIdGeneratorInterface` — service: `generate(class-string): string` plus static `generateStatic()` for compile time
+- `TaskIdGeneratorInterface` — `generate(class-string): string`; type-hint seam only (not configurable), sole implementation is `DefaultTaskIdGenerator`
 - `TaskIdProviderInterface` — opt-in on tasks to supply a dynamic ID via `getTaskId(): string`
-- `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` prefix/suffix); prefixes a purely-numeric remainder with `task_` to match the recommended naming convention.
+- `DefaultTaskIdGenerator` — `@internal`. FQCN → snake_case (strips `Task`/`DeployTask` prefix/suffix); prefixes a purely-numeric remainder with `task_` to match the recommended naming convention. Its static `generateStatic()` is called directly by `RegisterTasksCompilerPass` for compile-time duplicate-ID detection.
 - `TaskIdResolver` — `@internal`. Resolution order: `TaskIdProviderInterface` > `AsDeployTask::$id` > generator
 - `TaskDescriptionResolver` — `@internal`. Resolution order: non-empty `getDescription()` > `AsDeployTask::$description` > empty string. Used by `deploytasks:status` and `deploytasks:show`.
 
@@ -72,7 +72,6 @@ Root key `soviann_deploy_tasks:`.
 
 ```yaml
 soviann_deploy_tasks:
-    id_generator: ~                         # service ID or null (default: DefaultTaskIdGenerator)
     sorter: ~                               # service ID or null (default: DefaultTaskSorter)
     logger: ~                               # PSR-3 service ID; null = autodetect app logger, NullLogger fallback
     slow_task_threshold: 300                # seconds (>= 0); warn past it, kill nothing; 0 disables the check
@@ -124,7 +123,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `soviann_de
 ### Service Aliases (autowirable)
 - `TaskStorageInterface` → active storage backend
 - `TransactionalStorageInterface` → active storage when it supports transactions
-- `TaskIdGeneratorInterface` → configured or default generator
+- `TaskIdGeneratorInterface` → the built-in generator
 - `TaskSorterInterface` → configured or default sorter
 - `TaskRegistry`, `TaskRunner` → autowirable (private aliases, constructor injection only)
 
@@ -172,7 +171,7 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 | Need | Touch |
 |---|---|
 | New storage backend | Implement `TaskStorageInterface` (or `TransactionalStorageInterface`) in `src/Storage/`. Add a service + config branch in `SoviannDeployTasksBundle::configure()` and `loadExtension()`. |
-| Custom ID scheme | Implement `TaskIdGeneratorInterface`. Set `soviann_deploy_tasks.id_generator` to its service ID. |
+| Explicit task ID | Set `#[AsDeployTask(id: '...')]` on the task — auto-derivation from the class name is not customizable. |
 | Dynamic per-task ID | Task implements `TaskIdProviderInterface::getTaskId()`. |
 | Custom ordering | Implement `TaskSorterInterface`. Set `soviann_deploy_tasks.sorter`. |
 | React to lifecycle | Subscribe to `BeforeTaskEvent` / `AfterTaskEvent` / `TaskFailedEvent` (all carry `$taskId`). |

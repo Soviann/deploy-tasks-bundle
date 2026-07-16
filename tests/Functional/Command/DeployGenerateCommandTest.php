@@ -526,11 +526,6 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             {
                 return $this->id;
             }
-
-            public static function generateStatic(string $className): ?string
-            {
-                return null;
-            }
         };
 
         $projectDir = \sys_get_temp_dir().'/generate-hostile-'.\uniqid();

@@ -35,6 +35,11 @@ final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
         return self::generateStatic($className);
     }
 
+    /**
+     * Static twin of {@see generate()} — same derivation, callable without
+     * instantiation. RegisterTasksCompilerPass calls it directly for compile-time
+     * duplicate-ID detection, so the validated IDs always match the runtime ones.
+     */
     public static function generateStatic(string $className): string
     {
         $lastBackslash = \strrpos($className, '\\');

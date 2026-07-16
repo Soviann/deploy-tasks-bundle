@@ -23,7 +23,7 @@ so it executes exactly once per environment.
 - **PSR-3 logging** — run- and task-level lifecycle logged through the application logger, auto-routed to a dedicated `soviann_deploy_tasks` Monolog channel when available and falling back to a `NullLogger` otherwise. DBAL exception context is scrubbed of connection credentials before it reaches any log handler.
 - **Console commands** — `deploytasks:run`, `:status`, `:show`, `:skip`, `:reset`, `:rollup`, `:generate:container`, and `:create-schema` (registered only for database storage).
 - **Host-scope tasks** — a self-contained `bin/deploy-tasks-host.sh` runner executes tracked `*.sh` tasks on the host, outside the container, with a Symfony-compatible `.env` cascade and flock-based concurrency. Managed from the console via `deploytasks:generate:host`, `:skip:host`, `:reset:host`, `:rollup:host`, and `:host:config`.
-- **Extension points** — custom task-id generation (`TaskIdGeneratorInterface`), per-instance ids (`TaskIdProviderInterface`), and custom ordering (`TaskSorterInterface`).
+- **Extension points** — per-instance ids (`TaskIdProviderInterface`) and custom ordering (`TaskSorterInterface`).
 - **Process helper** — `ProcessRunnerTrait` wraps `symfony/process` for tasks that shell out, streaming sanitized child output and enforcing a timeout.
 - **Configuration** — the `soviann_deploy_tasks` config tree covers storage, events, lock, generate, and host settings, with scalar shorthands (`storage: database`, `events: false`, `lock: false`). Task ids and group names are validated against a strict allowlist, and untrusted text is stripped of terminal control sequences before display.
 - **Requirements** — PHP 8.2+, Symfony 6.4 LTS or 7.x.
@@ -39,6 +39,7 @@ so it executes exactly once per environment.
 ### Removed
 
 - **Breaking (pre-1.0):** `TaskResult::LOCKED` is removed; `TaskRunner::runOne()` returns `?TaskResult` (null on lock contention).
+- **Breaking (pre-1.0):** the custom task-id generator extension point is removed: the `id_generator` config key is now rejected as unrecognized, and `TaskIdGeneratorInterface` loses its static `generateStatic()` variant. Task ids not supplied by `#[AsDeployTask(id: ...)]` or `TaskIdProviderInterface` are always derived from the class name by the built-in generator. Compile-time duplicate-id detection is unchanged.
 
 ### Fixed
 
@@ -51,7 +52,6 @@ so it executes exactly once per environment.
 - A database error raised by a task's own queries inside a transaction now surfaces unchanged, instead of being relabeled as a generic "Transaction failed" storage error that hid the real cause.
 - Resetting filesystem storage, or clearing all slots for one task, no longer risks leaving a stray record behind: the record set is now captured before any file is deleted, instead of deleting while still walking the live directory listing.
 - `deploytasks:skip` no longer silently erases an existing execution record (especially a `Ran` one) when re-skipping a slot: the confirmation prompt now warns and requires an explicit "yes" before overwriting; `--no-interaction` still proceeds since skip remains reversible via `deploytasks:reset`.
-- A custom id generator whose class cannot be resolved at compile time (e.g. a factory-built service) no longer fails the container build with false "Duplicate deploy task ID" errors: compile-time id validation now skips the tasks that depend on the generator instead of checking ids the default generator would have produced.
 - `deploytasks:skip:host` and `deploytasks:rollup:host` no longer corrupt a hand-edited host completion log whose final line lost its newline: the append now heals the missing terminator instead of merging the last recorded id and the first appended one into a single line the host runner could never match again.
 - `deploytasks:rollup:host` no longer double-marks a task completed concurrently (by `deploytasks:skip:host` or a finishing host run) while its confirmation prompt was open: the pending set is now recomputed under the host lock right before the append, so the completion log gets no duplicate line and the reported count only covers tasks the rollup actually marked.
 - `deploytasks:status` no longer reports a false "config drifted" warning for a `deploy-tasks-host.local.sh` saved with CRLF line endings (e.g. edited on Windows): the generated-file parser now tolerates the trailing `\r`.

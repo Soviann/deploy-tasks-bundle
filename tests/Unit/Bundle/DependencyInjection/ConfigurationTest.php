@@ -48,7 +48,6 @@ final class ConfigurationTest extends TestCase
         yield 'empty input yields full default tree' => [
             'input' => [],
             'expected' => [
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -116,7 +115,6 @@ final class ConfigurationTest extends TestCase
                         'transaction_mode' => 'none',
                     ],
                 ],
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -166,7 +164,6 @@ final class ConfigurationTest extends TestCase
                         'transaction_mode' => 'all_or_nothing',
                     ],
                 ],
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -187,7 +184,6 @@ final class ConfigurationTest extends TestCase
 
         yield 'every field overridden round-trips unchanged' => [
             'input' => [
-                'id_generator' => 'app.id',
                 'sorter' => 'app.sorter',
                 'logger' => 'app.logger',
                 'slow_task_threshold' => 600,
@@ -219,7 +215,6 @@ final class ConfigurationTest extends TestCase
                 ],
             ],
             'expected' => [
-                'id_generator' => 'app.id',
                 'sorter' => 'app.sorter',
                 'logger' => 'app.logger',
                 'slow_task_threshold' => 600,
@@ -287,7 +282,6 @@ final class ConfigurationTest extends TestCase
                         'transaction_mode' => 'none',
                     ],
                 ],
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -310,7 +304,6 @@ final class ConfigurationTest extends TestCase
             'input' => ['events' => false],
             'expected' => [
                 'events' => ['enabled' => false],
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -355,7 +348,6 @@ final class ConfigurationTest extends TestCase
             'input' => ['lock' => false],
             'expected' => [
                 'lock' => ['enabled' => false, 'ttl' => 3600],
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -430,7 +422,6 @@ final class ConfigurationTest extends TestCase
                         'transaction_mode' => 'none',
                     ],
                 ],
-                'id_generator' => null,
                 'sorter' => null,
                 'logger' => null,
                 'slow_task_threshold' => 300,
@@ -686,6 +677,17 @@ final class ConfigurationTest extends TestCase
         $this->expectExceptionMessageMatches('/Unrecognized option "default_timeout"/');
 
         self::processConfig(['default_timeout' => 300]);
+    }
+
+    public function testRemovedIdGeneratorKeyIsRejected(): void
+    {
+        // The custom id-generator extension point is removed (pre-1.0 breaking, no
+        // shim): the old key must fail loudly instead of being silently dropped
+        // while the built-in generator takes over.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/Unrecognized option "id_generator"/');
+
+        self::processConfig(['id_generator' => 'app.id_generator']);
     }
 
     public function testUnknownStorageTypeIsRejected(): void
