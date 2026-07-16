@@ -37,6 +37,7 @@ so it executes exactly once per environment.
 - **Breaking (pre-1.0):** a task returning `TaskResult::SKIPPED` (preconditions not met) no longer persists a `skipped` record: the slot stays pending and the task is retried on the next deploy instead of being buried — `deploytasks:skip` remains the only way to skip a task permanently. The run summary stops mixing the two meanings the old `skipped` counter carried: `RunResult` gains `$deferred` (returned `SKIPPED` this run, will retry) while `$skipped` now counts only already-executed slots, and `deploytasks:run` prints both (`Tasks: 2 ran, 1 skipped, 1 deferred, 0 failed.`). The `Deploy tasks run finished` log record gains a matching `deferred` context key.
 - **Breaking (pre-1.0):** the four host-scope commands are renamed to group under one `deploytasks:host:*` prefix, matching `deploytasks:host:config`: `deploytasks:skip:host` → `deploytasks:host:skip`, `deploytasks:reset:host` → `deploytasks:host:reset`, `deploytasks:rollup:host` → `deploytasks:host:rollup`, `deploytasks:generate:host` → `deploytasks:host:generate`. No alias for the old names.
 - **Breaking (pre-1.0):** an unknown task id passed to `deploytasks:run --id` or `deploytasks:show` now exits `2` (`Command::INVALID`, invalid usage), matching `deploytasks:skip`/`deploytasks:reset`, instead of `1`.
+- `--group` is now repeatable on `deploytasks:skip` and `deploytasks:reset` (consistent with `run`/`status`/`rollup`), so one invocation can target several specific slots; a bare invocation still targets every slot.
 
 ### Removed
 

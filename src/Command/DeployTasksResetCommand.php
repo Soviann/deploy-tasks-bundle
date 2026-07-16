@@ -41,17 +41,17 @@ final class DeployTasksResetCommand extends Command
             ->addOption(
                 'group',
                 null,
-                InputOption::VALUE_REQUIRED,
-                'Reset only a specific group slot (default: every slot for this task).',
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Only reset these group slot(s) (repeatable); without this flag every recorded slot is reset.',
             )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command removes the execution record for a deploy task, so it will be treated as pending and executed again on the next <info>deploytasks:run</info>:
 
                     <info>%command.full_name% task_20260412143000_seed_categories</info>
 
-                By default every slot for the task is reset. Restrict to a single slot with <comment>--group</comment>:
+                By default every slot for the task is reset. Restrict to specific slots with <comment>--group</comment> (repeatable):
 
-                    <info>%command.full_name% task_20260412143000_seed_categories --group=predeploy</info>
+                    <info>%command.full_name% task_20260412143000_seed_categories --group=predeploy --group=postdeploy</info>
 
                 You will be prompted for confirmation. To skip the prompt (e.g. in CI), use <comment>--no-interaction</comment>:
 
@@ -73,17 +73,24 @@ final class DeployTasksResetCommand extends Command
         /** @var string $id */
         $id = $input->getArgument('id');
 
-        /** @var string|null $group */
-        $group = $input->getOption('group');
+        /** @var list<string> $requestedGroups */
+        $requestedGroups = \array_values((array) $input->getOption('group'));
 
-        if (null !== $group && 1 !== \preg_match(AsDeployTask::GROUP_NAME_PATTERN, $group)) {
-            // Reject before any storage access: FilesystemStorage would otherwise
-            // throw an uncaught InvalidArgumentException from filePath(), while DBAL
-            // storage would exit cleanly — same input must behave the same on every
-            // backend.
-            $io->error(\sprintf('Invalid group name "%s": must match %s.', $group, AsDeployTask::GROUP_NAME_PATTERN));
+        // Deduplicated like RunOptions does for deploytasks:run, so a repeated
+        // value (--group=a --group=a) cannot double-name or double-remove a slot.
+        $groups = \array_values(\array_unique($requestedGroups));
 
-            return Command::INVALID;
+        foreach ($groups as $group) {
+            if (1 !== \preg_match(AsDeployTask::GROUP_NAME_PATTERN, $group)) {
+                // Reject the whole command before any storage access — no partial
+                // reset: FilesystemStorage would otherwise throw an uncaught
+                // InvalidArgumentException from filePath(), while DBAL storage
+                // would exit cleanly — same input must behave the same on every
+                // backend.
+                $io->error(\sprintf('Invalid group name "%s": must match %s.', $group, AsDeployTask::GROUP_NAME_PATTERN));
+
+                return Command::INVALID;
+            }
         }
 
         if ($this->refusesNonInteractive($input, $output)) {
@@ -98,44 +105,66 @@ final class DeployTasksResetCommand extends Command
             return Command::INVALID;
         }
 
-        if (null !== $group) {
+        if ([] !== $groups) {
             $declared = AsDeployTask::groupsOf($this->registry->get($id));
 
-            if (null !== $declared && !\in_array($group, $declared, true)) {
-                $io->warning(\sprintf(
-                    'Group "%s" is not declared on task "%s" (declared: %s). Proceeding to clean any stale row anyway.',
-                    $group,
-                    $id,
-                    \implode(', ', $declared),
-                ));
+            foreach ($groups as $group) {
+                if (null !== $declared && !\in_array($group, $declared, true)) {
+                    $io->warning(\sprintf(
+                        'Group "%s" is not declared on task "%s" (declared: %s). Proceeding to clean any stale row anyway.',
+                        $group,
+                        $id,
+                        \implode(', ', $declared),
+                    ));
+                }
             }
 
-            if (!$this->storage->has($id, $group)) {
+            // Partition the requested groups: slots with a stored record get
+            // reset, the others are only noted as already pending. Deliberately
+            // storage-driven (not SlotResolver): reset must be able to clean a
+            // stale row for a group the task no longer declares.
+            $toReset = [];
+
+            foreach ($groups as $group) {
+                if ($this->storage->has($id, $group)) {
+                    $toReset[] = $group;
+
+                    continue;
+                }
+
                 $io->note(\sprintf(
                     'Task "%s" has no execution record for group "%s" — already pending.',
                     $id,
                     $group,
                 ));
+            }
 
+            if ([] === $toReset) {
                 return Command::SUCCESS;
             }
 
-            if (!$force && !$this->confirmOrAbort($io, \sprintf(
-                'Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.',
-                $id,
-                $group,
-            ))) {
+            // ONE confirmation naming every slot about to be reset; declining it
+            // removes nothing — a partial reset must be impossible.
+            if (!$force && !$this->confirmOrAbort($io, $this->groupResetConfirmationPrompt($id, $toReset))) {
                 return Command::FAILURE;
             }
 
-            $this->storage->remove($id, $group);
+            foreach ($toReset as $group) {
+                $this->storage->remove($id, $group);
+            }
 
-            $io->success(\sprintf(
-                'Task "%s" has been reset in group "%s" and will run again on next deploytasks:run --group=%s.',
-                $id,
-                $group,
-                $group,
-            ));
+            $io->success(1 === \count($toReset)
+                ? \sprintf(
+                    'Task "%s" has been reset in group "%s" and will run again on next deploytasks:run --group=%s.',
+                    $id,
+                    $toReset[0],
+                    $toReset[0],
+                )
+                : \sprintf(
+                    'Task "%s" has been reset in groups %s and will run again on next deploytasks:run.',
+                    $id,
+                    \implode(', ', \array_map(static fn (string $group): string => \sprintf('"%s"', $group), $toReset)),
+                ));
 
             return Command::SUCCESS;
         }
@@ -164,6 +193,31 @@ final class DeployTasksResetCommand extends Command
         ));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Builds the single confirmation for a --group reset, naming every slot
+     * about to be cleared so one answer authorizes the whole batch knowingly.
+     * Group names are pattern-validated command input (trusted charset), so no
+     * sanitizing is needed before the formatter-interpreting confirm() sink.
+     *
+     * @param non-empty-list<string> $groups
+     */
+    private function groupResetConfirmationPrompt(string $id, array $groups): string
+    {
+        if (1 === \count($groups)) {
+            return \sprintf(
+                'Reset task "%s" in group "%s"? It will be executed again on next deploytasks:run for that group.',
+                $id,
+                $groups[0],
+            );
+        }
+
+        return \sprintf(
+            'Reset task "%s" in groups %s? They will be executed again on next deploytasks:run for those groups.',
+            $id,
+            \implode(', ', \array_map(static fn (string $group): string => \sprintf('"%s"', $group), $groups)),
+        );
     }
 
     /**

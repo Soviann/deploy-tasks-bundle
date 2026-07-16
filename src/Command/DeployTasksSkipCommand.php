@@ -49,8 +49,8 @@ final class DeployTasksSkipCommand extends Command
             ->addOption(
                 'group',
                 null,
-                InputOption::VALUE_REQUIRED,
-                'Target a specific group slot (default: every declared slot).',
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Only skip these group slot(s) (repeatable); without this flag every declared slot is skipped.',
             )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command marks a deploy task as skipped so it will not be executed on future runs:
@@ -58,9 +58,9 @@ final class DeployTasksSkipCommand extends Command
                     <info>%command.full_name% task_20260412143000_seed_categories</info>
 
                 When the task declares groups, every declared slot is skipped by default.
-                Use <comment>--group</comment> to pick a single slot:
+                Use <comment>--group</comment> (repeatable) to narrow to specific slots:
 
-                    <info>%command.full_name% task_20260412143000_seed_categories --group=predeploy</info>
+                    <info>%command.full_name% task_20260412143000_seed_categories --group=predeploy --group=postdeploy</info>
 
                 This is useful when a task is no longer relevant or was handled manually.
                 A skipped task can be re-enabled with <info>deploytasks:reset</info>.
@@ -83,8 +83,8 @@ final class DeployTasksSkipCommand extends Command
         /** @var string $id */
         $id = $input->getArgument('id');
 
-        /** @var string|null $group */
-        $group = $input->getOption('group');
+        /** @var list<string> $groups */
+        $groups = \array_values((array) $input->getOption('group'));
 
         if (!$this->registry->has($id)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));
@@ -95,7 +95,7 @@ final class DeployTasksSkipCommand extends Command
         $task = $this->registry->get($id);
 
         try {
-            $slots = SlotResolver::resolve($id, $task, null === $group ? [] : [$group]);
+            $slots = SlotResolver::resolve($id, $task, $groups);
         } catch (TaskGroupMismatchException $e) {
             // Mismatch messages embed the raw --group value. error() escapes
             // formatter tags itself, so sanitize-only covers the missing half
@@ -113,7 +113,7 @@ final class DeployTasksSkipCommand extends Command
         if ($input->isInteractive()) {
             $prompt = 1 === \count($slots)
                 ? $this->buildConfirmationPrompt($id, $slots[0], $this->storage->get($id, $slots[0]))
-                : $this->buildAllSlotsConfirmationPrompt($id, $slots);
+                : $this->buildAllSlotsConfirmationPrompt($id, $slots, [] !== $groups);
 
             if (!$this->confirmOrAbort($io, $prompt)) {
                 return Command::FAILURE;
@@ -126,26 +126,28 @@ final class DeployTasksSkipCommand extends Command
             $this->storage->save(new TaskExecution($id, TaskStatus::Skipped, $skippedAt, null, $slot));
         }
 
-        $groups = \array_values(\array_filter($slots, static fn (?string $slot): bool => null !== $slot));
+        $skippedGroups = \array_values(\array_filter($slots, static fn (?string $slot): bool => null !== $slot));
 
-        $io->success([] === $groups
+        $io->success([] === $skippedGroups
             ? \sprintf('Task "%s" marked as skipped.', $id)
             : \sprintf(
                 'Task "%s" marked as skipped in group%s %s.',
                 $id,
-                1 === \count($groups) ? '' : 's',
-                \implode(', ', \array_map(static fn (string $slot): string => \sprintf('"%s"', $slot), $groups)),
+                1 === \count($skippedGroups) ? '' : 's',
+                \implode(', ', \array_map(static fn (string $slot): string => \sprintf('"%s"', $slot), $skippedGroups)),
             ));
 
         return Command::SUCCESS;
     }
 
     /**
-     * Builds the single confirmation prompt for a bare invocation that resolves to
+     * Builds the single confirmation prompt for an invocation that resolves to
      * more than one slot: overwrite warnings first (one line per slot whose existing
      * record — especially a Ran one, i.e. real execution history — would be
      * replaced), then one question naming every targeted slot, so a single answer
-     * authorizes the whole batch knowingly.
+     * authorizes the whole batch knowingly. A bare invocation targets every
+     * declared slot and says so; a narrowed one (explicit --group list) names just
+     * the requested groups, which may be a subset of the declared ones.
      *
      * All interpolated values are trusted-charset: the id and slot names are
      * registry/attribute-validated identifiers, statuses are enum values, and
@@ -153,7 +155,7 @@ final class DeployTasksSkipCommand extends Command
      *
      * @param list<?string> $slots
      */
-    private function buildAllSlotsConfirmationPrompt(string $id, array $slots): string
+    private function buildAllSlotsConfirmationPrompt(string $id, array $slots, bool $narrowed): string
     {
         $lines = [];
 
@@ -178,11 +180,17 @@ final class DeployTasksSkipCommand extends Command
                 );
         }
 
-        $lines[] = \sprintf(
-            'Skip task "%s" in all declared slots (%s)? This marks it done without executing.',
-            $id,
-            \implode(', ', \array_map(static fn (?string $slot): string => $slot ?? 'default', $slots)),
-        );
+        $lines[] = $narrowed
+            ? \sprintf(
+                'Skip task "%s" in groups %s? This marks it done without executing.',
+                $id,
+                \implode(', ', \array_map(static fn (?string $slot): string => \sprintf('"%s"', $slot ?? 'default'), $slots)),
+            )
+            : \sprintf(
+                'Skip task "%s" in all declared slots (%s)? This marks it done without executing.',
+                $id,
+                \implode(', ', \array_map(static fn (?string $slot): string => $slot ?? 'default', $slots)),
+            );
 
         return \implode("\n", $lines);
     }

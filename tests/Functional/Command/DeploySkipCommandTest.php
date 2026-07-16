@@ -369,6 +369,58 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Skipped, $execution->status);
     }
 
+    public function testSkipRepeatedGroupOptionSkipsEveryTargetedSlot(): void
+    {
+        // Phase 5 arity change: --group is repeatable, so one invocation can
+        // target several specific slots at once.
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'postdeploy']],
+            ['interactive' => true],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+
+        self::assertSame(TaskStatus::Skipped, $this->storage()->get('test.multi_group', 'predeploy')?->status);
+        self::assertSame(TaskStatus::Skipped, $this->storage()->get('test.multi_group', 'postdeploy')?->status);
+        self::assertFalse($this->storage()->has('test.multi_group'), 'An explicit --group list must never touch the default slot');
+
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('marked as skipped in groups "predeploy", "postdeploy"', $display);
+    }
+
+    public function testSkipRepeatedGroupOptionAsksOneConfirmationNamingTheTargetedGroups(): void
+    {
+        // A single "yes" must complete the whole batch — a second prompt would
+        // exhaust the input stream and fail. The prompt names the requested
+        // groups without claiming "all declared slots": the selection is
+        // explicit, so it may be a subset of the declared ones.
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'postdeploy']],
+            ['interactive' => true],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('in groups "predeploy", "postdeploy"?', $display);
+        self::assertStringNotContainsString('all declared slots', $display);
+    }
+
+    public function testSkipRejectsGroupListContainingUndeclaredGroup(): void
+    {
+        // One undeclared group in the list rejects the whole command before
+        // anything is saved: no partial skip.
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'nope']],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertFalse($this->storage()->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage()->has('test.multi_group', 'postdeploy'));
+    }
+
     public function testSkipOfAlreadyRanGroupedSlotWarnsAndPreservesOtherSlot(): void
     {
         // Grouped slots must get the same overwrite guard as the default slot.

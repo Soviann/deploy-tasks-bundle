@@ -331,6 +331,118 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertSame([], $this->storage->all());
     }
 
+    public function testResetRepeatedGroupOptionRemovesEveryTargetedSlotWithOneConfirmation(): void
+    {
+        // Phase 5 arity change: --group is repeatable. A single "yes" must
+        // clear every requested slot — one confirmation covers the whole list
+        // (a second prompt would exhaust the input stream and fail).
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy',
+        ));
+
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'postdeploy']],
+            ['interactive' => true],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('in groups "predeploy", "postdeploy"?', $display);
+        self::assertStringContainsString('has been reset in groups "predeploy", "postdeploy"', $display);
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testResetRepeatedGroupOptionResetsRecordedSlotAndNotesPendingOne(): void
+    {
+        // Mixed case: only predeploy has a record. The pending group is noted
+        // "already pending", the confirmation names only the slot actually
+        // being reset, and only that slot is removed.
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'postdeploy']],
+            ['interactive' => true],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('no execution record for group "postdeploy"', $display);
+        self::assertStringContainsString('already pending', $display);
+        self::assertStringContainsString('Reset task "test.multi_group" in group "predeploy"?', $display);
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertSame([], $this->storage->all());
+    }
+
+    public function testResetRepeatedGroupOptionDeclineLeavesEveryRecordIntact(): void
+    {
+        // All-or-nothing: declining the single confirmation removes nothing —
+        // a partial reset across the requested slots must be impossible.
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy',
+        ));
+
+        $this->tester->setInputs(['no']);
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'postdeploy']],
+            ['interactive' => true],
+        );
+
+        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertStringContainsString('Aborted', $this->tester->getDisplay());
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testResetRejectsGroupListContainingMalformedNameBeforeAnyRemoval(): void
+    {
+        // One malformed name rejects the whole command before any storage
+        // access: every record survives, including the validly-named one's.
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'postdeploy',
+        ));
+
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'pre deploy'], '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('Invalid group name', $this->tester->getDisplay());
+        self::assertTrue($this->storage->has('test.multi_group', 'predeploy'));
+        self::assertTrue($this->storage->has('test.multi_group', 'postdeploy'));
+    }
+
+    public function testResetRepeatedGroupOptionWithNoRecordsNotesEveryGroupAlreadyPending(): void
+    {
+        // When none of the requested slots has a record there is nothing to
+        // confirm or remove: every group is noted already-pending and the
+        // command succeeds without touching storage.
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'postdeploy'], '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('no execution record for group "predeploy"', $display);
+        self::assertStringContainsString('no execution record for group "postdeploy"', $display);
+        self::assertSame([], $this->storage->all());
+    }
+
     public function testMalformedGroupNameIsRejectedCleanly(): void
     {
         $this->tester->execute(
