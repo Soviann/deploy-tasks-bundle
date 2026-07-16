@@ -44,7 +44,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
         $expectedAbsolute = $this->projectDir.'/var/test-host-tasks';
 
         $kernel = HostTasksKernelFactory::boot($this->projectDir, $expectedAbsolute);
-        $tester = new CommandTester((new Application($kernel))->find('deploytasks:generate:host'));
+        $tester = new CommandTester((new Application($kernel))->find('deploytasks:host:generate'));
         $exitCode = $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $exitCode, $tester->getDisplay());
@@ -59,7 +59,7 @@ final class HostDirectoryConfigTest extends KernelTestCase
     public function testDefaultHostDirectoryIsResolvedFromKernelProjectDir(): void
     {
         $kernel = HostTasksKernelFactory::boot($this->projectDir);
-        $tester = new CommandTester((new Application($kernel))->find('deploytasks:generate:host'));
+        $tester = new CommandTester((new Application($kernel))->find('deploytasks:host:generate'));
         $exitCode = $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $exitCode, $tester->getDisplay());
@@ -80,13 +80,13 @@ final class HostDirectoryConfigTest extends KernelTestCase
 
     public function testConfiguredHostDirectoryOutsideProjectDirIsAccepted(): void
     {
-        // Legitimate per the DEPLOY_TASKS_HOST_DIR contract; status/skip:host/
-        // reset:host/rollup:host already accept it — generate:host must too.
+        // Legitimate per the DEPLOY_TASKS_HOST_DIR contract; status/host:skip/
+        // host:reset/host:rollup already accept it — host:generate must too.
         $outsideDir = FilesystemTestHelper::tempDir('deploy-tasks-outside-host-');
 
         try {
             $kernel = HostTasksKernelFactory::boot($this->projectDir, $outsideDir);
-            $tester = new CommandTester((new Application($kernel))->find('deploytasks:generate:host'));
+            $tester = new CommandTester((new Application($kernel))->find('deploytasks:host:generate'));
             $exitCode = $tester->execute([]);
 
             self::assertSame(Command::SUCCESS, $exitCode, $tester->getDisplay());

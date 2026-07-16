@@ -45,7 +45,7 @@ final class DeployTasksHostConfigCommand extends Command
                 The <info>%command.name%</info> command renders the <comment>DEPLOY_TASKS_HOST_*</comment> environment
                 exports that make <info>bin/deploy-tasks-host.sh</info> use the same host-task directory,
                 completion log, and lock file as the bundle's PHP-side commands
-                (<info>deploytasks:status</info>, <info>deploytasks:skip:host</info>, …):
+                (<info>deploytasks:status</info>, <info>deploytasks:host:skip</info>, …):
 
                     <info>%command.full_name%</info>
 

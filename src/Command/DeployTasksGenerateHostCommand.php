@@ -17,7 +17,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 /** @internal */
 #[AsCommand(
-    name: 'deploytasks:generate:host',
+    name: 'deploytasks:host:generate',
     description: 'Generate a blank deploy task (bash script, runs on the host outside the container).',
 )]
 final class DeployTasksGenerateHostCommand extends Command
@@ -78,7 +78,7 @@ final class DeployTasksGenerateHostCommand extends Command
             // The configured host.directory is operator-trusted DI input and may
             // legitimately live outside the project (the runner's
             // DEPLOY_TASKS_HOST_DIR contract allows e.g. a shared /srv directory) —
-            // status/skip:host/reset:host/rollup:host already accept it unchecked,
+            // status/host:skip/host:reset/host:rollup already accept it unchecked,
             // so no project-boundary assertion here.
             $dir = PathNormalizer::normalize($dirInput).'/';
         } else {

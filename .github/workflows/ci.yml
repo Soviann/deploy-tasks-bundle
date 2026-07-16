@@ -48,7 +48,7 @@ jobs:
 
       # shellcheck ships preinstalled on ubuntu-latest. Scoped to the runner
       # itself and any real *.sh files under src/tests — none exist today
-      # (deploytasks:generate:host writes its stub at runtime, from a PHP
+      # (deploytasks:host:generate writes its stub at runtime, from a PHP
       # template, not a committed .sh file), so the find is a no-op guard
       # against future additions rather than dead weight.
       - name: shellcheck runner + host-task scripts

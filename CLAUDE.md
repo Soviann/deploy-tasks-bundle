@@ -138,7 +138,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `soviann_de
 | `deploytasks:reset <id> [--group=<name>]` | Remove a task's execution record. Interactive unless `--no-interaction` (prompt defaults to "no"). |
 | `deploytasks:rollup [--group=<name>]*` | Clear execution history and mark all registered tasks as `Ran`. |
 | `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
-| `deploytasks:generate:host [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
+| `deploytasks:host:generate [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
 | `deploytasks:create-schema [--dump-sql]` | Emit/execute the SQL to create the storage table. Registered only when `storage.type` is `database`. |
 
 ## Development Commands

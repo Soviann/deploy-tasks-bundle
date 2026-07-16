@@ -66,7 +66,7 @@ final class ProjectDirTest extends TestCase
     {
         $container = $this->buildContainer();
 
-        $generateHost = $container->getDefinition('soviann_deploy_tasks.command.generate.host');
+        $generateHost = $container->getDefinition('soviann_deploy_tasks.command.host.generate');
         self::assertSame(DeployTasksGenerateHostCommand::class, $generateHost->getClass());
 
         $resolved = $container->getParameterBag()->resolveValue($generateHost->getArgument('$projectDir'));

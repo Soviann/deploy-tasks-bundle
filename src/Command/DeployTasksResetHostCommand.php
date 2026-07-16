@@ -13,7 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /** @internal */
-#[AsCommand(name: 'deploytasks:reset:host', description: 'Reset a host-scope deploy task so it will run again on the next host run.')]
+#[AsCommand(name: 'deploytasks:host:reset', description: 'Reset a host-scope deploy task so it will run again on the next host run.')]
 final class DeployTasksResetHostCommand extends Command
 {
     use DestructiveCommandTrait;

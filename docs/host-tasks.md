@@ -11,7 +11,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 | Needs the host: Docker/systemd restarts, mounts, packages, root | **Host** (`deploy/host-tasks/*.sh`) |
 | Must run even when the app cannot boot (broken kernel, pre-install) | **Host** |
 
-Default to container tasks: they get storage backends, groups, env filtering, and lifecycle events. Host tasks get none of that by design (see Non-goals) — though they do get read-only status visibility and log-management commands (`skip:host`/`reset:host`/`rollup:host`), described below.
+Default to container tasks: they get storage backends, groups, env filtering, and lifecycle events. Host tasks get none of that by design (see Non-goals) — though they do get read-only status visibility and log-management commands (`host:skip`/`host:reset`/`host:rollup`), described below.
 
 ## Install the runner
 
@@ -31,7 +31,7 @@ Add to `.gitignore`:
 
 ## Create a host task
 
-    bin/console deploytasks:generate:host
+    bin/console deploytasks:host:generate
 
 Creates `deploy/host-tasks/deploy_task_20260418_143022.sh`. Edit the file to implement the task.
 
@@ -94,23 +94,23 @@ warns whenever the generated file drifts from the current config.
 
 `deploytasks:status` appends a "Host tasks" section listing each `deploy/host-tasks/*.sh` script as `done` (its ID is a full line in `.deploy-tasks-host.log`) or `pending`. This is a read-only bridge: PHP only reads the host directory and the log, it never writes to them, and the bash runner above is unaffected.
 
-**Limitation:** the `DEPLOY_TASKS_HOST_DIR` and `DEPLOY_TASKS_HOST_STORAGE` env var overrides described above are read by the bash runner at execution time — they are **not** visible to the PHP side. `deploytasks:status` always reads from the `host.directory` and `host.log_path` bundle config (defaults `deploy/host-tasks` and `.deploy-tasks-host.log` under the project dir), and the same applies to `deploytasks:skip:host`, `deploytasks:reset:host`, and `deploytasks:rollup:host`. If you run the host runner with either variable overridden, `deploytasks:status` will show stale or empty state, and the three ops commands will **write to a file the runner never reads** — until `host.*` is updated to match the runner's paths.
+**Limitation:** the `DEPLOY_TASKS_HOST_DIR` and `DEPLOY_TASKS_HOST_STORAGE` env var overrides described above are read by the bash runner at execution time — they are **not** visible to the PHP side. `deploytasks:status` always reads from the `host.directory` and `host.log_path` bundle config (defaults `deploy/host-tasks` and `.deploy-tasks-host.log` under the project dir), and the same applies to `deploytasks:host:skip`, `deploytasks:host:reset`, and `deploytasks:host:rollup`. If you run the host runner with either variable overridden, `deploytasks:status` will show stale or empty state, and the three ops commands will **write to a file the runner never reads** — until `host.*` is updated to match the runner's paths.
 
 ## Managing host task state
 
-`deploytasks:skip:host`, `deploytasks:reset:host` and `deploytasks:rollup:host` give host tasks the same ops tooling as container tasks — [`deploytasks:skip`](commands.md#deploytasksskip), [`deploytasks:reset`](commands.md#deploytasksreset), [`deploytasks:rollup`](commands.md#deploytasksrollup) — while the execution plane (the bash runner) stays untouched. All three operate on the completion log only (`host.log_path` config, default `.deploy-tasks-host.log`), using the exact-line semantics described in [the host contract](#the-host-contract-pinned-by-tests) below (`grep -Fxq`):
+`deploytasks:host:skip`, `deploytasks:host:reset` and `deploytasks:host:rollup` give host tasks the same ops tooling as container tasks — [`deploytasks:skip`](commands.md#deploytasksskip), [`deploytasks:reset`](commands.md#deploytasksreset), [`deploytasks:rollup`](commands.md#deploytasksrollup) — while the execution plane (the bash runner) stays untouched. All three operate on the completion log only (`host.log_path` config, default `.deploy-tasks-host.log`), using the exact-line semantics described in [the host contract](#the-host-contract-pinned-by-tests) below (`grep -Fxq`):
 
 ```bash
-bin/console deploytasks:skip:host deploy_task_20260418_143022
-bin/console deploytasks:reset:host deploy_task_20260418_143022 --no-interaction --force
-bin/console deploytasks:rollup:host --no-interaction --force
+bin/console deploytasks:host:skip deploy_task_20260418_143022
+bin/console deploytasks:host:reset deploy_task_20260418_143022 --no-interaction --force
+bin/console deploytasks:host:rollup --no-interaction --force
 ```
 
-- **`skip:host <id>`** appends the id to the log, marking the task done without running its script. The id must have a matching `<id>.sh` in the host directory. Already-done ids are a no-op (`SUCCESS`, no duplicate line). Prompts for confirmation like `deploytasks:skip` — reversible via `reset:host`, so it proceeds under `--no-interaction` without `--force`.
-- **`reset:host <id>`** removes every exact-match line for the id, so the task runs again on the next `bin/deploy-tasks-host.sh`. An id with no log entry is reported as already pending (`SUCCESS`, no-op). Destructive: requires confirmation or `--force`/`--yes` under `--no-interaction`, mirroring `deploytasks:reset`. The rewrite is atomic (temp file + rename), matching `FilesystemStorage`'s write discipline.
-- **`rollup:host`** appends every pending script id in one pass and reports the count. An empty host directory (or one where every script is already done) warns and exits successfully without prompting. Destructive: same confirmation/`--force` convention as `deploytasks:rollup` — a bulk-operation guard: each individual append is reversible via `reset:host`, but appending everything in one pass deserves a stop.
+- **`host:skip <id>`** appends the id to the log, marking the task done without running its script. The id must have a matching `<id>.sh` in the host directory. Already-done ids are a no-op (`SUCCESS`, no duplicate line). Prompts for confirmation like `deploytasks:skip` — reversible via `host:reset`, so it proceeds under `--no-interaction` without `--force`.
+- **`host:reset <id>`** removes every exact-match line for the id, so the task runs again on the next `bin/deploy-tasks-host.sh`. An id with no log entry is reported as already pending (`SUCCESS`, no-op). Destructive: requires confirmation or `--force`/`--yes` under `--no-interaction`, mirroring `deploytasks:reset`. The rewrite is atomic (temp file + rename), matching `FilesystemStorage`'s write discipline.
+- **`host:rollup`** appends every pending script id in one pass and reports the count. An empty host directory (or one where every script is already done) warns and exits successfully without prompting. Destructive: same confirmation/`--force` convention as `deploytasks:rollup` — a bulk-operation guard: each individual append is reversible via `host:reset`, but appending everything in one pass deserves a stop.
 
-**Concurrency:** the ops commands take the runner's own `flock` (`host.lock_path` config, default `.deploy-tasks-host.lock`) around every log mutation, so they can never interleave with a live `bin/deploy-tasks-host.sh` run — a `reset:host` rewrite racing the runner's own append could otherwise drop a just-completed record. While a host run holds the lock, the commands leave the log untouched and exit with code `75` (`EX_TEMPFAIL`), the same "retry later" convention as the runner itself; retry once the run finishes.
+**Concurrency:** the ops commands take the runner's own `flock` (`host.lock_path` config, default `.deploy-tasks-host.lock`) around every log mutation, so they can never interleave with a live `bin/deploy-tasks-host.sh` run — a `host:reset` rewrite racing the runner's own append could otherwise drop a just-completed record. While a host run holds the lock, the commands leave the log untouched and exit with code `75` (`EX_TEMPFAIL`), the same "retry later" convention as the runner itself; retry once the run finishes.
 
 All three refuse with `Command::INVALID` and a pointer back to this document when the host tasks directory doesn't exist. See [`docs/commands.md`](commands.md) for full options and exit codes.
 

@@ -130,7 +130,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                         ->scalarNode('directory')
                             ->cannotBeEmpty()
                             ->defaultValue('%kernel.project_dir%/deploy/host-tasks')
-                            ->info('Directory scanned for host-scope *.sh tasks (deploytasks:generate:host output, ops commands, status). Must match the runner\'s DEPLOY_TASKS_HOST_DIR.')
+                            ->info('Directory scanned for host-scope *.sh tasks (deploytasks:host:generate output, ops commands, status). Must match the runner\'s DEPLOY_TASKS_HOST_DIR.')
                         ->end()
                         ->scalarNode('log_path')
                             ->cannotBeEmpty()
@@ -327,7 +327,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        $services->set('soviann_deploy_tasks.command.generate.host', DeployTasksGenerateHostCommand::class)
+        $services->set('soviann_deploy_tasks.command.host.generate', DeployTasksGenerateHostCommand::class)
             ->args([
                 '$hostDirectory' => $hostConfig['directory'],
                 '$projectDir' => param('kernel.project_dir'),
@@ -338,7 +338,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         // Host ops-plane parity commands — same $hostTasksDir/$hostLogPath wiring as the
         // status bridge above; they manipulate the completion log only, never the runner,
         // and take the runner's own flock ($hostLockPath) around every mutation.
-        $services->set('soviann_deploy_tasks.command.skip.host', DeployTasksSkipHostCommand::class)
+        $services->set('soviann_deploy_tasks.command.host.skip', DeployTasksSkipHostCommand::class)
             ->args([
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
@@ -347,7 +347,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        $services->set('soviann_deploy_tasks.command.reset.host', DeployTasksResetHostCommand::class)
+        $services->set('soviann_deploy_tasks.command.host.reset', DeployTasksResetHostCommand::class)
             ->args([
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],
@@ -356,7 +356,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
             ->tag('console.command')
         ;
 
-        $services->set('soviann_deploy_tasks.command.rollup.host', DeployTasksRollupHostCommand::class)
+        $services->set('soviann_deploy_tasks.command.host.rollup', DeployTasksRollupHostCommand::class)
             ->args([
                 '$hostTasksDir' => $hostConfig['directory'],
                 '$hostLogPath' => $hostConfig['log_path'],

@@ -13,10 +13,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /** @internal */
-#[AsCommand(name: 'deploytasks:skip:host', description: 'Mark a host-scope deploy task as done without executing it.')]
+#[AsCommand(name: 'deploytasks:host:skip', description: 'Mark a host-scope deploy task as done without executing it.')]
 final class DeployTasksSkipHostCommand extends Command
 {
-    // Only the confirmation helper is used: skip is reversible (deploytasks:reset:host), so it
+    // Only the confirmation helper is used: skip is reversible (deploytasks:host:reset), so it
     // intentionally proceeds under --no-interaction without requiring --force.
     use DestructiveCommandTrait;
     use HostLogManipulationTrait;
@@ -52,7 +52,7 @@ final class DeployTasksSkipHostCommand extends Command
 
                     <info>%command.full_name% deploy_task_20260418_143022 --no-interaction</info>
 
-                To re-enable a skipped host task, use <info>deploytasks:reset:host</info>.
+                To re-enable a skipped host task, use <info>deploytasks:host:reset</info>.
                 EOT)
         ;
     }

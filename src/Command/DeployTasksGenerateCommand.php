@@ -72,7 +72,7 @@ final class DeployTasksGenerateCommand extends Command
                         discovered by the bundle via autoconfiguration.
 
                         For host-scope tasks (bash scripts running outside the container), see
-                        <info>deploytasks:generate:host</info>.
+                        <info>deploytasks:host:generate</info>.
                         EOT,
                     $this->defaultDirectory,
                 )

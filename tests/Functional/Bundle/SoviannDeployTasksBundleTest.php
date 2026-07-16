@@ -441,7 +441,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         yield 'reset' => ['soviann_deploy_tasks.command.reset', 'deploytasks:reset'];
         yield 'rollup' => ['soviann_deploy_tasks.command.rollup', 'deploytasks:rollup'];
         yield 'generate:container' => ['soviann_deploy_tasks.command.generate', 'deploytasks:generate:container'];
-        yield 'generate:host' => ['soviann_deploy_tasks.command.generate.host', 'deploytasks:generate:host'];
+        yield 'host:generate' => ['soviann_deploy_tasks.command.host.generate', 'deploytasks:host:generate'];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('commandProvider')]

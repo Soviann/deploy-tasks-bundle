@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /** @internal */
-#[AsCommand(name: 'deploytasks:rollup:host', description: 'Mark every pending host-scope deploy task as done.')]
+#[AsCommand(name: 'deploytasks:host:rollup', description: 'Mark every pending host-scope deploy task as done.')]
 final class DeployTasksRollupHostCommand extends Command
 {
     use DestructiveCommandTrait;
@@ -41,7 +41,7 @@ final class DeployTasksRollupHostCommand extends Command
 
                 This is the host-scope equivalent of <info>deploytasks:rollup</info> — useful for fresh environments where the current host state already incorporates all task effects.
 
-                You will be prompted for confirmation — a bulk-operation guard: each individual append is reversible via <info>deploytasks:reset:host</info>, but appending every pending task in one pass deserves a stop. To skip the prompt (e.g. in CI), use <comment>--no-interaction</comment>:
+                You will be prompted for confirmation — a bulk-operation guard: each individual append is reversible via <info>deploytasks:host:reset</info>, but appending every pending task in one pass deserves a stop. To skip the prompt (e.g. in CI), use <comment>--no-interaction</comment>:
 
                     <info>%command.full_name% --no-interaction --force</info>
                 EOT)
@@ -111,7 +111,7 @@ final class DeployTasksRollupHostCommand extends Command
             // holding the lock through operator think-time would starve a concurrent
             // bin/deploy-tasks-host.sh run into EX_TEMPFAIL. The set that is actually
             // appended — and the count reported — is therefore recomputed under the
-            // lock, so a task completed since (skip:host, a host run) is skipped over
+            // lock, so a task completed since (host:skip, a host run) is skipped over
             // instead of being appended, and counted, twice.
             $pending = \array_values(\array_diff($validIds, $this->readHostLog($this->hostLogPath)));
 

@@ -1,6 +1,6 @@
 # Console Commands
 
-Two generator commands scaffold deploy tasks: [`deploytasks:generate:container`](#deploytasksgeneratecontainer) for PHP classes running inside the Symfony container, and [`deploytasks:generate:host`](#deploytasksgeneratehost) for bash scripts running on the host outside the container.
+Two generator commands scaffold deploy tasks: [`deploytasks:generate:container`](#deploytasksgeneratecontainer) for PHP classes running inside the Symfony container, and [`deploytasks:host:generate`](#deploytaskshostgenerate) for bash scripts running on the host outside the container.
 
 ## deploytasks:run
 
@@ -132,7 +132,7 @@ bin/console deploytasks:skip task_20260412143000_seed_categories --group=predepl
 
 Use `deploytasks:reset` to re-enable a skipped task.
 
-You are prompted for confirmation before proceeding (same convention as `deploytasks:skip:host`: reversible via `deploytasks:reset`, so it proceeds under `--no-interaction` without requiring `--force`). When a bare invocation resolves to more than one slot, a single confirmation names every targeted slot, with one overwrite warning per slot that already holds a record (a `ran` record calls out the erased execution history); declining or a bare Enter leaves every slot untouched.
+You are prompted for confirmation before proceeding (same convention as `deploytasks:host:skip`: reversible via `deploytasks:reset`, so it proceeds under `--no-interaction` without requiring `--force`). When a bare invocation resolves to more than one slot, a single confirmation names every targeted slot, with one overwrite warning per slot that already holds a record (a `ran` record calls out the erased execution history); declining or a bare Enter leaves every slot untouched.
 
 **Exit codes:** `0` on success; `2` (`Command::INVALID`) when the task ID is not registered, or when `--group` names a group the task does not declare; `1` when the confirmation is declined.
 
@@ -168,12 +168,12 @@ If the task has no execution record, the command reports it is already pending a
 
 ---
 
-## deploytasks:skip:host
+## deploytasks:host:skip
 
 Host-scope equivalent of [`deploytasks:skip`](#deploytasksskip): marks a host task as done in the completion log without running its script. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state) for the full contract.
 
 ```bash
-bin/console deploytasks:skip:host deploy_task_20260418_143022
+bin/console deploytasks:host:skip deploy_task_20260418_143022
 ```
 
 **Arguments:**
@@ -182,19 +182,19 @@ bin/console deploytasks:skip:host deploy_task_20260418_143022
 |---|---|
 | `id` | The host task ID to skip — the script's basename without `.sh` (required) |
 
-You are prompted for confirmation before proceeding (same convention as `deploytasks:skip`: reversible via `deploytasks:reset:host`, so it proceeds under `--no-interaction` without requiring `--force`).
+You are prompted for confirmation before proceeding (same convention as `deploytasks:skip`: reversible via `deploytasks:host:reset`, so it proceeds under `--no-interaction` without requiring `--force`).
 
 **Exit codes:** `0` on success (including the already-done no-op); `2` (`Command::INVALID`) when the host tasks directory or the `<id>.sh` script does not exist; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 
-## deploytasks:reset:host
+## deploytasks:host:reset
 
 Host-scope equivalent of [`deploytasks:reset`](#deploytasksreset): removes a host task's completion-log entry so it is treated as pending and runs again on the next `bin/deploy-tasks-host.sh`. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state).
 
 ```bash
-bin/console deploytasks:reset:host deploy_task_20260418_143022
-bin/console deploytasks:reset:host deploy_task_20260418_143022 --no-interaction --force
+bin/console deploytasks:host:reset deploy_task_20260418_143022
+bin/console deploytasks:host:reset deploy_task_20260418_143022 --no-interaction --force
 ```
 
 **Arguments:**
@@ -239,13 +239,13 @@ The namespace is built by applying `ucfirst` to each path segment of the target 
 
 ---
 
-## deploytasks:generate:host
+## deploytasks:host:generate
 
 Generate a new host-scope deploy task script. Host scripts are plain bash files executed outside the container by `bin/deploy-tasks-host.sh`; see [`docs/host-tasks.md`](host-tasks.md) for installation details.
 
 ```bash
-bin/console deploytasks:generate:host
-bin/console deploytasks:generate:host --dir=deploy/host-tasks/
+bin/console deploytasks:host:generate
+bin/console deploytasks:host:generate --dir=deploy/host-tasks/
 ```
 
 **Options:**
@@ -285,13 +285,13 @@ If the storage backend implements `TransactionalStorageInterface`, the reset and
 
 ---
 
-## deploytasks:rollup:host
+## deploytasks:host:rollup
 
 Host-scope equivalent of [`deploytasks:rollup`](#deploytasksrollup): appends every pending host task's id to the completion log, marking them all as done without running their scripts. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state).
 
 ```bash
-bin/console deploytasks:rollup:host
-bin/console deploytasks:rollup:host --no-interaction --force
+bin/console deploytasks:host:rollup
+bin/console deploytasks:host:rollup --no-interaction --force
 ```
 
 **Options:**
@@ -309,7 +309,7 @@ An empty host tasks directory, or a directory where every script is already mark
 
 ## deploytasks:host:config
 
-Render (or write) the host runner's `DEPLOY_TASKS_HOST_*` environment exports derived from `soviann_deploy_tasks.host.*`, so the bash runner (`bin/deploy-tasks-host.sh`) and the PHP-side host commands ([`deploytasks:status`](#deploytasksstatus), [`deploytasks:skip:host`](#deploytasksskiphost), etc.) always agree on the host tasks directory, completion log, and lock file.
+Render (or write) the host runner's `DEPLOY_TASKS_HOST_*` environment exports derived from `soviann_deploy_tasks.host.*`, so the bash runner (`bin/deploy-tasks-host.sh`) and the PHP-side host commands ([`deploytasks:status`](#deploytasksstatus), [`deploytasks:host:skip`](#deploytaskshostskip), etc.) always agree on the host tasks directory, completion log, and lock file.
 
 ```bash
 bin/console deploytasks:host:config

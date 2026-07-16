@@ -22,7 +22,7 @@ use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\HttpKernel\Kernel;
 
 /**
- * Host ops-plane parity: skip:host / reset:host / rollup:host manipulate the completion
+ * Host ops-plane parity: host:skip / host:reset / host:rollup manipulate the completion
  * log with the same exact-line (`grep -Fxq`) semantics as bin/deploy-tasks-host.sh.
  */
 #[CoversClass(DeployTasksSkipHostCommand::class)]
@@ -53,13 +53,13 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         parent::tearDown();
     }
 
-    // --- skip:host ---
+    // --- host:skip ---
 
     public function testSkipHostMarksScriptDoneOnConfirmation(): void
     {
         $this->makeScript('a');
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $tester->setInputs(['yes']);
         $exitCode = $tester->execute(['id' => 'a']);
 
@@ -72,7 +72,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         \mkdir($this->hostDir, 0o755, true);
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $exitCode = $tester->execute(['id' => 'nonexistent']);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -85,7 +85,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $exitCode = $tester->execute(['id' => 'a']);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -98,7 +98,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         $this->makeScript('a');
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $tester->setInputs(['no']);
         $exitCode = $tester->execute(['id' => 'a'], ['interactive' => true]);
 
@@ -112,7 +112,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \mkdir($this->logPath, 0o755, true); // a directory where the log file should be
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
 
         $this->expectException(IOException::class);
         $tester->execute(['id' => 'a'], ['interactive' => false]);
@@ -125,7 +125,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         // accept it and poison the log with a path-traversal id.
         \touch($this->projectDir.'/deploy/evil.sh');
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $exitCode = $tester->execute(['id' => '../evil'], ['interactive' => false]);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -133,7 +133,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame([], $this->logLines());
     }
 
-    // --- reset:host ---
+    // --- host:reset ---
 
     public function testResetHostRemovesExactLine(): void
     {
@@ -141,7 +141,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a_extra');
         \file_put_contents($this->logPath, "a\na_extra\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -153,7 +153,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         $this->makeScript('a');
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a']);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -166,7 +166,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $tester->setInputs(['no']);
         $exitCode = $tester->execute(['id' => 'a'], ['interactive' => true]);
 
@@ -180,7 +180,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -193,7 +193,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('b');
         \file_put_contents($this->logPath, "a\na\nb\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -205,7 +205,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a', '--yes' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -217,7 +217,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a', '--no-interaction' => true], ['interactive' => false]);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -229,7 +229,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         \mkdir($this->hostDir, 0o755, true);
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'ghost', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -244,7 +244,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         // pretend the id is unknown, but it must say so.
         \file_put_contents($this->logPath, "ghost\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'ghost', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -266,7 +266,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         // A poisoned log line must not be manipulable through an invalid id either.
         \file_put_contents($this->logPath, "../evil\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => '../evil', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -274,7 +274,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame(['../evil'], $this->logLines());
     }
 
-    // --- rollup:host ---
+    // --- host:rollup ---
 
     public function testRollupHostAppendsEveryPendingId(): void
     {
@@ -282,7 +282,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('b');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -294,7 +294,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         \mkdir($this->hostDir, 0o755, true);
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -307,7 +307,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         $this->makeScript('a');
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $tester->setInputs(['no']);
         $exitCode = $tester->execute([], ['interactive' => true]);
 
@@ -320,7 +320,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     {
         $this->makeScript('a');
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -333,7 +333,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('b');
         \file_put_contents($this->logPath, "a\nb\n");
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         // No setInputs(): the command must resolve to SUCCESS without ever
         // reading from stdin, proving the confirmation prompt was skipped
         // because the all-done check runs before it.
@@ -351,7 +351,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         // the runner's grep -Fxq bookkeeping.
         \touch($this->hostDir.'/'."bad\nname.sh");
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -364,7 +364,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \mkdir($this->logPath, 0o755, true); // a directory where the log file should be
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
 
         $this->expectException(IOException::class);
         $tester->execute(['--force' => true], ['interactive' => false]);
@@ -375,7 +375,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         $this->makeScript('b');
 
-        // While the operator considers the prompt, a concurrent skip:host marks "b" done.
+        // While the operator considers the prompt, a concurrent host:skip marks "b" done.
         [$exitCode, $display] = $this->rollupHostWithLogAppendDuringConfirmation("b\n");
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -409,7 +409,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertTrue(\flock($lock, \LOCK_EX | \LOCK_NB));
 
         try {
-            $tester = $this->tester('deploytasks:reset:host');
+            $tester = $this->tester('deploytasks:host:reset');
             $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
             self::assertSame(75, $exitCode);
@@ -428,7 +428,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertTrue(\flock($lock, \LOCK_EX | \LOCK_NB));
 
         try {
-            $tester = $this->tester('deploytasks:skip:host');
+            $tester = $this->tester('deploytasks:host:skip');
             $exitCode = $tester->execute(['id' => 'a'], ['interactive' => false]);
 
             self::assertSame(75, $exitCode);
@@ -451,7 +451,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertTrue(\flock($lock, \LOCK_EX | \LOCK_NB));
 
         try {
-            $tester = $this->tester('deploytasks:rollup:host');
+            $tester = $this->tester('deploytasks:host:rollup');
             $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
             self::assertSame(75, $exitCode);
@@ -470,7 +470,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
 
     public function testSkipHostMissingDirIsInvalidWithDocsPointer(): void
     {
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $exitCode = $tester->execute(['id' => 'a']);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -479,7 +479,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
 
     public function testResetHostMissingDirIsInvalidWithDocsPointer(): void
     {
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $exitCode = $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -488,7 +488,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
 
     public function testRollupHostMissingDirIsInvalidWithDocsPointer(): void
     {
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $exitCode = $tester->execute(['--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::INVALID, $exitCode);
@@ -503,7 +503,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('b');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $tester->execute(['id' => 'b'], ['interactive' => false]);
 
         $raw = (string) \file_get_contents($this->logPath);
@@ -518,7 +518,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         // Hand-edited log whose final line lost its terminating newline.
         \file_put_contents($this->logPath, 'a');
 
-        $tester = $this->tester('deploytasks:skip:host');
+        $tester = $this->tester('deploytasks:host:skip');
         $exitCode = $tester->execute(['id' => 'b'], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -534,7 +534,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         $this->makeScript('b');
 
-        $tester = $this->tester('deploytasks:rollup:host');
+        $tester = $this->tester('deploytasks:host:rollup');
         $tester->execute(['--force' => true], ['interactive' => false]);
 
         $raw = (string) \file_get_contents($this->logPath);
@@ -547,7 +547,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('b');
         \file_put_contents($this->logPath, "a\nb\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
         $raw = (string) \file_get_contents($this->logPath);
@@ -559,7 +559,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:reset:host');
+        $tester = $this->tester('deploytasks:host:reset');
         $tester->execute(['id' => 'a', '--force' => true], ['interactive' => false]);
 
         self::assertSame('', \file_get_contents($this->logPath));
@@ -584,11 +584,11 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
     }
 
     /**
-     * Runs rollup:host interactively, answering "yes" — but appends
+     * Runs host:rollup interactively, answering "yes" — but appends
      * $concurrentChunk to the completion log at the exact moment the command
      * reads the answer, i.e. after it computed the pending list shown in the
      * prompt and before it takes the host lock. This reproduces a concurrent
-     * skip:host (or a host run finishing) landing during operator think-time.
+     * host:skip (or a host run finishing) landing during operator think-time.
      *
      * @return array{int, string} exit code and captured display
      */
@@ -607,7 +607,7 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
             $input->setStream($stream);
             $output = new BufferedOutput();
 
-            $exitCode = $this->application->find('deploytasks:rollup:host')->run($input, $output);
+            $exitCode = $this->application->find('deploytasks:host:rollup')->run($input, $output);
 
             return [$exitCode, $output->fetch()];
         } finally {

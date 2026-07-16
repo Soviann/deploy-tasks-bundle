@@ -11,7 +11,7 @@ bin/console deploytasks:generate:container                    # DeployTask202604
 bin/console deploytasks:generate:container --dir=src/Task/    # custom target directory
 ```
 
-The generated file is placed in `src/DeployTasks/Task/` by default and contains a stub `run()` method ready to implement. The filename is always `DeployTask<timestamp>.php` — the command takes no positional argument. Use `deploytasks:generate:host` instead to scaffold a host-scope bash script.
+The generated file is placed in `src/DeployTasks/Task/` by default and contains a stub `run()` method ready to implement. The filename is always `DeployTask<timestamp>.php` — the command takes no positional argument. Use `deploytasks:host:generate` instead to scaffold a host-scope bash script.
 
 ## Attribute-based tasks (recommended)
 

@@ -29,7 +29,7 @@ Execution records are stored in a dedicated table. Ensure the table is only acce
 Generated task files are not world-readable, since deploy tasks often embed credentials, fixtures, or production data:
 
 - `deploytasks:generate:container` writes `.php` task classes with mode `0640` (owner read/write, group read).
-- `deploytasks:generate:host` writes `.sh` task stubs with mode `0750` (owner read/write/execute, group read/execute).
+- `deploytasks:host:generate` writes `.sh` task stubs with mode `0750` (owner read/write/execute, group read/execute).
 
 `FilesystemStorage` likewise persists its state directory at `0700` and each per-slot JSON file at `0600`, re-applying these modes on every write so pre-existing files tighten on the next save.
 
