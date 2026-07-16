@@ -20,9 +20,12 @@ enum TaskResult
     case SKIPPED;
 
     /**
-     * The storage status a task outcome with this result is persisted under.
+     * The storage status equivalent of this result.
      *
-     * Single owner of the TaskResult → TaskStatus mapping.
+     * Single owner of the TaskResult → TaskStatus mapping. SUCCESS and FAILURE
+     * outcomes are persisted under it; a returned SKIPPED is never persisted
+     * (the slot stays pending and retries next run), so its mapping only feeds
+     * the runner's `→ skipped` completion line.
      */
     public function toStatus(): TaskStatus
     {

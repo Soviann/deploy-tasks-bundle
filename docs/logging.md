@@ -23,7 +23,7 @@ soviann_deploy_tasks:
 | `info` | `Deploy task starting` | `task_id` |
 | `info` | `Deploy task executed` | `task_id`, `result`, `duration_ms` |
 | `info` | `Deploy task skipped (already executed)` | `task_id` |
-| `info` | `Deploy tasks run finished` | `ran`, `skipped`, `failed`, `locked` |
+| `info` | `Deploy tasks run finished` | `ran`, `skipped`, `deferred`, `failed`, `locked` |
 | `warning` | `Deploy task exceeded slow-task threshold` | `task_id`, `duration_s`, `threshold_s` |
 | `warning` | `Deploy tasks run skipped: another process is already running` | — |
 | `warning` | `Deploy tasks runner has no lock factory — concurrent execution is not protected` | — |

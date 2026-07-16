@@ -24,8 +24,9 @@ final readonly class TaskOutcome
     }
 
     /**
-     * The storage status this outcome is persisted under, derived from the task
-     * result — {@see TaskResult::toStatus()} owns the mapping.
+     * The storage status equivalent of this outcome's result, derived via
+     * {@see TaskResult::toStatus()}, which owns the mapping (including the
+     * SKIPPED exemption from persistence).
      */
     public function status(): TaskStatus
     {

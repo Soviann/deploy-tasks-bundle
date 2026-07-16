@@ -52,7 +52,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Runner/`** — discovery and execution
 - `TaskRegistry` — holds tagged tasks, env filtering, duplicate detection
 - `TaskRunner` — orchestrates execution: ordering, storage tracking, optional events/locking/transactions
-- `RunResult` — readonly: `$ran`, `$skipped`, `$failed`, `$locked`. `isSuccessful()`.
+- `RunResult` — readonly: `$ran`, `$skipped` (already recorded), `$deferred` (returned `SKIPPED`, retries next run), `$failed`, `$locked`. `isSuccessful()`.
 - `TaskOutcome` — per-task outcome value object
 
 **`Storage/`** — persistence

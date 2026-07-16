@@ -634,16 +634,41 @@ final class TaskRunnerTest extends TestCase
         self::assertInstanceOf(BeforeTaskEvent::class, $dispatched[0]);
     }
 
-    public function testSkippedTaskStatus(): void
+    public function testReturnedSkippedLeavesSlotPendingForNextRun(): void
     {
         $runner = $this->createRunner([new SkippingTask()]);
+
+        $first = $runner->runAll($this->output);
+
+        self::assertSame(0, $first->ran);
+        self::assertSame(0, $first->failed);
+        self::assertSame(0, $first->skipped, 'A self-skipped task is deferred, not skipped — skipped counts only already-executed slots');
+        self::assertSame(1, $first->deferred);
+        self::assertNull(
+            $this->storage->get('test.skipping'),
+            'A returned SKIPPED must leave no execution record — the slot stays pending',
+        );
+
+        $second = $runner->runAll($this->output);
+
+        self::assertSame(1, $second->deferred, 'The slot is still pending, so the task is attempted again on the next run');
+    }
+
+    public function testAlreadyExecutedAndSelfSkippedCountSeparately(): void
+    {
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $runner = $this->createRunner([
+            new SimpleTask('task.1', 'First'),
+            new SkippingTask(),
+        ]);
 
         $result = $runner->runAll($this->output);
 
         self::assertSame(0, $result->ran);
+        self::assertSame(1, $result->skipped, 'The already-executed slot counts as skipped — it will not run again');
+        self::assertSame(1, $result->deferred, 'The self-skipped slot counts as deferred — it retries next run');
         self::assertSame(0, $result->failed);
-        self::assertSame(1, $result->skipped);
-        self::assertSame(TaskStatus::Skipped, $this->storage->get('test.skipping')?->status);
     }
 
     public function testTransactionalWrapping(): void
@@ -1520,10 +1545,10 @@ final class TaskRunnerTest extends TestCase
         self::assertSame(0, $result->failed);
     }
 
-    public function testSkippingTaskCountAccumulatesAcrossMultipleTasks(): void
+    public function testDeferredCountAccumulatesAcrossMultipleTasks(): void
     {
-        // Two tasks that self-report SKIPPED → skipped=2; kills Assignment mutator on `$skipped += $count`
-        // (line 221).
+        // Two tasks that self-report SKIPPED → deferred=2; kills Assignment mutator on
+        // executeAll()'s `$deferred += $count`.
         $runner = $this->createRunner([
             new SkippingTask(),
             $this->makeSkippingTask('test.skipping.second'),
@@ -1532,7 +1557,8 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output);
 
         self::assertSame(0, $result->ran);
-        self::assertSame(2, $result->skipped);
+        self::assertSame(0, $result->skipped);
+        self::assertSame(2, $result->deferred);
     }
 
     public function testSlowTaskWarningMessageIncludesExactValues(): void

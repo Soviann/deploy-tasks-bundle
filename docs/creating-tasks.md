@@ -103,7 +103,7 @@ The date is extracted from the **resolved** task ID, so a custom `TaskIdGenerato
 |---|---|
 | `TaskResult::SUCCESS` | Task completed successfully; recorded as `ran` |
 | `TaskResult::FAILURE` | Task failed; recorded as `failed` and will be retried on the next run |
-| `TaskResult::SKIPPED` | Task decided to skip itself; recorded as `skipped` in storage |
+| `TaskResult::SKIPPED` | Task decided to skip itself (preconditions not met); nothing is recorded — the slot stays pending and the task is retried on the next run. Use `deploytasks:skip` to skip a task permanently |
 
 ## Task ID resolution
 

@@ -17,6 +17,7 @@ final class RunResultTest extends TestCase
             ran: 5,
             skipped: 2,
             failed: 1,
+            deferred: 3,
             locked: true,
             dryRun: true,
         );
@@ -24,6 +25,7 @@ final class RunResultTest extends TestCase
         self::assertSame(5, $result->ran);
         self::assertSame(2, $result->skipped);
         self::assertSame(1, $result->failed);
+        self::assertSame(3, $result->deferred);
         self::assertTrue($result->locked);
         self::assertTrue($result->dryRun);
     }
@@ -31,6 +33,15 @@ final class RunResultTest extends TestCase
     public function testIsSuccessfulWhenNoFailuresAndNotLocked(): void
     {
         $result = new RunResult(ran: 3, skipped: 1, failed: 0);
+
+        self::assertTrue($result->isSuccessful());
+    }
+
+    public function testIsSuccessfulWhenTasksOnlyDeferred(): void
+    {
+        // A self-skipped (deferred) task is not a failure: the run exits successfully
+        // and the task simply retries on the next deploy.
+        $result = new RunResult(ran: 0, skipped: 0, failed: 0, deferred: 2);
 
         self::assertTrue($result->isSuccessful());
     }
@@ -53,6 +64,7 @@ final class RunResultTest extends TestCase
     {
         $result = new RunResult(ran: 1, skipped: 0, failed: 0);
 
+        self::assertSame(0, $result->deferred);
         self::assertFalse($result->locked);
         self::assertFalse($result->dryRun);
     }

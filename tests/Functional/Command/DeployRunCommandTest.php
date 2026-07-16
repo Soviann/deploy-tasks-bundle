@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\CommandMessages;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
-use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SkippingTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -137,12 +138,13 @@ final class DeployRunCommandTest extends FunctionalTestCase
 
     public function testRunAllAlreadyExecuted(): void
     {
-        // First run
-        $this->tester->execute([]);
+        // Scoped to a group without self-skipping tasks: the ungrouped SkippingTask
+        // would otherwise defer itself on every run and keep the summary alive.
+        $this->tester->execute(['--group' => ['predeploy']]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
-        // Second run — all already executed
-        $this->tester->execute([]);
+        // Second run — all matching slots already executed
+        $this->tester->execute(['--group' => ['predeploy']]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         self::assertStringContainsString('nothing to run', $this->tester->getDisplay());
     }
@@ -182,26 +184,33 @@ final class DeployRunCommandTest extends FunctionalTestCase
         );
     }
 
-    public function testSkippingTaskIsStoredAsSkipped(): void
+    public function testSkippingTaskLeavesNoRecord(): void
     {
         $this->tester->execute([]);
 
         $storage = self::getContainer()->get(TaskStorageInterface::class);
         \assert($storage instanceof TaskStorageInterface);
 
-        $execution = $storage->get('test.skipping');
-        \assert(null !== $execution, 'SkippingTask should be stored after run');
-        self::assertSame(TaskStatus::Skipped, $execution->status);
+        self::assertNull(
+            $storage->get('test.skipping'),
+            'A returned SKIPPED must leave no execution record — the slot stays pending',
+        );
+        // The summary reports it as deferred, not skipped.
+        self::assertStringContainsString('1 deferred', $this->tester->getDisplay());
     }
 
-    public function testSkippingTaskIsNotRerunWithoutForce(): void
+    public function testSkippingTaskIsRetriedOnNextRun(): void
     {
-        $this->tester->execute([]); // first run — SkippingTask stored as Skipped
-        $this->tester->execute([]); // second run — should skip it (already executed)
+        $this->tester->execute([]); // first run — SkippingTask defers itself, nothing recorded
+        $this->tester->execute([]); // second run — the slot is still pending, so it executes again
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
-        // Skipped task is not retried on a normal run
-        self::assertStringNotContainsString('test.skipping ran', $this->tester->getDisplay());
+        $display = $this->tester->getDisplay();
+        // The task executed again on the second run (its completion line appears)...
+        self::assertStringContainsString('→ skipped', $display);
+        // ...so the run is not an "everything already executed" no-op.
+        self::assertStringNotContainsString('nothing to run', $display);
+        self::assertStringContainsString('1 deferred', $display);
     }
 
     public function testNoFlagRunsEverySlot(): void
@@ -421,6 +430,36 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringContainsString('failed', $display);
     }
 
+    // A run whose only activity is deferrals (ran=0, skipped=0, deferred>0) matched real
+    // work: neither empty-run message may appear, and the summary must surface the deferral.
+    public function testDeferredOnlyRunPrintsSummaryNotEmptyMessage(): void
+    {
+        self::ensureKernelShutdown();
+        self::useConfigurableKernel([
+            'storage' => [
+                'type' => 'filesystem',
+                'filesystem' => ['path' => \sys_get_temp_dir().'/deploy-tasks-deferred-only-'.\getmypid().'-test'],
+            ],
+            'events' => ['enabled' => false],
+            'lock' => ['enabled' => false],
+        ], [
+            // Silence Symfony's default logger, as in TestKernel (Infection stderr gotcha).
+            'logger' => ['class' => NullLogger::class, 'public' => true],
+            'test.task.skipping' => ['class' => SkippingTask::class, 'tags' => ['soviann_deploy_tasks.task']],
+        ]);
+        self::bootKernel();
+        $this->cleanStorage();
+
+        $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        $display = $tester->getDisplay();
+        self::assertStringContainsString('1 deferred', $display);
+        self::assertStringNotContainsString('No deploy tasks registered', $display);
+        self::assertStringNotContainsString('nothing to run', $display);
+    }
+
     // Mutant 63+64+65 (DecrementInteger/LogicalAndAllSubExprNegation:185)
     // When ran=0 AND skipped=0, "No deploy tasks registered." or "No tasks matched..." must appear.
     // An empty run (no tasks configured) with groupFilter=[] triggers ran=0, skipped=0.
@@ -556,12 +595,13 @@ final class DeployRunCommandTest extends FunctionalTestCase
     // Mutant 69 (ReturnRemoval:196) — after "All tasks already executed" return, summary must NOT appear
     public function testAllAlreadyExecutedDoesNotPrintSummaryLine(): void
     {
-        // First run executes all tasks
-        $this->tester->execute([]);
+        // Group-scoped so the ungrouped SkippingTask (deferred on every run) cannot
+        // keep the branch unreachable.
+        $this->tester->execute(['--group' => ['predeploy']]);
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
 
-        // Second run — all already executed → "All tasks already executed — nothing to run."
-        $this->tester->execute([]);
+        // Second run — all matching slots already executed → "All tasks already executed — nothing to run."
+        $this->tester->execute(['--group' => ['predeploy']]);
         $display = $this->tester->getDisplay();
         self::assertStringContainsString('All tasks already executed — nothing to run.', $display);
         // If ReturnRemoval mutant survived, io->success($summary) would also run, showing "Tasks: 0 ran, ..."

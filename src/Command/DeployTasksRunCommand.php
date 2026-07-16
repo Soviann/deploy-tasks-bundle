@@ -165,7 +165,7 @@ final class DeployTasksRunCommand extends Command
         // Derived from the RunResult rather than pre-queried on the registry: the runner
         // owns env/group/slot selection, so only its outcome can say "nothing matched"
         // (a registry pre-count misses the environment filter).
-        if (!$result->locked && $requireSome && 0 === $result->ran + $result->skipped + $result->failed) {
+        if (!$result->locked && $requireSome && 0 === $result->ran + $result->skipped + $result->deferred + $result->failed) {
             $io->error('No task matched the provided filter(s).');
 
             return self::EX_USAGE;
@@ -256,11 +256,14 @@ final class DeployTasksRunCommand extends Command
             return;
         }
 
+        // "skipped" = already recorded, will not run again; "deferred" = the task
+        // returned SKIPPED this run, nothing was recorded, it retries next run.
         $summary = \sprintf(
-            'Tasks: %d %s, %d skipped, %d failed.',
+            'Tasks: %d %s, %d skipped, %d deferred, %d failed.',
             $result->ran,
             $result->dryRun ? 'would run' : 'ran',
             $result->skipped,
+            $result->deferred,
             $result->failed,
         );
 
@@ -270,13 +273,15 @@ final class DeployTasksRunCommand extends Command
             return;
         }
 
-        if (0 === $result->ran && 0 === $result->skipped) {
+        if (0 === $result->ran && 0 === $result->skipped && 0 === $result->deferred) {
             $io->success($this->emptyRunMessage($groupFilterActive));
 
             return;
         }
 
-        if (0 === $result->ran) {
+        // A deferred task was neither executed to completion nor buried — it will
+        // run again — so "already executed / nothing to run" would be a lie then.
+        if (0 === $result->ran && 0 === $result->deferred) {
             $io->success('All tasks already executed — nothing to run.');
 
             return;

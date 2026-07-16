@@ -124,6 +124,7 @@ final readonly class TaskRunner
         $this->logger->info('Deploy tasks run finished', [
             'ran' => $final->ran,
             'skipped' => $final->skipped,
+            'deferred' => $final->deferred,
             'failed' => $final->failed,
             'locked' => $final->locked,
         ]);
@@ -348,6 +349,7 @@ final readonly class TaskRunner
     ): RunResult {
         $ran = 0;
         $skipped = 0;
+        $deferred = 0;
         $failed = 0;
 
         // Pre-compute which tasks will actually be executed, so progress counters are accurate.
@@ -394,6 +396,7 @@ final readonly class TaskRunner
                         ran: $ran,
                         skipped: $skipped,
                         failed: $failed + 1,
+                        deferred: $deferred,
                         locked: false,
                     );
 
@@ -408,7 +411,9 @@ final readonly class TaskRunner
             if (TaskResult::FAILURE === $outcome->result) {
                 $failed += $count;
             } elseif (TaskResult::SKIPPED === $outcome->result) {
-                $skipped += $count;
+                // Nothing was persisted (see persistOutcome()): these slots stay
+                // pending and retry next run — the opposite fate of $skipped slots.
+                $deferred += $count;
             } else {
                 $ran += $count;
             }
@@ -421,11 +426,11 @@ final readonly class TaskRunner
                     ['task_id' => $item['taskId'], 'exception' => $e],
                 );
 
-                return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, locked: true);
+                return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, deferred: $deferred, locked: true);
             }
         }
 
-        return new RunResult(ran: $ran, skipped: $skipped, failed: $failed);
+        return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, deferred: $deferred);
     }
 
     /**
@@ -440,7 +445,8 @@ final readonly class TaskRunner
      * it applied but unrecorded; non-transactional backends and all_or_nothing runs
      * keep the split (run, then persist). The failure path writes through plain
      * persistOutcome(). The execution record is always written before After/Failed
-     * events are dispatched.
+     * events are dispatched. A returned SKIPPED persists nothing at all — the slot
+     * stays pending so the task retries next run ({@see persistOutcome()}).
      *
      * @param list<?string> $pendingSlots Slots to persist the execution outcome into
      *
@@ -664,7 +670,8 @@ final readonly class TaskRunner
 
     /**
      * Runs the task and persists its success outcome, folding both into a single
-     * per-task transaction when the mode is `per_task`.
+     * per-task transaction when the mode is `per_task`. A returned SKIPPED outcome
+     * flows through the same paths but persists nothing ({@see persistOutcome()}).
      *
      * The fold closes the split-transaction window: with run() side effects and the
      * execution record committing together, a crash or storage failure between them
@@ -798,10 +805,26 @@ final readonly class TaskRunner
     }
 
     /**
+     * Persists the task outcome for each pending slot — the single write site for
+     * execution records.
+     *
+     * A returned {@see TaskResult::SKIPPED} is deliberately never persisted: leaving
+     * no record keeps the slot pending, so a task that skipped itself (preconditions
+     * not met) is retried on the next run instead of being buried. `deploytasks:skip`
+     * is the only way to record a permanent skip. Guarding here, at the only save()
+     * call, makes the rule unbreakable by any caller. The failure path also flows
+     * through this method but can never carry SKIPPED — a returned FAILURE becomes
+     * TaskReturnedFailureException before an outcome exists, and failure outcomes
+     * are always built with TaskResult::FAILURE.
+     *
      * @param list<?string> $pendingSlots
      */
     private function persistOutcome(string $taskId, TaskOutcome $outcome, array $pendingSlots): void
     {
+        if (TaskResult::SKIPPED === $outcome->result) {
+            return;
+        }
+
         foreach ($pendingSlots as $slot) {
             $this->storage->save(new TaskExecution(
                 id: $taskId,

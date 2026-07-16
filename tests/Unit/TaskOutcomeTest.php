@@ -67,8 +67,9 @@ final class TaskOutcomeTest extends TestCase
      */
     public static function provideStatusDerivation(): iterable
     {
-        yield 'success persists as ran' => [TaskResult::SUCCESS, TaskStatus::Ran];
-        yield 'skipped persists as skipped' => [TaskResult::SKIPPED, TaskStatus::Skipped];
-        yield 'failure persists as failed' => [TaskResult::FAILURE, TaskStatus::Failed];
+        yield 'success maps to ran' => [TaskResult::SUCCESS, TaskStatus::Ran];
+        // SKIPPED keeps its mapping for the `→ skipped` completion line, but is never persisted.
+        yield 'skipped maps to skipped' => [TaskResult::SKIPPED, TaskStatus::Skipped];
+        yield 'failure maps to failed' => [TaskResult::FAILURE, TaskStatus::Failed];
     }
 }
