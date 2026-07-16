@@ -57,6 +57,7 @@ final class StorageConfigNode
                         ->append(self::sqlIdentifierNode('status_column', 'status'))
                         ->append(self::sqlIdentifierNode('executed_at_column', 'executed_at'))
                         ->append(self::sqlIdentifierNode('error_column', 'error'))
+                        ->append(self::sqlIdentifierNode('duration_column', 'duration_ms'))
                         ->append(self::sqlIdentifierNode(
                             'group_column',
                             'task_group',

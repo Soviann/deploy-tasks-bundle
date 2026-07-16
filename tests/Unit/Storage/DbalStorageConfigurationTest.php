@@ -16,6 +16,7 @@ final class DbalStorageConfigurationTest extends TestCase
         $config = new DbalStorageConfiguration();
 
         self::assertTrue($config->autoCreateTable);
+        self::assertSame('duration_ms', $config->durationColumn);
         self::assertSame('error', $config->errorColumn);
         self::assertSame('executed_at', $config->executedAtColumn);
         self::assertSame('task_group', $config->groupColumn);
@@ -30,6 +31,7 @@ final class DbalStorageConfigurationTest extends TestCase
     {
         $config = new DbalStorageConfiguration(
             autoCreateTable: false,
+            durationColumn: 'took_ms',
             errorColumn: 'err',
             executedAtColumn: 'ran_at',
             idColumn: 'task_id',
@@ -39,6 +41,7 @@ final class DbalStorageConfigurationTest extends TestCase
         );
 
         self::assertFalse($config->autoCreateTable);
+        self::assertSame('took_ms', $config->durationColumn);
         self::assertSame('err', $config->errorColumn);
         self::assertSame('ran_at', $config->executedAtColumn);
         self::assertSame('task_id', $config->idColumn);
@@ -63,5 +66,17 @@ final class DbalStorageConfigurationTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         new DbalStorageConfiguration(idColumn: 'same', statusColumn: 'same');
+    }
+
+    public function testRejectsNonIdentifierDurationColumnName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new DbalStorageConfiguration(durationColumn: 'took ms');
+    }
+
+    public function testRejectsDurationColumnCollidingWithAnotherColumn(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new DbalStorageConfiguration(durationColumn: 'same', errorColumn: 'same');
     }
 }

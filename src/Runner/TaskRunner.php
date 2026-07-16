@@ -832,6 +832,7 @@ final readonly class TaskRunner
                 executedAt: $outcome->executedAt,
                 error: $outcome->error,
                 group: $slot,
+                durationMs: (int) \round($outcome->durationSeconds * 1000),
             ));
         }
     }

@@ -436,11 +436,12 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
-     * @return array{id: string, status: string, executed_at: string, error: string|null, group: string|null}
+     * @return array{duration_ms: int|null, error: string|null, executed_at: string, group: string|null, id: string, status: string}
      */
     private function toArray(TaskExecution $execution): array
     {
         return [
+            'duration_ms' => $execution->durationMs,
             'error' => $execution->error,
             'executed_at' => $execution->executedAt->format(\DateTimeInterface::ATOM),
             'group' => $execution->group,
@@ -471,6 +472,11 @@ final class FilesystemStorage implements TaskStorageInterface
                 throw new StorageException(\sprintf('Storage record "%s" key "%s" must be a string or null, got %s.', $sourceFile, $key, \get_debug_type($decoded[$key])));
             }
         }
+
+        // Optional like error/group, but integer-typed — checked separately from the strings loop.
+        if (\array_key_exists('duration_ms', $decoded) && null !== $decoded['duration_ms'] && !\is_int($decoded['duration_ms'])) {
+            throw new StorageException(\sprintf('Storage record "%s" key "duration_ms" must be an integer or null, got %s.', $sourceFile, \get_debug_type($decoded['duration_ms'])));
+        }
     }
 
     /**
@@ -488,7 +494,7 @@ final class FilesystemStorage implements TaskStorageInterface
         $this->assertRecordShape($data, $sourceFile);
 
         /**
-         * @var array{id: string, status: string, executed_at: string, error?: string|null, group?: string|null} $data
+         * @var array{id: string, status: string, executed_at: string, error?: string|null, group?: string|null, duration_ms?: int|null} $data
          */
         $executedAt = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['executed_at']);
 
@@ -504,6 +510,8 @@ final class FilesystemStorage implements TaskStorageInterface
             executedAt: $executedAt,
             error: $data['error'] ?? null,
             group: $group,
+            // Absent in records written before the field existed — null, not an error.
+            durationMs: $data['duration_ms'] ?? null,
         );
     }
 }

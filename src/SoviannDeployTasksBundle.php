@@ -61,6 +61,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
  *         status_column: string,
  *         executed_at_column: string,
  *         error_column: string,
+ *         duration_column: string,
  *         group_column: string,
  *         group_column_length: int,
  *         transaction_mode: string,
@@ -415,6 +416,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 $services->set('soviann_deploy_tasks.storage.configuration', DbalStorageConfiguration::class)
                     ->args([
                         '$autoCreateTable' => $dbConfig['auto_create_table'],
+                        '$durationColumn' => $dbConfig['duration_column'],
                         '$errorColumn' => $dbConfig['error_column'],
                         '$executedAtColumn' => $dbConfig['executed_at_column'],
                         '$groupColumn' => $dbConfig['group_column'],

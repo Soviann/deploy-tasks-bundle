@@ -26,6 +26,7 @@ final readonly class DbalStorageConfiguration
 
     public function __construct(
         public bool $autoCreateTable = true,
+        public string $durationColumn = 'duration_ms',
         public string $errorColumn = 'error',
         public string $executedAtColumn = 'executed_at',
         public string $groupColumn = 'task_group',
@@ -42,6 +43,7 @@ final readonly class DbalStorageConfiguration
             'statusColumn' => $this->statusColumn,
             'executedAtColumn' => $this->executedAtColumn,
             'errorColumn' => $this->errorColumn,
+            'durationColumn' => $this->durationColumn,
         ];
 
         foreach ($names as $option => $name) {
@@ -56,6 +58,7 @@ final readonly class DbalStorageConfiguration
             $this->statusColumn,
             $this->executedAtColumn,
             $this->errorColumn,
+            $this->durationColumn,
         ];
 
         if (\count($columns) !== \count(\array_unique($columns))) {

@@ -173,6 +173,31 @@ final class TaskRunnerTest extends TestCase
         self::assertEquals($clock->now(), $execution->executedAt);
     }
 
+    public function testSuccessOutcomePersistsDuration(): void
+    {
+        $runner = $this->createRunner([new SimpleTask('task.1', 'First')]);
+
+        $runner->runAll($this->output);
+
+        $execution = $this->storage->get('task.1');
+        self::assertNotNull($execution);
+        self::assertIsInt($execution->durationMs);
+        self::assertGreaterThanOrEqual(0, $execution->durationMs);
+    }
+
+    public function testFailureOutcomePersistsDuration(): void
+    {
+        $runner = $this->createRunner([new FailingTask()]);
+
+        $runner->runAll($this->output);
+
+        $execution = $this->storage->get('test.failing');
+        self::assertNotNull($execution);
+        self::assertSame(TaskStatus::Failed, $execution->status);
+        self::assertIsInt($execution->durationMs);
+        self::assertGreaterThanOrEqual(0, $execution->durationMs);
+    }
+
     public function testFailureOutcomeStampsExecutedAtFromInjectedClock(): void
     {
         $clock = new MockClock('2026-02-03 04:05:06.123456+00:00');

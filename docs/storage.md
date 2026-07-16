@@ -72,17 +72,20 @@ CREATE TABLE IF NOT EXISTS deploy_task_executions (
     status      VARCHAR(16)  NOT NULL,
     executed_at VARCHAR(32)  NOT NULL,
     error       TEXT         DEFAULT NULL,
+    duration_ms INTEGER      DEFAULT NULL,
     PRIMARY KEY (id, task_group)
 );
 ```
 
 The `task_group` column stores the empty string for the default slot (SQL forbids `NULL` in a primary key), and the declared group name for grouped slots. The composite primary key `(id, task_group)` allows one row per `(task, group)` slot — a task declared in multiple groups therefore records one row per slot.
 
+The `duration_ms` column stores how long the task ran, in milliseconds. It is `NULL` for records that do not come from an actual run — a manual `deploytasks:skip` or a `deploytasks:rollup` baseline. If your table was created before the column existed, re-run `bin/console deploytasks:create-schema` against a fresh table, or add the column by hand (`duration_ms INTEGER DEFAULT NULL`) — the command only creates missing tables, it does not alter existing ones.
+
 These are the default column names and widths; adjust them to match your configuration if you've overridden them.
 
 ### Reusing an existing table (custom column names)
 
-When deploying the bundle into an application that already has a tracking table with different column names or sizes, all six column identifiers and both `VARCHAR` widths are configurable:
+When deploying the bundle into an application that already has a tracking table with different column names or sizes, all seven column identifiers and both `VARCHAR` widths are configurable:
 
 ```yaml
 soviann_deploy_tasks:
@@ -95,6 +98,7 @@ soviann_deploy_tasks:
             status_column: state                # default: status
             executed_at_column: ran_at          # default: executed_at
             error_column: failure_message       # default: error
+            duration_column: took_ms            # default: duration_ms
             group_column: slot                  # default: task_group
             group_column_length: 64             # default: 128
 ```
@@ -214,6 +218,7 @@ final class RedisStorage implements TaskStorageInterface
             'status' => $execution->status->value,
             'executed_at' => $execution->executedAt->format(\DATE_ATOM),
             'error' => $execution->error ?? '',
+            'duration_ms' => $execution->durationMs ?? '',
         ]);
         $this->redis->sadd(self::INDEX_KEY, [$key]);
     }
@@ -290,6 +295,7 @@ final class RedisStorage implements TaskStorageInterface
             executedAt: new \DateTimeImmutable($payload['executed_at']),
             error: '' === $payload['error'] ? null : $payload['error'],
             group: '' === $payload['task_group'] ? null : $payload['task_group'],
+            durationMs: '' === $payload['duration_ms'] ? null : (int) $payload['duration_ms'],
         );
     }
 }

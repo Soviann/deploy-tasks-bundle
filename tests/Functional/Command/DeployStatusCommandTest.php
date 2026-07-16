@@ -331,6 +331,25 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringContainsString('Status', $display);
         self::assertStringContainsString('Error', $display);
         self::assertStringContainsString('Executed At', $display);
+        self::assertStringContainsString('Duration', $display);
+    }
+
+    public function testDurationCellRendersFormattedValueAndBlankWhenAbsent(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        // One record from a real run (duration recorded), one manual skip (no duration).
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable(), null, null, 1500));
+        $storage->save(new TaskExecution('test.prod_only', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('1.5s', $display);
+        // The duration-less row renders without a bogus value — no other duration appears.
+        self::assertSame(1, \preg_match_all('/\b\d+(\.\d+)?m?s\b/', $display), 'Exactly one duration value must be rendered.');
     }
 
     public function testIdHeaderPresentInNoStateTable(): void
@@ -343,6 +362,8 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         self::assertStringContainsString('ID', $display);
         // Status/Error columns absent
         self::assertStringNotContainsString('Executed At', $display);
+        // Duration is execution state too — absent from the --no-state table.
+        self::assertStringNotContainsString('Duration', $display);
     }
 
     // Mutant 89 (Continue_:100) — group filter iterates ALL slots (continue, not break)
@@ -398,7 +419,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
     }
 
     // Mutant 92+93 (DecrementInteger/IncrementInteger:118) — column index 4 is the Error column
-    // Column 4 (0-indexed) in ['ID','Group','Description','Status','Error','Executed At'] is 'Error'.
+    // Column 4 (0-indexed) in ['ID','Group','Description','Status','Error','Executed At','Duration'] is 'Error'.
     // Verify truncation works on the error column specifically (not Status=3 or ExecutedAt=5).
     public function testErrorColumnIndexIsCorrect(): void
     {

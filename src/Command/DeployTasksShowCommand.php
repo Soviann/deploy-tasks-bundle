@@ -111,6 +111,8 @@ final class DeployTasksShowCommand extends Command
             ['Group' => $execution->group ?? self::DEFAULT_SLOT_LABEL],
             ['Status' => CommandMessages::statusTag($execution->status)],
             ['Executed at' => $execution->executedAt->format('Y-m-d H:i:s')],
+            // Null duration (manual skip, rollup baseline — no actual run) renders as a placeholder.
+            ['Duration' => null === $execution->durationMs ? '—' : CommandMessages::formatDuration($execution->durationMs)],
         ];
 
         if (null !== $execution->error) {

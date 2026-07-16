@@ -66,6 +66,45 @@ abstract class TaskStorageContractTestCase extends TestCase
         self::assertSame(TaskStatus::Failed, $retrieved->status);
     }
 
+    public function testDurationRoundTrips(): void
+    {
+        $storage = $this->createStorage();
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, null, 1234,
+        ));
+
+        self::assertSame(1234, $storage->get('task.1')?->durationMs);
+    }
+
+    public function testDurationDefaultsToNullAndReadsBackNull(): void
+    {
+        $storage = $this->createStorage();
+        $storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00')));
+
+        $retrieved = $storage->get('task.1');
+
+        self::assertNotNull($retrieved);
+        self::assertNull($retrieved->durationMs);
+    }
+
+    /**
+     * A re-run must UPDATE the stored duration, not keep the stale one — on the
+     * DBAL backend this exercises the upsert's conflict-UPDATE clause, which is
+     * easy to forget when a column is only added to the INSERT column list.
+     */
+    public function testSaveOverwritesDuration(): void
+    {
+        $storage = $this->createStorage();
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T14:30:00+00:00'), null, null, 100,
+        ));
+        $storage->save(new TaskExecution(
+            'task.1', TaskStatus::Ran, new \DateTimeImmutable('2026-04-12T15:00:00+00:00'), null, null, 2500,
+        ));
+
+        self::assertSame(2500, $storage->get('task.1')?->durationMs);
+    }
+
     public function testRemove(): void
     {
         $storage = $this->createStorage();

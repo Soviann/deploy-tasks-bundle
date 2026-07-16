@@ -71,6 +71,48 @@ final class DeployShowCommandTest extends FunctionalTestCase
         self::assertStringContainsString($error, $display);
     }
 
+    public function testDurationRowRendersMillisecondsUnderOneSecond(): void
+    {
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-04-23 10:00:00'), null, null, 123,
+        ));
+
+        $this->tester->execute(['id' => 'test.simple']);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Duration', $display);
+        self::assertStringContainsString('123ms', $display);
+    }
+
+    public function testDurationRowRendersSecondsFromOneSecond(): void
+    {
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Ran, new \DateTimeImmutable('2026-04-23 10:00:00'), null, null, 2500,
+        ));
+
+        $this->tester->execute(['id' => 'test.simple']);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Duration', $display);
+        self::assertStringContainsString('2.5s', $display);
+    }
+
+    public function testDurationRowShowsPlaceholderWhenNull(): void
+    {
+        // A manually-skipped record carries no duration — the row must render a
+        // placeholder, not crash or show a bogus zero.
+        $this->storage->save(new TaskExecution(
+            'test.simple', TaskStatus::Skipped, new \DateTimeImmutable('2026-04-23 10:00:00'),
+        ));
+
+        $this->tester->execute(['id' => 'test.simple']);
+
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Duration', $display);
+        self::assertStringContainsString('—', $display);
+        self::assertDoesNotMatchRegularExpression('/\d+ms\b/', $display);
+    }
+
     public function testErrorRowStripsAnsiEscapeSequences(): void
     {
         $this->storage->save(new TaskExecution(

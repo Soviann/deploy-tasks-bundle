@@ -36,6 +36,22 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         self::assertStringContainsString('deploy_task_executions', $sql);
     }
 
+    public function testGetCreateTableSqlIncludesDurationColumn(): void
+    {
+        self::assertStringContainsString('"duration_ms"', $this->storage->getCreateTableSql());
+    }
+
+    public function testGetCreateTableSqlUsesConfiguredDurationColumn(): void
+    {
+        $config = new DbalStorageConfiguration(durationColumn: 'took_ms');
+        $storage = new DbalStorage($this->connection, $config);
+
+        $sql = $storage->getCreateTableSql();
+
+        self::assertStringContainsString('"took_ms"', $sql);
+        self::assertStringNotContainsString('duration_ms', $sql);
+    }
+
     public function testKeywordShapedIdentifiersProduceExecutableQuotedDdl(): void
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
@@ -482,6 +498,13 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         self::assertStringContainsString('ON DUPLICATE KEY UPDATE', $captured);
         self::assertStringContainsString('VALUES(', $captured);
         self::assertStringNotContainsString('ON CONFLICT', $captured);
+
+        // The duration column must sit in BOTH halves of the upsert: the INSERT
+        // column list AND the update clause — an INSERT-only addition would leave
+        // a re-run's stored duration stale on MySQL/MariaDB.
+        [$insertClause] = \explode('ON DUPLICATE KEY UPDATE', $captured);
+        self::assertStringContainsString('`duration_ms`', $insertClause);
+        self::assertStringContainsString('`duration_ms` = VALUES(`duration_ms`)', $captured);
     }
 
     // -------------------------------------------------------------------------

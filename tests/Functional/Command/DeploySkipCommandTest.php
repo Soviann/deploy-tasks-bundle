@@ -43,6 +43,8 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         $execution = $storage->get('test.simple');
         \assert(null !== $execution);
         self::assertSame(TaskStatus::Skipped, $execution->status);
+        // A manual skip is not a run — no duration is recorded.
+        self::assertNull($execution->durationMs);
     }
 
     public function testSkipWithNoInteraction(): void

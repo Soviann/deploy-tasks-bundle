@@ -119,7 +119,7 @@ final class DeployTasksStatusCommand extends Command
 
         $headers = $noState
             ? ['ID', 'Group', 'Description']
-            : ['ID', 'Group', 'Description', 'Status', 'Error', 'Executed At'];
+            : ['ID', 'Group', 'Description', 'Status', 'Error', 'Executed At', 'Duration'];
         $rows = [];
 
         foreach ($tasks as $id => $task) {
@@ -287,7 +287,7 @@ final class DeployTasksStatusCommand extends Command
         }
 
         if (null === $execution) {
-            return [$id, $groupLabel, $description, '<comment>pending</comment>', '', ''];
+            return [$id, $groupLabel, $description, '<comment>pending</comment>', '', '', ''];
         }
 
         $status = CommandMessages::statusTag($execution->status);
@@ -301,7 +301,10 @@ final class DeployTasksStatusCommand extends Command
                 ->toString()
             : '';
 
-        return [$id, $groupLabel, $description, $status, $errorCell, $execution->executedAt->format('Y-m-d H:i:s')];
+        // Null duration (manual skip, rollup baseline — no actual run) renders as a blank cell.
+        $durationCell = null === $execution->durationMs ? '' : CommandMessages::formatDuration($execution->durationMs);
+
+        return [$id, $groupLabel, $description, $status, $errorCell, $execution->executedAt->format('Y-m-d H:i:s'), $durationCell];
     }
 
     /**

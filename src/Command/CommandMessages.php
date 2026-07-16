@@ -35,4 +35,17 @@ final class CommandMessages
             TaskStatus::Skipped => '<comment>skipped</comment>',
         };
     }
+
+    /**
+     * Renders a stored execution duration human-readably: `123ms` under a
+     * second, `1.2s` from one second up. Shared by `status` and `show`.
+     */
+    public static function formatDuration(int $durationMs): string
+    {
+        if ($durationMs < 1000) {
+            return \sprintf('%dms', $durationMs);
+        }
+
+        return \sprintf('%.1fs', $durationMs / 1000);
+    }
 }

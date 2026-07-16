@@ -54,6 +54,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
     private readonly string $quotedStatusColumn;
     private readonly string $quotedExecutedAtColumn;
     private readonly string $quotedErrorColumn;
+    private readonly string $quotedDurationColumn;
 
     /** Comma-separated, platform-quoted column list for SELECT projections. */
     private readonly string $selectColumns;
@@ -78,6 +79,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $this->quotedStatusColumn = $platform->quoteSingleIdentifier($configuration->statusColumn);
         $this->quotedExecutedAtColumn = $platform->quoteSingleIdentifier($configuration->executedAtColumn);
         $this->quotedErrorColumn = $platform->quoteSingleIdentifier($configuration->errorColumn);
+        $this->quotedDurationColumn = $platform->quoteSingleIdentifier($configuration->durationColumn);
 
         $this->selectColumns = \implode(', ', [
             $this->quotedIdColumn,
@@ -85,6 +87,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $this->quotedStatusColumn,
             $this->quotedExecutedAtColumn,
             $this->quotedErrorColumn,
+            $this->quotedDurationColumn,
         ]);
     }
 
@@ -192,6 +195,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             $execution->status->value,
             $executedAtUtc,
             $this->truncateError($execution->error),
+            $execution->durationMs,
         ];
         $types = [
             Types::STRING,
@@ -199,6 +203,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             Types::STRING,
             Types::DATETIME_IMMUTABLE,
             Types::TEXT,
+            Types::INTEGER,
         ];
 
         try {
@@ -416,9 +421,10 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $status = $this->quotedStatusColumn;
         $executedAt = $this->quotedExecutedAtColumn;
         $error = $this->quotedErrorColumn;
+        $duration = $this->quotedDurationColumn;
 
-        $columnList = \implode(', ', [$id, $group, $status, $executedAt, $error]);
-        $placeholderList = '?, ?, ?, ?, ?';
+        $columnList = \implode(', ', [$id, $group, $status, $executedAt, $error, $duration]);
+        $placeholderList = '?, ?, ?, ?, ?, ?';
 
         $platform = $this->connection->getDatabasePlatform();
 
@@ -434,6 +440,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
                     \sprintf('%s = excluded.%s', $status, $status),
                     \sprintf('%s = excluded.%s', $executedAt, $executedAt),
                     \sprintf('%s = excluded.%s', $error, $error),
+                    \sprintf('%s = excluded.%s', $duration, $duration),
                 ]),
             );
         }
@@ -448,6 +455,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
                     \sprintf('%s = VALUES(%s)', $status, $status),
                     \sprintf('%s = VALUES(%s)', $executedAt, $executedAt),
                     \sprintf('%s = VALUES(%s)', $error, $error),
+                    \sprintf('%s = VALUES(%s)', $duration, $duration),
                 ]),
             );
         }
@@ -558,6 +566,7 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $table->addColumn($this->quotedAssetName($this->configuration->statusColumn), Types::STRING, ['length' => 16]);
         $table->addColumn($this->quotedAssetName($this->configuration->executedAtColumn), Types::DATETIME_IMMUTABLE);
         $table->addColumn($this->quotedAssetName($this->configuration->errorColumn), Types::TEXT, ['notnull' => false]);
+        $table->addColumn($this->quotedAssetName($this->configuration->durationColumn), Types::INTEGER, ['notnull' => false]);
 
         /** @var non-empty-string $pkIdColumn */
         $pkIdColumn = $this->configuration->idColumn;
@@ -595,6 +604,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
         $error = $row[$this->configuration->errorColumn] ?? null;
         /** @var string $groupRaw */
         $groupRaw = $row[$this->configuration->groupColumn] ?? '';
+        /** @var int|numeric-string|null $durationRaw */
+        $durationRaw = $row[$this->configuration->durationColumn] ?? null;
 
         try {
             $executedAtConverted = $this->connection->convertToPHPValue($executedAtRaw, Types::DATETIME_IMMUTABLE);
@@ -619,6 +630,8 @@ final class DbalStorage implements SchemaManageable, TransactionalStorageInterfa
             executedAt: $executedAt,
             error: $error,
             group: $group,
+            // Some drivers return integer columns as numeric strings.
+            durationMs: null === $durationRaw ? null : (int) $durationRaw,
         );
     }
 }

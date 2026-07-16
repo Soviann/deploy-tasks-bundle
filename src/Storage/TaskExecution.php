@@ -15,6 +15,8 @@ final readonly class TaskExecution
      * @param \DateTimeImmutable $executedAt When the execution happened
      * @param ?string            $error      Error message when status is Failed, null otherwise
      * @param ?string            $group      Group slot this execution is recorded under; null = default slot
+     * @param ?int               $durationMs How long the task ran, in milliseconds; null when the record
+     *                                       does not come from an actual run (manual skip, rollup baseline)
      */
     public function __construct(
         public string $id,
@@ -22,6 +24,7 @@ final readonly class TaskExecution
         public \DateTimeImmutable $executedAt,
         public ?string $error = null,
         public ?string $group = null,
+        public ?int $durationMs = null,
     ) {
     }
 

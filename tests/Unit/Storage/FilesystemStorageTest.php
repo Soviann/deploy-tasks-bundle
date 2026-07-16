@@ -190,6 +190,36 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         self::assertNull($execution->error);
     }
 
+    public function testRecordWithoutDurationKeyLoadsWithNullDuration(): void
+    {
+        // Records written before the duration_ms field existed have no such key —
+        // they must load with a null duration, not error out.
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents(
+            $this->storagePath.'/t1.json',
+            '{"id":"t1","status":"ran","executed_at":"2026-01-01T00:00:00+00:00"}',
+        );
+
+        $execution = $this->storage->get('t1');
+
+        self::assertNotNull($execution);
+        self::assertNull($execution->durationMs);
+    }
+
+    public function testRecordWithNonIntDurationIsReportedAsStorageException(): void
+    {
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents(
+            $this->storagePath.'/t1.json',
+            '{"id":"t1","status":"ran","executed_at":"2026-01-01T00:00:00+00:00","duration_ms":"fast"}',
+        );
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/"duration_ms" must be an integer or null/');
+
+        $this->storage->get('t1');
+    }
+
     public function testRecordWithNonStringErrorIsReportedAsStorageException(): void
     {
         \mkdir($this->storagePath, 0755, true);
