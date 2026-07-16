@@ -195,7 +195,7 @@ final class DeployTasksRunCommand extends Command
         if (!$this->registry->has($taskId)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $taskId));
 
-            return Command::FAILURE;
+            return Command::INVALID;
         }
 
         try {

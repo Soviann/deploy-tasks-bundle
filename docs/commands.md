@@ -28,7 +28,7 @@ bin/console deploytasks:run --require-some --group=predeploy
 | `--group=<name>` | Restrict execution to the given group slot; repeatable for a union (e.g. `--group=a --group=b`). Without this flag, every slot runs — the default slot and every declared group. |
 | `--require-some` | Exit `64` (`EX_USAGE`) when no task matches the provided filters, distinguishing an empty selection from a successful noop. |
 
-**Exit codes:** `0` on success; `1` if at least one task failed; `2` (`Command::INVALID`) when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values, or when `--id` targets a task whose declared `env` excludes the current environment (without `--require-some`); `64` (`EX_USAGE`) when `--require-some` is set and no task matched the filters — this includes an unknown `--id` and an `--id` excluded by its declared `env`, both of which count as "no match" under `--require-some`; `75` (`EX_TEMPFAIL`) when the run lock is already held — CI pipelines should treat this as "retry recommended" rather than a genuine failure.
+**Exit codes:** `0` on success; `1` if at least one task failed; `2` (`Command::INVALID`) when `--id` targets an unregistered task ID, when `--id` targets a task whose group declaration is incompatible with the supplied `--group` values, or when `--id` targets a task whose declared `env` excludes the current environment (without `--require-some`); `64` (`EX_USAGE`) when `--require-some` is set and no task matched the filters — this includes an unknown `--id` and an `--id` excluded by its declared `env`, both of which count as "no match" under `--require-some`; `75` (`EX_TEMPFAIL`) when the run lock is already held — CI pipelines should treat this as "retry recommended" rather than a genuine failure.
 
 **Group semantics:**
 
@@ -103,7 +103,7 @@ bin/console deploytasks:show task_20260412143000_seed_categories
 - `Execution records` — one block per stored slot with `Group`, `Status`, `Executed at`, and `Error` (full text, only when the slot failed)
 - `Related commands` hints — `deploytasks:reset <id>` and `deploytasks:run --id=<id>`
 
-**Exit codes:** `0` on success; `1` when the task ID is not registered.
+**Exit codes:** `0` on success; `2` (`Command::INVALID`) when the task ID is not registered.
 
 Use this command after `deploytasks:status` surfaces a `failed` row and you need the complete error payload (the status table truncates errors to 60 chars).
 

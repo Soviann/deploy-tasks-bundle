@@ -69,12 +69,12 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
         }
     }
 
-    public function testNonLockFailureExitsWithFailure(): void
+    public function testNonLockFailureExitsWithInvalid(): void
     {
-        // Unknown task ID → FAILURE (1), not EX_TEMPFAIL (75).
+        // Unknown task ID → INVALID (2), not EX_TEMPFAIL (75).
         $this->tester->execute(['--id' => 'nonexistent.task']);
 
-        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
     }
 
     public function testRunWarnsWhenLockEnabledButLockComponentUnavailable(): void

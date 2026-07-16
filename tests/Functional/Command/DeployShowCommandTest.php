@@ -38,7 +38,7 @@ final class DeployShowCommandTest extends FunctionalTestCase
     {
         $this->tester->execute(['id' => 'does.not.exist']);
 
-        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
         self::assertStringContainsString('Task "does.not.exist" is not registered', $display);
         self::assertStringContainsString('deploytasks:status', $display);

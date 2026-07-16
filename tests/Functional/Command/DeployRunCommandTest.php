@@ -116,7 +116,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
     {
         $this->tester->execute(['--id' => 'nonexistent.task']);
 
-        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
         self::assertStringContainsString(
             \sprintf(CommandMessages::UNKNOWN_TASK, 'nonexistent.task'),
             (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay()),
@@ -357,11 +357,11 @@ final class DeployRunCommandTest extends FunctionalTestCase
         self::assertStringContainsString('No task matched', $this->tester->getDisplay());
     }
 
-    public function testWithoutRequireSomeUnknownIdKeepsExistingBehavior(): void
+    public function testWithoutRequireSomeUnknownIdExitsInvalid(): void
     {
         $this->tester->execute(['--id' => 'nonexistent.task']);
 
-        self::assertSame(Command::FAILURE, $this->tester->getStatusCode());
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
     }
 
     public function testRequireSomeWithNoMatchingGroupExitsUsage(): void
