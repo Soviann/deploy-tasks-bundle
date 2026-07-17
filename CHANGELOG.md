@@ -23,11 +23,12 @@ so it executes exactly once per environment.
 - **Lifecycle events** — `BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent` (optional; requires `symfony/event-dispatcher`).
 - **PSR-3 logging** — run- and task-level lifecycle logged through the application logger, auto-routed to a dedicated `soviann_deploy_tasks` Monolog channel when available and falling back to a `NullLogger` otherwise. DBAL exception context is scrubbed of connection credentials before it reaches any log handler.
 - **Console commands** — `deploytasks:run`, `:status`, `:show`, `:skip`, `:reset`, `:rollup`, `:generate:container`, and `:create-schema` (registered for any storage implementing `SchemaManageableInterface`).
-- **Host-scope tasks** — a self-contained `bin/deploy-tasks-host.sh` runner executes tracked `*.sh` tasks on the host, outside the container, with a Symfony-compatible `.env` cascade and flock-based concurrency. Managed from the console via `deploytasks:host:generate`, `:host:skip`, `:host:reset`, `:host:rollup`, and `:host:config`.
+- **Host-scope tasks** — a self-contained `bin/deploy-tasks-host.sh` runner executes tracked `*.sh` tasks on the host, outside the container, with a Symfony-compatible `.env` cascade and flock-based concurrency. Managed from the console via `deploytasks:host:install`, `:host:generate`, `:host:skip`, `:host:reset`, `:host:rollup`, and `:host:config`.
 - **Extension points** — per-instance ids (`TaskIdProviderInterface`) and custom ordering (`TaskSorterInterface`).
 - **Process helper** — `ProcessRunnerTrait` wraps `symfony/process` for tasks that shell out, streaming sanitized child output and enforcing a timeout.
 - **Configuration** — the `soviann_deploy_tasks` config tree covers storage, events, lock, generate, and host settings, with scalar shorthands (`storage: database`, `events: false`, `lock: false`). Task ids and group names are validated against a strict allowlist, and untrusted text is stripped of terminal control sequences before display.
 - **Requirements** — PHP 8.2+, Symfony 6.4 LTS or 7.x.
+- `deploytasks:host:install` command: scaffolds the host-scope runner, `deploy/host-tasks/`, and the Flex-style `.gitignore` block in one step. Replaces the manual copy workflow previously documented in `docs/host-tasks.md`.
 
 ### Changed
 

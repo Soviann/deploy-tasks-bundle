@@ -17,17 +17,17 @@ Default to container tasks: they get storage backends, groups, env filtering, an
 
 The Flex recipe installs the runner automatically (see [`installation.md`](installation.md#flex-recipe)): it copies `bin/deploy-tasks-host.sh`, publishes the config file, and adds the `.gitignore` entries below.
 
-Without Flex, or if the recipe endpoint isn't enabled, install manually:
+Without Flex, or if the recipe endpoint isn't enabled, one command scaffolds everything:
 
-    cp vendor/soviann/deploy-tasks-bundle/bin/deploy-tasks-host.sh.dist bin/deploy-tasks-host.sh
-    chmod +x bin/deploy-tasks-host.sh
-    mkdir -p deploy/host-tasks
+    bin/console deploytasks:host:install
 
-Add to `.gitignore`:
+It produces three artifacts, each step idempotent (existing files are reported as skipped, unrelated `.gitignore` content is preserved):
 
-    .deploy-tasks-host.log
-    .deploy-tasks-host.lock
-    deploy-tasks-host.local.sh
+- `bin/deploy-tasks-host.sh` — the host runner, copied from the bundle and made executable (`0755`)
+- `deploy/host-tasks/.gitkeep` — the directory scanned for `*.sh` tasks
+- a `###> soviann/deploy-tasks-bundle ###` block in `.gitignore` ignoring `/.deploy-tasks-host.log`, `/.deploy-tasks-host.lock`, and `/deploy-tasks-host.local.sh`
+
+Re-run with `--force` to refresh the runner after a bundle update.
 
 ## Create a host task
 

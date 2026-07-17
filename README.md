@@ -117,7 +117,13 @@ Full reference: [`docs/storage.md`](docs/storage.md) and [`docs/installation.md`
 
 ## Host-scope tasks
 
-Host tasks run outside the Symfony container — useful for operations that must execute on the host (Docker restarts, SSH-driven commands, infrastructure prep). The host runner (`bin/deploy-tasks-host.sh`) is installed automatically by the Flex recipe; see [`docs/host-tasks.md`](docs/host-tasks.md) for the manual-install fallback, generation, execution, `.env` cascade, and concurrency details.
+Host tasks run outside the Symfony container — useful for operations that must execute on the host (Docker restarts, SSH-driven commands, infrastructure prep). The host runner (`bin/deploy-tasks-host.sh`) is installed automatically by the Flex recipe; without it, one command scaffolds everything:
+
+```bash
+bin/console deploytasks:host:install
+```
+
+This installs the runner script (executable), creates `deploy/host-tasks/` (with a `.gitkeep`), and adds a Flex-style `.gitignore` block for the runner's log, lock, and local-override files — each step idempotent. Re-run with `--force` to refresh the runner after a bundle update. See [`docs/host-tasks.md`](docs/host-tasks.md) for generation, execution, `.env` cascade, and concurrency details.
 
 ## Commands
 
@@ -129,6 +135,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 | `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>`, `--force` |
 | `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
+| `deploytasks:host:install` | Install the host runner, `deploy/host-tasks/`, and the `.gitignore` block (idempotent) | `--force` |
 | `deploytasks:host:generate` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
 | `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |

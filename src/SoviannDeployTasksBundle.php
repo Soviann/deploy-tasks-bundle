@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksHostConfigCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksInstallHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
@@ -323,6 +324,13 @@ final class SoviannDeployTasksBundle extends AbstractBundle
                 '$defaultDirectory' => $generateConfig['directory'],
                 '$rootNamespace' => $generateConfig['root_namespace'],
                 '$templatePath' => $generateConfig['template'],
+                '$projectDir' => param('kernel.project_dir'),
+            ])
+            ->tag('console.command')
+        ;
+
+        $services->set('soviann_deploy_tasks.command.host.install', DeployTasksInstallHostCommand::class)
+            ->args([
                 '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')

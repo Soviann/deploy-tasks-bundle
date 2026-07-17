@@ -240,6 +240,33 @@ The namespace is built by applying `ucfirst` to each path segment of the target 
 
 ---
 
+## deploytasks:host:install
+
+Install everything host-scope tasks need — the host runner, the task directory, and the `.gitignore` block — in one idempotent step. See [`docs/host-tasks.md`](host-tasks.md#install-the-runner) for the full workflow.
+
+```bash
+bin/console deploytasks:host:install
+bin/console deploytasks:host:install --force
+```
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--force` | Overwrite the installed files and rewrite the `.gitignore` block in place |
+
+Three artifacts are produced, each reported as `created`, `skipped (exists)`, or `overwritten`:
+
+- `bin/deploy-tasks-host.sh` — the host runner, copied from the bundle's `bin/deploy-tasks-host.sh.dist` and made executable (`0755`)
+- `deploy/host-tasks/.gitkeep` — creates the directory scanned for `*.sh` tasks
+- a `###> soviann/deploy-tasks-bundle ###` … `###< soviann/deploy-tasks-bundle ###` block in `.gitignore` covering `/.deploy-tasks-host.log`, `/.deploy-tasks-host.lock`, and `/deploy-tasks-host.local.sh`
+
+Without `--force`, existing files and an existing `.gitignore` block are left untouched, so re-running is always safe. Unrelated `.gitignore` content above and below the block is preserved either way. Re-run with `--force` to refresh the runner after a bundle update.
+
+**Exit codes:** `0` on success (including when every step is skipped); `1` (`Command::FAILURE`) on a filesystem error (e.g. an unwritable `bin/` directory).
+
+---
+
 ## deploytasks:host:generate
 
 Generate a new host-scope deploy task script. Host scripts are plain bash files executed outside the container by `bin/deploy-tasks-host.sh`; see [`docs/host-tasks.md`](host-tasks.md) for installation details.
