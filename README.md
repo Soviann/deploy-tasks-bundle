@@ -1,6 +1,7 @@
 # DeployTasksBundle
 
 [![CI](https://github.com/Soviann/deploy-tasks-bundle/actions/workflows/ci.yml/badge.svg)](https://github.com/Soviann/deploy-tasks-bundle/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Soviann/deploy-tasks-bundle/graph/badge.svg)](https://codecov.io/gh/Soviann/deploy-tasks-bundle)
 [![Latest Stable Version](https://poser.pugx.org/soviann/deploy-tasks-bundle/v/stable)](https://packagist.org/packages/soviann/deploy-tasks-bundle)
 [![License](https://poser.pugx.org/soviann/deploy-tasks-bundle/license)](https://packagist.org/packages/soviann/deploy-tasks-bundle)
 
