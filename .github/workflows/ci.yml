@@ -298,8 +298,6 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-scripts
 
-      # The suppressed-advisory list (with drop conditions) lives in composer.json
-      # under config.audit.ignore — single source for CI and local runs.
       - name: Run composer audit
         run: composer audit --locked
 
