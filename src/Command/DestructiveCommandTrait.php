@@ -12,8 +12,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Shared confirmation guard for commands that destroy stored execution state.
  *
- * Registers the --force / --yes opt-out flags and refuses to run non-interactively
- * unless one of them is set, so a CI pipeline cannot silently wipe state.
+ * Registers the --force opt-out flag and refuses to run non-interactively
+ * unless it is set, so a CI pipeline cannot silently wipe state.
  *
  * @internal
  */
@@ -26,20 +26,19 @@ trait DestructiveCommandTrait
                 'force',
                 null,
                 InputOption::VALUE_NONE,
-                'Confirm destructive run when combined with --no-interaction. Alias: --yes.',
+                'Confirm destructive run when combined with --no-interaction.',
             )
-            ->addOption('yes', null, InputOption::VALUE_NONE, 'Alias of --force.')
         ;
     }
 
     private function isForced(InputInterface $input): bool
     {
-        return (bool) $input->getOption('force') || (bool) $input->getOption('yes');
+        return (bool) $input->getOption('force');
     }
 
     /**
      * Returns true (and emits the refusal) when the command must abort because it was
-     * invoked non-interactively without --force/--yes.
+     * invoked non-interactively without --force.
      */
     private function refusesNonInteractive(InputInterface $input, OutputInterface $output): bool
     {

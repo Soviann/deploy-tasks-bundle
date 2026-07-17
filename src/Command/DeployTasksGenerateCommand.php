@@ -200,7 +200,7 @@ final class DeployTasksGenerateCommand extends Command
                 //     timeout: 60,           // seconds; hard kill for processes run via ProcessRunnerTrait::runProcess()
                 //     slowTaskThreshold: 60, // seconds before the runner logs a slow-task warning; null = slow_task_threshold from config
                 //     transactional: false,  // opt out of the per-task transaction (only read when storage.transaction_mode is per_task)
-                //     groups: 'default',     // or ['a', 'b']; null = default slot
+                //     groups: 'postdeploy',  // or ['a', 'b']; null = default slot
                 // )]
                 #[AsDeployTask(description: __DESCRIPTION__)]
                 final class __CLASS_NAME__ implements DeployTaskInterface

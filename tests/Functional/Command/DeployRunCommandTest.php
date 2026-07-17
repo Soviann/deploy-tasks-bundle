@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\CommandMessages;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasksBundle\Command\ExitCodes;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
@@ -353,7 +354,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
     {
         $this->tester->execute(['--require-some' => true, '--id' => 'nonexistent.task']);
 
-        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertSame(ExitCodes::EX_USAGE, $this->tester->getStatusCode());
         self::assertStringContainsString('No task matched', $this->tester->getDisplay());
     }
 
@@ -369,7 +370,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
         // --require-some with a group that has no registered tasks → exit 64
         $this->tester->execute(['--require-some' => true, '--group' => ['nonexistent_group']]);
 
-        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertSame(ExitCodes::EX_USAGE, $this->tester->getStatusCode());
         self::assertStringContainsString('No task matched', $this->tester->getDisplay());
     }
 
@@ -538,7 +539,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
             $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
             $tester->execute(['--id' => 'test.simple']);
 
-            self::assertSame(DeployTasksRunCommand::EX_TEMPFAIL, $tester->getStatusCode());
+            self::assertSame(ExitCodes::EX_TEMPFAIL, $tester->getStatusCode());
             self::assertStringContainsString('Run skipped: another process is already running.', $tester->getDisplay());
         } finally {
             $heldLock->release();
@@ -563,7 +564,7 @@ final class DeployRunCommandTest extends FunctionalTestCase
             $tester = new CommandTester((new Application(self::kernel()))->find('deploytasks:run'));
             $tester->execute([]);
 
-            self::assertSame(DeployTasksRunCommand::EX_TEMPFAIL, $tester->getStatusCode());
+            self::assertSame(ExitCodes::EX_TEMPFAIL, $tester->getStatusCode());
             $display = $tester->getDisplay();
             self::assertStringContainsString('Run skipped: another process is already running.', $display);
             // ReturnRemoval:168 — if return is removed, the summary line below ("Tasks: ...") would also appear

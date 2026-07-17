@@ -17,6 +17,7 @@ use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -106,15 +107,12 @@ final class DeployRollupCommandTest extends FunctionalTestCase
         self::assertSame(TaskStatus::Ran, $this->storage->get('test.simple')?->status);
     }
 
-    public function testRollupNoInteractionWithYesAlias(): void
+    public function testRollupRejectsRemovedYesOption(): void
     {
+        $this->expectException(InvalidOptionException::class);
+        $this->expectExceptionMessage('The "--yes" option does not exist.');
+
         $this->tester->execute(['--yes' => true], ['interactive' => false]);
-
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
-        self::assertStringContainsString('Rolled up', $this->tester->getDisplay());
-
-        self::assertTrue($this->storage->has('test.simple'));
-        self::assertSame(TaskStatus::Ran, $this->storage->get('test.simple')?->status);
     }
 
     public function testRollupInteractiveYes(): void

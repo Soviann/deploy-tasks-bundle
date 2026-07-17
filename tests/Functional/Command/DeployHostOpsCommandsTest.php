@@ -15,6 +15,7 @@ use Soviann\DeployTasksBundle\Tests\Support\FirstReadHookStream;
 use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -200,16 +201,16 @@ final class DeployHostOpsCommandsTest extends FunctionalTestCase
         self::assertSame("b\n", \file_get_contents($this->logPath));
     }
 
-    public function testResetHostYesAliasSkipsConfirmation(): void
+    public function testResetHostRejectsRemovedYesOption(): void
     {
         $this->makeScript('a');
         \file_put_contents($this->logPath, "a\n");
 
-        $tester = $this->tester('deploytasks:host:reset');
-        $exitCode = $tester->execute(['id' => 'a', '--yes' => true], ['interactive' => false]);
+        $this->expectException(InvalidOptionException::class);
+        $this->expectExceptionMessage('The "--yes" option does not exist.');
 
-        self::assertSame(Command::SUCCESS, $exitCode);
-        self::assertSame([], $this->logLines());
+        $tester = $this->tester('deploytasks:host:reset');
+        $tester->execute(['id' => 'a', '--yes' => true], ['interactive' => false]);
     }
 
     public function testResetHostRefusesNonInteractiveWithoutForce(): void

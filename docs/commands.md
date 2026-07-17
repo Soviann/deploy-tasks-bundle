@@ -158,13 +158,13 @@ bin/console deploytasks:reset task_20260412143000_seed_categories --group=predep
 
 | Option | Description |
 |---|---|
-| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
-| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
+| `--force` | Confirm the destructive action under `--no-interaction` |
+| `--no-interaction` | Run without prompting; **requires** `--force`, otherwise the command refuses to run |
 | `--group=<name>` | Reset only the given group slot; without this flag every slot recorded for the task is cleared |
 
 If the task has no execution record, the command reports it is already pending and exits successfully without error. When a bare invocation would clear more than one recorded slot, a single confirmation names every slot about to be cleared; declining or a bare Enter leaves every slot untouched.
 
-**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the task ID is not registered, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
+**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the task ID is not registered, or when a non-interactive run omits `--force`; `1` when the confirmation is declined.
 
 ---
 
@@ -207,12 +207,12 @@ bin/console deploytasks:host:reset deploy_task_20260418_143022 --no-interaction 
 
 | Option | Description |
 |---|---|
-| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
-| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
+| `--force` | Confirm the destructive action under `--no-interaction` |
+| `--no-interaction` | Run without prompting; **requires** `--force`, otherwise the command refuses to run |
 
 If the script exists but has no completion-log entry, the command reports it is already pending and exits successfully without error. An id matching neither a `<id>.sh` script nor a completion-log entry is rejected as unknown; a completion-log entry whose script has been deleted is removed anyway, with a warning.
 
-**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, when the id matches neither a `<id>.sh` script nor a completion-log entry, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
+**Exit codes:** `0` on success (including the already-pending no-op); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, when the id matches neither a `<id>.sh` script nor a completion-log entry, or when a non-interactive run omits `--force`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 
@@ -273,15 +273,15 @@ bin/console deploytasks:rollup --group=predeploy --group=postdeploy
 
 | Option | Description |
 |---|---|
-| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
-| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
+| `--force` | Confirm the destructive action under `--no-interaction` |
+| `--no-interaction` | Run without prompting; **requires** `--force`, otherwise the command refuses to run |
 | `--group=<name>` | Roll up only the given group slot(s); repeatable. Preserves records for other slots. Without this flag, every slot is rolled up and the whole table is reset. |
 
-You are prompted for confirmation before proceeding. In CI, pass `--no-interaction --force` (a non-interactive run is refused without `--force`/`--yes`).
+You are prompted for confirmation before proceeding. In CI, pass `--no-interaction --force` (a non-interactive run is refused without `--force`).
 
 If the storage backend implements `TransactionalStorageInterface`, the reset and re-mark operations are wrapped in a single transaction.
 
-**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined.
+**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when a non-interactive run omits `--force`; `1` when the confirmation is declined.
 
 ---
 
@@ -298,12 +298,12 @@ bin/console deploytasks:host:rollup --no-interaction --force
 
 | Option | Description |
 |---|---|
-| `--force` | Confirm the destructive action under `--no-interaction`. Alias: `--yes` |
-| `--no-interaction` | Run without prompting; **requires** `--force` (or `--yes`), otherwise the command refuses to run |
+| `--force` | Confirm the destructive action under `--no-interaction` |
+| `--no-interaction` | Run without prompting; **requires** `--force`, otherwise the command refuses to run |
 
 An empty host tasks directory, or a directory where every script is already marked done, produces a warning/note and exits successfully without prompting.
 
-**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`/`--yes`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
+**Exit codes:** `0` on success (including the nothing-to-roll-up no-ops); `2` (`Command::INVALID`) when the host tasks directory doesn't exist, or when a non-interactive run omits `--force`; `1` when the confirmation is declined; `75` (`EX_TEMPFAIL`) when a running `bin/deploy-tasks-host.sh` holds the host lock — retry once it finishes.
 
 ---
 

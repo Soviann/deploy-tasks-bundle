@@ -167,7 +167,7 @@ trait HostLogManipulationTrait
         if (null === $lock) {
             $io->warning(\sprintf(CommandMessages::HOST_LOCK_HELD, $lockPath));
 
-            return DeployTasksRunCommand::EX_TEMPFAIL;
+            return ExitCodes::EX_TEMPFAIL;
         }
 
         try {

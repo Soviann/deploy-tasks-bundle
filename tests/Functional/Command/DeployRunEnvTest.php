@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasksBundle\Command\ExitCodes;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Tests\Fixtures\FailingTask;
@@ -152,7 +153,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
         $this->tester->execute(['--require-some' => true, '--group' => ['prodonly']]);
 
-        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertSame(ExitCodes::EX_USAGE, $this->tester->getStatusCode());
         self::assertStringContainsString('No task matched', $this->tester->getDisplay());
     }
 
@@ -162,7 +163,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
         $this->tester->execute(['--require-some' => true, '--dry-run' => true, '--group' => ['prodonly']]);
 
-        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertSame(ExitCodes::EX_USAGE, $this->tester->getStatusCode());
     }
 
     public function testRequireSomeSucceedsWhenAllMatchedTasksAlreadyExecuted(): void
@@ -185,7 +186,7 @@ final class DeployRunEnvTest extends FunctionalTestCase
 
         $this->tester->execute(['--require-some' => true, '--id' => 'test.prod_only']);
 
-        self::assertSame(DeployTasksRunCommand::EX_USAGE, $this->tester->getStatusCode());
+        self::assertSame(ExitCodes::EX_USAGE, $this->tester->getStatusCode());
     }
 
     // --- "No tasks" vs "all filtered out" (Task 1.17) ---

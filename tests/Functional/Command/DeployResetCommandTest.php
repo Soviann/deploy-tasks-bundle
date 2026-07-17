@@ -14,6 +14,7 @@ use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(DeployTasksResetCommand::class)]
@@ -94,15 +95,14 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertFalse($this->storage->has('test.simple'));
     }
 
-    public function testResetWithNoInteractionAndYesAlias(): void
+    public function testResetRejectsRemovedYesOption(): void
     {
         $this->storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
 
-        $this->tester->execute(['id' => 'test.simple', '--yes' => true], ['interactive' => false]);
+        $this->expectException(InvalidOptionException::class);
+        $this->expectExceptionMessage('The "--yes" option does not exist.');
 
-        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
-        self::assertStringContainsString('has been reset', $this->tester->getDisplay());
-        self::assertFalse($this->storage->has('test.simple'));
+        $this->tester->execute(['id' => 'test.simple', '--yes' => true], ['interactive' => false]);
     }
 
     public function testResetInteractiveYes(): void

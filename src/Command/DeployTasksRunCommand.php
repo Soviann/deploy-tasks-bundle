@@ -24,18 +24,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'deploytasks:run', description: 'Execute pending deploy tasks in order.')]
 final class DeployTasksRunCommand extends Command
 {
-    /**
-     * Exit code returned when the run lock is already held by another process.
-     * Signals "temporary failure — retry recommended" (POSIX EX_TEMPFAIL, sysexits.h 75).
-     */
-    public const EX_TEMPFAIL = 75;
-
-    /**
-     * Exit code returned when --require-some is set but no task matched the provided filters.
-     * Signals "command line usage error" (POSIX EX_USAGE, sysexits.h 64).
-     */
-    public const EX_USAGE = 64;
-
     public function __construct(
         private readonly TaskRegistry $registry,
         private readonly TaskRunner $runner,
@@ -148,7 +136,7 @@ final class DeployTasksRunCommand extends Command
             if ($requireSome && !$this->registry->has($taskId)) {
                 $io->error('No task matched the provided filter(s).');
 
-                return self::EX_USAGE;
+                return ExitCodes::EX_USAGE;
             }
 
             return $this->executeOne($io, $output, $taskId, $groups, $rerunAll, $dryRun, $requireSome);
@@ -168,13 +156,13 @@ final class DeployTasksRunCommand extends Command
         if (!$result->locked && $requireSome && 0 === $result->ran + $result->skipped + $result->deferred + $result->failed) {
             $io->error('No task matched the provided filter(s).');
 
-            return self::EX_USAGE;
+            return ExitCodes::EX_USAGE;
         }
 
         $this->writeSummary($io, $result, [] !== $groups);
 
         if ($result->locked) {
-            return self::EX_TEMPFAIL;
+            return ExitCodes::EX_TEMPFAIL;
         }
 
         return $result->isSuccessful() ? Command::SUCCESS : Command::FAILURE;
@@ -208,7 +196,7 @@ final class DeployTasksRunCommand extends Command
 
             // Under --require-some an env mismatch IS "no task matched the filters":
             // exit with the documented usage code instead of the generic invalid one.
-            return $requireSome ? self::EX_USAGE : Command::INVALID;
+            return $requireSome ? ExitCodes::EX_USAGE : Command::INVALID;
         } catch (TaskGroupMismatchException $e) {
             // Mismatch messages embed raw --group values; same sanitize-only
             // reasoning as above (error() already tag-escapes).
@@ -225,7 +213,7 @@ final class DeployTasksRunCommand extends Command
         if (null === $taskResult) {
             $io->warning('Run skipped: another process is already running.');
 
-            return self::EX_TEMPFAIL;
+            return ExitCodes::EX_TEMPFAIL;
         }
 
         return TaskResult::FAILURE === $taskResult ? Command::FAILURE : Command::SUCCESS;

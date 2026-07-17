@@ -40,6 +40,7 @@ so it executes exactly once per environment.
 - **Breaking (pre-1.0):** an unknown task id passed to `deploytasks:run --id` or `deploytasks:show` now exits `2` (`Command::INVALID`, invalid usage), matching `deploytasks:skip`/`deploytasks:reset`, instead of `1`.
 - **Breaking (pre-1.0):** the `SchemaManageable` storage capability interface is renamed to `SchemaManageableInterface`, matching the bundle's other interfaces (no alias for the old name). `deploytasks:create-schema` is now registered for any configured storage implementing it — custom backends included — instead of only the built-in database storage; a custom backend gets a generic success message in place of the table/column/connection details.
 - `--group` is now repeatable on `deploytasks:skip` and `deploytasks:reset` (consistent with `run`/`status`/`rollup`), so one invocation can target several specific slots; a bare invocation still targets every slot.
+- **Breaking (pre-1.0):** `deploytasks:reset`, `deploytasks:rollup`, and their `host:*` equivalents drop the redundant `--yes` alias for `--force` — one flag is enough. `DeployTasksRunCommand::EX_TEMPFAIL`/`EX_USAGE` move to a new `Soviann\DeployTasksBundle\Command\ExitCodes` holder shared with the host ops commands (same values, `75`/`64`; only the constant's home changes). The `deploytasks:generate:container` stub's commented `groups:` example now shows `'postdeploy'` instead of the never-valid `'default'`.
 
 ### Removed
 

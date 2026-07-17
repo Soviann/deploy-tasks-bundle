@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
+use Soviann\DeployTasksBundle\Command\ExitCodes;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
@@ -47,7 +48,7 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
 
         try {
             $this->tester->execute([]);
-            self::assertSame(DeployTasksRunCommand::EX_TEMPFAIL, $this->tester->getStatusCode());
+            self::assertSame(ExitCodes::EX_TEMPFAIL, $this->tester->getStatusCode());
         } finally {
             $heldLock->release();
         }
@@ -63,7 +64,7 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
 
         try {
             $this->tester->execute(['--id' => 'test.simple']);
-            self::assertSame(DeployTasksRunCommand::EX_TEMPFAIL, $this->tester->getStatusCode());
+            self::assertSame(ExitCodes::EX_TEMPFAIL, $this->tester->getStatusCode());
         } finally {
             $heldLock->release();
         }
