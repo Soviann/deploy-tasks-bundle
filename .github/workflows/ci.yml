@@ -172,9 +172,17 @@ jobs:
       matrix:
         php: ['8.2', '8.3', '8.4', '8.5']
         # Symfony 7.0–7.3 are end-of-life and receive no security patches, so the
-        # advisory-aware resolver can never install them — only the maintained LTS
-        # lines (6.4, 7.4) are exercised. 7.4 covers the 7.x API surface.
-        symfony: ['6.4.*', '7.4.*']
+        # advisory-aware resolver can never install them — only the maintained
+        # lines (6.4 LTS, 7.4, 8.1) are exercised. 7.4 covers the 7.x API surface
+        # and 8.1 the 8.x one.
+        symfony: ['6.4.*', '7.4.*', '8.1.*']
+        # Symfony 8 requires PHP >= 8.4, so the 8.1 line cannot resolve on the
+        # older PHP versions of the matrix.
+        exclude:
+          - php: '8.2'
+            symfony: '8.1.*'
+          - php: '8.3'
+            symfony: '8.1.*'
         include:
           - php: '8.2'
             symfony: '6.4.*'

@@ -856,7 +856,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             );
             self::bootKernel();
 
-            $tester = $this->runCommand('deploytasks:generate:container');
+            $tester = $this->runConsoleCommand('deploytasks:generate:container');
 
             self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
             $files = \glob($tempProjectDir.'/src/DeployTasks/Task/DeployTask*.php');
@@ -882,7 +882,7 @@ final class DeployGenerateCommandTest extends FunctionalTestCase
             );
             self::bootKernel();
 
-            $tester = $this->runCommand('deploytasks:generate:container');
+            $tester = $this->runConsoleCommand('deploytasks:generate:container');
 
             self::assertSame(Command::FAILURE, $tester->getStatusCode());
             self::assertStringContainsString('/nonexistent/deploy-task.tpl.php', $tester->getDisplay());

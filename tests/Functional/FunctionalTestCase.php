@@ -154,7 +154,7 @@ abstract class FunctionalTestCase extends KernelTestCase
      * @param array<string, mixed> $args
      * @param array<string, mixed> $opts
      */
-    protected function runCommand(string $name, array $args = [], array $opts = []): CommandTester
+    protected function runConsoleCommand(string $name, array $args = [], array $opts = []): CommandTester
     {
         $application = new Application(self::kernel());
         $tester = new CommandTester($application->find($name));

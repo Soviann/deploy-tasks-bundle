@@ -52,7 +52,7 @@ final class CreateSchemaCommandRegistrationTest extends FunctionalTestCase
         self::useSchemaManagingStorageKernel();
         self::bootKernel();
 
-        $tester = $this->runCommand('deploytasks:create-schema');
+        $tester = $this->runConsoleCommand('deploytasks:create-schema');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
 
@@ -72,7 +72,7 @@ final class CreateSchemaCommandRegistrationTest extends FunctionalTestCase
         self::useSchemaManagingStorageKernel();
         self::bootKernel();
 
-        $tester = $this->runCommand('deploytasks:create-schema', ['--dump-sql' => true]);
+        $tester = $this->runConsoleCommand('deploytasks:create-schema', ['--dump-sql' => true]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertStringContainsString(

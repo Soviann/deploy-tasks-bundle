@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Symfony 8 support — the bundle now installs on Symfony 8.x (requires PHP 8.4+ there); Symfony 6.4 LTS and 7.x remain supported unchanged.
+
 ## [0.1.0] - 2026-07-17
 
 First release of DeployTasksBundle — a Symfony bundle for running one-time deploy

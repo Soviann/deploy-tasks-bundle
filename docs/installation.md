@@ -2,8 +2,8 @@
 
 ## Requirements
 
-- PHP 8.2+
-- Symfony 6.4 LTS or 7.x
+- PHP 8.2+ (8.4+ for Symfony 8)
+- Symfony 6.4 LTS, 7.x or 8.x
 
 ## Composer
 

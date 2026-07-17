@@ -39,7 +39,7 @@ final class DeployHostConfigCommandTest extends FunctionalTestCase
 
     public function testRendersProjectRelativeExportsForTheDefaultConfig(): void
     {
-        $tester = $this->runCommand('deploytasks:host:config');
+        $tester = $this->runConsoleCommand('deploytasks:host:config');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $display = $tester->getDisplay();
@@ -50,7 +50,7 @@ final class DeployHostConfigCommandTest extends FunctionalTestCase
 
     public function testWriteCreatesTheLocalShTheRunnerSources(): void
     {
-        $tester = $this->runCommand('deploytasks:host:config', ['--write' => true]);
+        $tester = $this->runConsoleCommand('deploytasks:host:config', ['--write' => true]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertFileExists($this->localShPath);
@@ -63,7 +63,7 @@ final class DeployHostConfigCommandTest extends FunctionalTestCase
     {
         \file_put_contents($this->localShPath, "# hand-written\nexport DEPLOY_TASKS_HOST_DIR='custom'\n");
 
-        $tester = $this->runCommand('deploytasks:host:config', ['--write' => true]);
+        $tester = $this->runConsoleCommand('deploytasks:host:config', ['--write' => true]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
         self::assertStringContainsString('# hand-written', (string) \file_get_contents($this->localShPath), 'Hand-written file must be preserved.');

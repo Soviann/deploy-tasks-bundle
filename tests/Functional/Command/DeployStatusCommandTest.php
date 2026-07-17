@@ -766,7 +766,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         \file_put_contents($localSh, HostRunnerConfig::GENERATED_MARKER." — regenerate after changing soviann_deploy_tasks.host.*\nexport DEPLOY_TASKS_HOST_DIR='deploy/host-tasks'\nexport DEPLOY_TASKS_HOST_STORAGE='.deploy-tasks-host.log'\nexport DEPLOY_TASKS_HOST_LOCK='.deploy-tasks-host.lock'\n");
 
         try {
-            $tester = $this->runCommand('deploytasks:status');
+            $tester = $this->runConsoleCommand('deploytasks:status');
 
             self::assertStringContainsString('deploy-tasks-host.local.sh no longer matches', $tester->getDisplay());
             self::assertStringContainsString('DEPLOY_TASKS_HOST_STORAGE', $tester->getDisplay());
@@ -787,7 +787,7 @@ final class DeployStatusCommandTest extends FunctionalTestCase
             self::useConfigurableKernel([], projectDir: $tempProjectDir);
             self::bootKernel();
 
-            $tester = $this->runCommand('deploytasks:status');
+            $tester = $this->runConsoleCommand('deploytasks:status');
 
             self::assertStringNotContainsString('deploy-tasks-host.local.sh', $tester->getDisplay());
         } finally {

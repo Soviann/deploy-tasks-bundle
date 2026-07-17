@@ -4,7 +4,7 @@ Condensed context for AI sub-agents working on this repository. See `CLAUDE.md` 
 
 ## Project
 
-DeployTasksBundle — Symfony bundle for one-time deploy tasks (data migrations, cache warmups, seed scripts) via CLI. PHP 8.2+, Symfony 6.4+/7.0+.
+DeployTasksBundle — Symfony bundle for one-time deploy tasks (data migrations, cache warmups, seed scripts) via CLI. PHP 8.2+ (8.4+ for Symfony 8), Symfony 6.4/7.x/8.x.
 
 ## Architecture
 
