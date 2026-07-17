@@ -71,6 +71,7 @@ final class DeployTasksCreateSchemaCommand extends Command
         }
 
         $columnNames = [
+            $this->configuration->durationColumn,
             $this->configuration->errorColumn,
             $this->configuration->executedAtColumn,
             $this->configuration->groupColumn,

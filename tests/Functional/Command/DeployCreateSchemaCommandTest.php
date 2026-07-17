@@ -41,7 +41,7 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
         // Full message format matches the plan spec — strip line-wrapping whitespace for comparison.
         $normalized = (string) \preg_replace('/\s+/', ' ', $display);
         self::assertStringContainsString(
-            'Storage table "deploy_task_executions" (columns: error, executed_at, id, status, task_group) was created on default.',
+            'Storage table "deploy_task_executions" (columns: duration_ms, error, executed_at, id, status, task_group) was created on default.',
             $normalized,
         );
     }
@@ -53,7 +53,7 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
         // Normalize whitespace to eliminate SymfonyStyle line-wrapping.
         $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
 
-        // Columns must appear in alphabetical order: error, executed_at, id, status, task_group.
+        // Columns must appear in alphabetical order: duration_ms, error, executed_at, id, status, task_group.
         $pos = \strpos($display, 'columns: ');
         self::assertNotFalse($pos);
 
