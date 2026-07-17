@@ -133,13 +133,17 @@ Any class implementing `DeployTaskInterface` is automatically tagged `soviann_de
 |---|---|
 | `deploytasks:run [--dry-run] [--rerun-all] [--id=<taskId>] [--group=<name>]* [--require-some]` | Execute pending tasks. `--rerun-all` re-runs all already-executed tasks; `--id` targets one; `--group` is repeatable; `--require-some` exits 64 (`EX_USAGE`) when no task matches the filters. Lock contention exits 75 (`EX_TEMPFAIL`). |
 | `deploytasks:status [--no-state] [--group=<name>]* [--filter-status=<list>]` | Table of registered tasks with their execution state. `--filter-status` accepts a case-insensitive comma list of `RAN`, `FAILED`, `SKIPPED`, `PENDING`; combining with `--no-state` exits `Command::INVALID`. |
-| `deploytasks:show <id>` | Show full metadata + every stored execution slot for one task (id, FQCN, description, declared groups, untruncated error text). Exits 1 when the ID is not registered. |
+| `deploytasks:show <id>` | Show full metadata + every stored execution slot for one task (id, FQCN, description, declared groups, untruncated error text). Exits `Command::INVALID` (`2`) when the ID is not registered. |
 | `deploytasks:skip <id> [--group=<name>]` | Record a task as `Skipped` without running it. Interactive confirm unless `--no-interaction`. |
-| `deploytasks:reset <id> [--group=<name>]` | Remove a task's execution record. Interactive unless `--no-interaction` (prompt defaults to "no"). |
-| `deploytasks:rollup [--group=<name>]*` | Clear execution history and mark all registered tasks as `Ran`. |
-| `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
+| `deploytasks:reset <id> [--group=<name>] [--force]` | Remove a task's execution record. Interactive unless `--no-interaction` (requires `--force`, otherwise the command refuses to run). |
+| `deploytasks:rollup [--group=<name>]* [--force]` | Clear execution history and mark all registered tasks as `Ran`. Interactive unless `--no-interaction` (requires `--force`). |
+| `deploytasks:generate:container [--dir=...] [--namespace=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
 | `deploytasks:host:generate [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
+| `deploytasks:host:skip <id>` | Host-scope equivalent of `deploytasks:skip`: mark a host task done in the completion log without running its script. Interactive confirm unless `--no-interaction`. |
+| `deploytasks:host:reset <id> [--force]` | Host-scope equivalent of `deploytasks:reset`: remove a host task's completion-log entry. Interactive unless `--no-interaction` (requires `--force`). |
+| `deploytasks:host:rollup [--force]` | Host-scope equivalent of `deploytasks:rollup`: append every pending host task to the completion log as done. Interactive unless `--no-interaction` (requires `--force`). |
 | `deploytasks:create-schema [--dump-sql]` | Emit/execute the DDL provisioning the configured storage. Registered whenever the storage implements `SchemaManageableInterface` (built-in: database storage). |
+| `deploytasks:host:config [--write]` | Render (or write with `--write`) the `DEPLOY_TASKS_HOST_*` env exports derived from `soviann_deploy_tasks.host.*`, keeping `bin/deploy-tasks-host.sh` and the PHP-side host commands in sync. |
 
 ## Development Commands
 

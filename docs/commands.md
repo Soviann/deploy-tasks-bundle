@@ -230,6 +230,7 @@ bin/console deploytasks:generate:container --dir=src/Task/
 | Option | Default | Description |
 |---|---|---|
 | `--dir` | `src/DeployTasks/Task/` | Target directory for the generated file |
+| `--namespace` | derived from `--dir` | Override the derived namespace entirely |
 
 The generated class name is always `DeployTask<YYYYMMDDHHmmss>` (e.g. `DeployTask20260412143000`) — the command takes no positional argument. The task ID is auto-derived from the class name: the `DeployTask` prefix is stripped and the purely-numeric remainder prefixed with `task_` (e.g. `task_20260412143000`).
 

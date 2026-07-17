@@ -89,4 +89,4 @@ If both your method and the attribute are unset (or empty), you get an empty cel
 
 `getTaskId()` is an instance method — it is *not* called during the compiler pass, which only knows attribute `id`s and IDs derived from class names. `TaskIdProviderInterface` resolution happens at runtime via `TaskIdResolver`. If you need a deterministic compile-time ID, use `#[AsDeployTask(id: '...')]` instead of (or in addition to) `TaskIdProviderInterface`.
 
-If both `getTaskId()` and `#[AsDeployTask(id: '...')]` return non-empty *different* values, the bundle triggers a `E_USER_WARNING` and `getTaskId()` wins.
+If both `getTaskId()` and `#[AsDeployTask(id: '...')]` return non-empty *different* values, the bundle throws `MismatchedTaskIdException` at registry boot instead of letting one silently win — remove one declaration or make them identical.

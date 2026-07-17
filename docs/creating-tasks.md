@@ -113,7 +113,7 @@ The bundle resolves task IDs in this order:
 2. **Attribute `id`** — if `#[AsDeployTask(id: '...')]` is present and non-empty.
 3. **Auto-derived from the class name** — the built-in generator strips the `Task`/`DeployTask` prefix/suffix, converts CamelCase to snake_case, and prefixes numeric remainders with `task_`. Examples: `SeedCategoriesTask` → `seed_categories`, `DeployTask20260412143000` → `task_20260412143000`.
 
-If both `getTaskId()` and the attribute `id` return non-empty **different** values, a `E_USER_WARNING` is triggered and the interface value takes precedence.
+If both `getTaskId()` and the attribute `id` return non-empty **different** values, the bundle throws `MismatchedTaskIdException` at registry boot instead of letting one silently win — remove one declaration or make them identical.
 
 Whatever the source, the resolved ID must match `AsDeployTask::TASK_ID_PATTERN` (`^[a-zA-Z0-9._-]+$`) — attribute IDs are validated at construction, provider/generator IDs at registry boot.
 

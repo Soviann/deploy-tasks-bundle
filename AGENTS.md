@@ -23,7 +23,7 @@ Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: rol
 
 ## Console Commands
 
-`deploytasks:run`, `:status`, `:show`, `:skip`, `:reset`, `:rollup`, `:generate:container`, `:host:generate`, `:create-schema` (only for storages implementing `SchemaManageableInterface`, e.g. database storage).
+`deploytasks:run`, `:status`, `:show`, `:skip`, `:reset`, `:rollup`, `:generate:container`, `:create-schema` (only for storages implementing `SchemaManageableInterface`, e.g. database storage), `:host:generate`, `:host:skip`, `:host:reset`, `:host:rollup`, `:host:config`.
 
 ## Coding Standards
 

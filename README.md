@@ -135,6 +135,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 | `deploytasks:host:skip <id>` | Mark a host-scope task as done in the completion log (interactive confirm) | — |
 | `deploytasks:host:reset <id>` | Remove a host-scope task's completion-log entry | `--no-interaction`, `--force` |
 | `deploytasks:host:rollup` | Mark every pending host-scope task as done | `--no-interaction`, `--force` |
+| `deploytasks:host:config` | Render (or write) the host runner env config matching `soviann_deploy_tasks.host.*` | `--write` |
 
 ## Task Groups
 
