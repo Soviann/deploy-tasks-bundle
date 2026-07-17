@@ -6,7 +6,7 @@
 
 A Symfony bundle for running one-time deploy tasks — data migrations, cache warmups, seed scripts — via CLI. Each task is tracked so it executes exactly once across deployments.
 
-> **Status: pre-1.0.** Public API and configuration may change without a major-version bump until `v1.0.0`. Each release ships an `UPGRADE.md` section.
+> **Status: pre-1.0.** Public API and configuration may change without a major-version bump until `v1.0.0`. Breaking changes bump the minor version and are documented in [`UPGRADE.md`](UPGRADE.md).
 
 ## Requirements
 
@@ -30,13 +30,13 @@ return [
 
 ### Flex recipe
 
-Until the bundle is on Packagist, enable the recipe endpoint:
+The bundle's Flex recipe is served from a dedicated endpoint until it lands in `symfony/recipes-contrib`. To use it, add the endpoint before requiring the bundle:
 
 ```bash
 composer config extra.symfony.endpoint --json '["https://api.github.com/repos/Soviann/flex-recipes/contents/index.json", "flex://defaults"]'
 ```
 
-The endpoint repo (`Soviann/flex-recipes`) is private pre-release, so this requires `composer` GitHub auth; it becomes public at release. With the endpoint enabled, `composer require soviann/deploy-tasks-bundle` registers the bundle, publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and adds the host-task `.gitignore` entries automatically.
+With the endpoint enabled, `composer require soviann/deploy-tasks-bundle` registers the bundle, publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and adds the host-task `.gitignore` entries automatically. The recipe is optional — without it, the bundle works with its default configuration, and `deploytasks:host:install` scaffolds the host runner on demand.
 
 ## Quick Start
 
@@ -80,17 +80,6 @@ Check the status of all tasks:
 bin/console deploytasks:status
 ```
 
-## Project Documents
-
-- [`CHANGELOG.md`](CHANGELOG.md) — release notes, Keep-a-Changelog format.
-- [`UPGRADE.md`](UPGRADE.md) — breaking-change migration notes (per release).
-- [`SECURITY.md`](SECURITY.md) — vulnerability disclosure.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — local dev setup and PR conventions.
-
-## Running shell commands
-
-Tasks that shell out to external binaries can opt into the `ProcessRunnerTrait`, which wraps `symfony/process` to stream output and enforce a per-call timeout. See [`docs/creating-tasks.md`](docs/creating-tasks.md#running-shell-commands) for setup and behavior notes.
-
 ## Configuration
 
 ```yaml
@@ -115,6 +104,17 @@ Full reference: [`docs/storage.md`](docs/storage.md) and [`docs/installation.md`
 
 **Custom**: plug in any `TaskStorageInterface` implementation via `storage.type: custom`. See [`docs/storage.md`](docs/storage.md).
 
+## Task Groups
+
+Tasks can be assigned to one or more groups (e.g. `predeploy`, `postdeploy`) to split a deploy into named stages. Without `--group`, every command operates on every slot — the default (ungrouped) slot and every declared group; `--group=<name>` (repeatable) narrows to the tasks declaring the listed group(s), and a multi-group task records one row per matching slot.
+
+```php
+#[AsDeployTask(id: 'task_...', groups: 'predeploy')]
+#[AsDeployTask(id: 'task_...', groups: ['predeploy', 'postdeploy'])]
+```
+
+See [`docs/creating-tasks.md`](docs/creating-tasks.md#group-filtering) and [`docs/commands.md`](docs/commands.md) for details.
+
 ## Host-scope tasks
 
 Host tasks run outside the Symfony container — useful for operations that must execute on the host (Docker restarts, SSH-driven commands, infrastructure prep). The host runner (`bin/deploy-tasks-host.sh`) is installed automatically by the Flex recipe; without it, one command scaffolds everything:
@@ -134,26 +134,19 @@ This installs the runner script (executable), creates `deploy/host-tasks/` (with
 | `deploytasks:show <id>` | Show full metadata and every stored execution record for a single task | — |
 | `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>`, `--force` |
+| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
 | `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
+| `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |
 | `deploytasks:host:install` | Install the host runner, `deploy/host-tasks/`, and the `.gitignore` block (idempotent) | `--force` |
 | `deploytasks:host:generate` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
-| `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
-| `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |
 | `deploytasks:host:skip <id>` | Mark a host-scope task as done in the completion log (interactive confirm) | — |
 | `deploytasks:host:reset <id>` | Remove a host-scope task's completion-log entry | `--no-interaction`, `--force` |
 | `deploytasks:host:rollup` | Mark every pending host-scope task as done | `--no-interaction`, `--force` |
 | `deploytasks:host:config` | Render (or write) the host runner env config matching `soviann_deploy_tasks.host.*` | `--write` |
 
-## Task Groups
+## Running shell commands
 
-Tasks can be assigned to one or more groups (e.g. `predeploy`, `postdeploy`) to split a deploy into named stages. Without `--group`, every command operates on every slot — the default (ungrouped) slot and every declared group; `--group=<name>` (repeatable) narrows to the tasks declaring the listed group(s), and a multi-group task records one row per matching slot.
-
-```php
-#[AsDeployTask(id: 'task_...', groups: 'predeploy')]
-#[AsDeployTask(id: 'task_...', groups: ['predeploy', 'postdeploy'])]
-```
-
-See [`docs/creating-tasks.md`](docs/creating-tasks.md#group-filtering) and [`docs/commands.md`](docs/commands.md) for details.
+Tasks that shell out to external binaries can opt into the `ProcessRunnerTrait`, which wraps `symfony/process` to stream output and enforce a per-call timeout. See [`docs/creating-tasks.md`](docs/creating-tasks.md#running-shell-commands) for setup and behavior notes.
 
 ## Documentation
 
@@ -170,8 +163,10 @@ Full index: [`docs/index.md`](docs/index.md).
 | Logging (PSR-3, Monolog channel) | [`docs/logging.md`](docs/logging.md) |
 | Testing (unit, functional, command tester) | [`docs/testing.md`](docs/testing.md) |
 | Security model, host runner hardening | [`docs/security.md`](docs/security.md) |
-| Advanced (custom ID generator, custom sorter, locking) | [`docs/advanced.md`](docs/advanced.md) |
+| Advanced (custom sorter, locking, slow-task threshold, transactions) | [`docs/advanced.md`](docs/advanced.md) |
 | Troubleshooting / FAQ | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
+
+Project meta: [`CHANGELOG.md`](CHANGELOG.md) (release notes, Keep-a-Changelog format), [`UPGRADE.md`](UPGRADE.md) (breaking-change migration notes), [`SECURITY.md`](SECURITY.md) (vulnerability disclosure), [`CONTRIBUTING.md`](CONTRIBUTING.md) (local dev setup and PR conventions).
 
 ## Security
 
