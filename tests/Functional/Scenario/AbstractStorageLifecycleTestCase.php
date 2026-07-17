@@ -79,7 +79,7 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         $groupB = AbstractLifecycleScenarioKernel::GROUPED_TASK_GROUP_B;
 
         // 1. Run one group → exactly that slot is recorded
-        $run = $this->runCommand('deploytasks:run', ['--group' => [$groupA]]);
+        $run = $this->runConsoleCommand('deploytasks:run', ['--group' => [$groupA]]);
         self::assertSame(Command::SUCCESS, $run->getStatusCode());
         $exec = $storage->get($taskId, $groupA);
         self::assertNotNull($exec);
@@ -89,13 +89,13 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         self::assertFalse($storage->has($taskId));
 
         // 2. Run the other group → second slot recorded, first preserved
-        $run = $this->runCommand('deploytasks:run', ['--group' => [$groupB]]);
+        $run = $this->runConsoleCommand('deploytasks:run', ['--group' => [$groupB]]);
         self::assertSame(Command::SUCCESS, $run->getStatusCode());
         self::assertTrue($storage->has($taskId, $groupB));
         self::assertTrue($storage->has($taskId, $groupA));
 
         // 3. Reset one slot only → it is cleared, the other survives
-        $reset = $this->runCommand(
+        $reset = $this->runConsoleCommand(
             'deploytasks:reset',
             ['id' => $taskId, '--group' => $groupA, '--force' => true],
             ['interactive' => false],
@@ -112,7 +112,7 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         $group = AbstractLifecycleScenarioKernel::FAILING_TASK_GROUP;
 
         // 1. First run → command fails, slot records Failed with the error text
-        $run = $this->runCommand('deploytasks:run', ['--group' => [$group]]);
+        $run = $this->runConsoleCommand('deploytasks:run', ['--group' => [$group]]);
         self::assertSame(Command::FAILURE, $run->getStatusCode());
         $exec = $storage->get($taskId, $group);
         self::assertNotNull($exec);
@@ -120,7 +120,7 @@ abstract class AbstractStorageLifecycleTestCase extends FunctionalTestCase
         self::assertSame('Task failed!', $exec->error);
 
         // 2. Failed slot is pending again → second run re-executes and fails again
-        $retry = $this->runCommand('deploytasks:run', ['--group' => [$group]]);
+        $retry = $this->runConsoleCommand('deploytasks:run', ['--group' => [$group]]);
         self::assertSame(Command::FAILURE, $retry->getStatusCode());
         self::assertStringContainsString('1 failed', $retry->getDisplay());
         $exec = $storage->get($taskId, $group);

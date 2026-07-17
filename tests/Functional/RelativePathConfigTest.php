@@ -65,7 +65,7 @@ final class RelativePathConfigTest extends FunctionalTestCase
 
         \chdir(\sys_get_temp_dir());
 
-        $tester = $this->runCommand('deploytasks:status');
+        $tester = $this->runConsoleCommand('deploytasks:status');
 
         self::assertStringContainsString('Host tasks', $tester->getDisplay());
         self::assertStringContainsString('deploy_task_20260101_000000', $tester->getDisplay());

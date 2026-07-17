@@ -51,7 +51,7 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
 
     public function testCleanRunCreatesAllThreeArtifacts(): void
     {
-        $tester = $this->runCommand('deploytasks:host:install');
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $display = $tester->getDisplay();
@@ -72,13 +72,13 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
 
     public function testRerunWithoutForceSkipsEveryStepAndLeavesFilesUntouched(): void
     {
-        $this->runCommand('deploytasks:host:install');
+        $this->runConsoleCommand('deploytasks:host:install');
 
         // Tamper with the runner: a plain re-run must not undo local edits.
         \file_put_contents($this->runnerPath, "# locally modified runner\n");
         $gitignoreBefore = (string) \file_get_contents($this->gitignorePath);
 
-        $tester = $this->runCommand('deploytasks:host:install');
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $display = $tester->getDisplay();
@@ -91,14 +91,14 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
 
     public function testRerunWithForceOverwritesEveryStepWithoutDuplication(): void
     {
-        $this->runCommand('deploytasks:host:install');
+        $this->runConsoleCommand('deploytasks:host:install');
 
         // Tamper with the runner and the inside of the .gitignore block.
         \file_put_contents($this->runnerPath, "# stale runner\n");
         $gitignore = (string) \file_get_contents($this->gitignorePath);
         \file_put_contents($this->gitignorePath, \str_replace('/.deploy-tasks-host.log', '/tampered-entry', $gitignore));
 
-        $tester = $this->runCommand('deploytasks:host:install', ['--force' => true]);
+        $tester = $this->runConsoleCommand('deploytasks:host:install', ['--force' => true]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $display = $tester->getDisplay();
@@ -125,14 +125,14 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
             ."\n/node_modules/\n";
         \file_put_contents($this->gitignorePath, $preExisting);
 
-        $tester = $this->runCommand('deploytasks:host:install');
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $display = $tester->getDisplay();
         self::assertStringContainsString('2 created, 1 skipped, 0 overwritten', $display);
         self::assertSame($preExisting, (string) \file_get_contents($this->gitignorePath), 'Without --force the existing block must stay untouched.');
 
-        $tester = $this->runCommand('deploytasks:host:install', ['--force' => true]);
+        $tester = $this->runConsoleCommand('deploytasks:host:install', ['--force' => true]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $rewritten = (string) \file_get_contents($this->gitignorePath);
@@ -148,7 +148,7 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
     {
         \file_put_contents($this->gitignorePath, "/vendor/\n/var/\n");
 
-        $tester = $this->runCommand('deploytasks:host:install');
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $gitignore = (string) \file_get_contents($this->gitignorePath);
@@ -163,7 +163,7 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
         \mkdir($this->tempProjectDir.'/bin', 0o500);
 
         try {
-            $tester = $this->runCommand('deploytasks:host:install');
+            $tester = $this->runConsoleCommand('deploytasks:host:install');
 
             self::assertSame(Command::FAILURE, $tester->getStatusCode());
             self::assertStringContainsString('[ERROR]', $tester->getDisplay());

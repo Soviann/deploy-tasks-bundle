@@ -93,7 +93,7 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
         );
         self::bootKernel();
 
-        $tester = $this->runCommand('deploytasks:run');
+        $tester = $this->runConsoleCommand('deploytasks:run');
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertStringContainsString('concurrent-run protection is inactive', $tester->getDisplay());
@@ -104,7 +104,7 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
         self::$testKernelOptions = [];
         self::bootKernel(); // default TestKernel: lock.enabled=false
 
-        $tester = $this->runCommand('deploytasks:run');
+        $tester = $this->runConsoleCommand('deploytasks:run');
 
         self::assertStringNotContainsString('concurrent-run protection', $tester->getDisplay());
     }
