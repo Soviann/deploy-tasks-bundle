@@ -13,13 +13,13 @@ use Soviann\DeployTasksBundle\Exception\StorageException;
  *
  * Implemented by backends that can provision their own schema. Backends that
  * have nothing to set up (e.g. filesystem storage) simply don't implement it.
- * Note: the create-schema command is currently wired only for the built-in
- * database storage.
+ * The create-schema command is registered automatically for any configured
+ * storage implementing this interface, custom backends included.
  *
  * Exception contract: implementations MUST wrap backend failures in StorageException
  * (see TaskStorageInterface).
  */
-interface SchemaManageable
+interface SchemaManageableInterface
 {
     /**
      * Returns the raw DDL the backend would execute to bootstrap its storage.

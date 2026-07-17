@@ -58,10 +58,10 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Storage/`** — persistence
 - `TaskStorageInterface` — `has()`, `get()`, `save()`, `remove()`, `removeAll()`, `findByTaskId()`, `all()`, `reset()`. All lookups scoped by `(taskId, ?group)`; `findByTaskId()` returns every slot for one id as `list<TaskExecution>`.
 - `TransactionalStorageInterface` — extends storage, adds `transactional(\Closure): mixed`
-- `SchemaManageable` — capability interface (`getCreateTableSql()`, `createSchema()`) opt-in for backends needing DDL provisioning. `deploytasks:create-schema` depends on it.
+- `SchemaManageableInterface` — capability interface (`getCreateTableSql()`, `createSchema()`) opt-in for backends needing DDL provisioning. `deploytasks:create-schema` is registered for any storage implementing it.
 - `TaskExecution` — readonly value object: id, status, executedAt, error, group
 - `TaskStatus` — enum: `Ran`, `Failed`, `Skipped`
-- `Dbal\DbalStorage` — implements `TransactionalStorageInterface` + `SchemaManageable`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
+- `Dbal\DbalStorage` — implements `TransactionalStorageInterface` + `SchemaManageableInterface`. Composite PK `(id, task_group)`. SQLite/MySQL/PostgreSQL.
 - `Dbal\DbalStorageConfiguration` — table/column names DTO (id, status, executed_at, error, task_group columns + lengths)
 - `Filesystem\FilesystemStorage` — JSON file per `(task, group)` slot. Atomic writes via `Filesystem::dumpFile()` + `LOCK_EX`. Directory mode `0700`, files `0600`. Default slot → `<id>.json`; grouped slot → `<id>@<group>.json` (verbatim, no transformation — group names constrained to `AsDeployTask::GROUP_NAME_PATTERN`). Throws `StorageException` when the path (symlinks resolved) contains a public web-root segment (`pub`/`public`/`public_html`/`web`/`html`/`htdocs`/`wwwroot`/`httpdocs`) at or below the project dir — see `docs/security.md`.
 - `InMemory\InMemoryStorage` — array-backed storage for tests
@@ -139,7 +139,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `soviann_de
 | `deploytasks:rollup [--group=<name>]*` | Clear execution history and mark all registered tasks as `Ran`. |
 | `deploytasks:generate:container [--dir=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
 | `deploytasks:host:generate [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
-| `deploytasks:create-schema [--dump-sql]` | Emit/execute the SQL to create the storage table. Registered only when `storage.type` is `database`. |
+| `deploytasks:create-schema [--dump-sql]` | Emit/execute the DDL provisioning the configured storage. Registered whenever the storage implements `SchemaManageableInterface` (built-in: database storage). |
 
 ## Development Commands
 

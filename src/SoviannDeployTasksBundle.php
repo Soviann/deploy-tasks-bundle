@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle;
 
-use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksHostConfigCommand;
@@ -17,6 +16,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksShowCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksSkipHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksStatusCommand;
+use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterCreateSchemaCommandPass;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\EventsConfigNode;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\LockConfigNode;
@@ -382,6 +382,9 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         parent::build($container);
 
         $container->addCompilerPass(new RegisterTasksCompilerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
+        // After RegisterTasksCompilerPass: its custom-storage validation surfaces a
+        // missing/invalid custom service before this pass inspects the same definition.
+        $container->addCompilerPass(new RegisterCreateSchemaCommandPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
     }
 
     /**
@@ -437,14 +440,13 @@ final class SoviannDeployTasksBundle extends AbstractBundle
 
                 $services->alias(TransactionalStorageInterface::class, 'soviann_deploy_tasks.storage');
 
-                $services->set('soviann_deploy_tasks.command.create_schema', DeployTasksCreateSchemaCommand::class)
-                    ->args([
-                        service('soviann_deploy_tasks.storage'),
-                        service('soviann_deploy_tasks.storage.configuration'),
-                        $storageConfig['database']['connection'],
-                    ])
-                    ->tag('console.command')
-                ;
+                // Consumed by RegisterCreateSchemaCommandPass so the create-schema
+                // success message can name the connection. The command itself is
+                // registered by the pass, capability-based on the storage class.
+                $builder->setParameter(
+                    'soviann_deploy_tasks.storage.dbal_connection_name',
+                    $dbConfig['connection'],
+                );
 
                 break;
             case 'filesystem':

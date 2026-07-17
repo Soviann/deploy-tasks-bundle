@@ -131,7 +131,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 | `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
 | `deploytasks:host:generate` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` / `--yes` |
-| `deploytasks:create-schema` | Create the storage table | `--dump-sql` |
+| `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |
 | `deploytasks:host:skip <id>` | Mark a host-scope task as done in the completion log (interactive confirm) | — |
 | `deploytasks:host:reset <id>` | Remove a host-scope task's completion-log entry | `--no-interaction`, `--force` / `--yes` |
 | `deploytasks:host:rollup` | Mark every pending host-scope task as done | `--no-interaction`, `--force` / `--yes` |

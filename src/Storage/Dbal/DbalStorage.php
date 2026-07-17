@@ -15,7 +15,7 @@ use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Types\Types;
 use Soviann\DeployTasksBundle\Exception\StorageException;
-use Soviann\DeployTasksBundle\Storage\SchemaManageable;
+use Soviann\DeployTasksBundle\Storage\SchemaManageableInterface;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
@@ -29,7 +29,7 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
  *
  * @internal
  */
-final class DbalStorage implements SchemaManageable, TransactionalStorageInterface
+final class DbalStorage implements SchemaManageableInterface, TransactionalStorageInterface
 {
     /**
      * Hard byte cap applied to error text before save().

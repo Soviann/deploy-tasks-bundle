@@ -324,7 +324,7 @@ That is enough. The bundle:
 
 - Aliases your service to `TaskStorageInterface` so the runner picks it up.
 - Detects the interface at compile time; if you also implement `TransactionalStorageInterface`, the runner honors `transaction_mode: per_task` / `all_or_nothing` against it.
-- `deploytasks:create-schema` is only registered for the built-in database storage. It is not wired for custom backends, even those implementing `SchemaManageable` — provision custom schemas yourself.
+- Registers `deploytasks:create-schema` for your backend when it also implements `SchemaManageableInterface` (`getCreateTableSql()` + `createSchema()`) — the same capability detection the built-in database storage uses. A custom backend gets a generic success message instead of the DBAL table/connection details, and `--dump-sql` prints whatever your `getCreateTableSql()` returns. Backends without the interface must be provisioned by hand.
 
 `transaction_mode: per_task` or `all_or_nothing` is rejected at container build (`IncompatibleStorageException`) unless the custom service implements `TransactionalStorageInterface`. If your backend has no transaction primitive (Redis, S3, plain HTTP API…), keep `transaction_mode: none` (the default for `storage.custom`).
 

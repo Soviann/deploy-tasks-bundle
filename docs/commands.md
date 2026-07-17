@@ -334,7 +334,7 @@ See [`docs/host-tasks.md`](host-tasks.md#keeping-the-runner-and-the-php-config-i
 
 ## deploytasks:create-schema
 
-Create the database table used by the DBAL storage backend. Only available when `storage.type: database` is configured.
+Provision the schema of the configured storage backend — for the built-in database storage, the table used by the DBAL backend. Registered whenever the configured storage implements `SchemaManageableInterface`: `storage.type: database` always qualifies, and a custom backend qualifies by implementing the interface (see [`docs/storage.md`](storage.md#custom)).
 
 ```bash
 bin/console deploytasks:create-schema
@@ -347,4 +347,4 @@ bin/console deploytasks:create-schema --dump-sql
 |---|---|
 | `--dump-sql` | Output the SQL statement instead of executing it (e.g. for use in a Doctrine migration) |
 
-If the table already exists, this command is a no-op (`CREATE TABLE IF NOT EXISTS`). The SQL output uses platform-aware identifier quoting.
+Re-running the command is safe: `SchemaManageableInterface` implementations are idempotent — for the database storage, the table is created with `CREATE TABLE IF NOT EXISTS` and the SQL output uses platform-aware identifier quoting.

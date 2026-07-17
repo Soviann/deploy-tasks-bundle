@@ -73,7 +73,7 @@ Group names must match `AsDeployTask::GROUP_NAME_PATTERN` (`^[a-zA-Z0-9._-]+$`).
 
 ## `deploytasks:create-schema` is not registered
 
-The command is registered only when `storage.type` is `database`. The filesystem backend has no schema, and custom backends are not wired to it even when they implement `SchemaManageable` — provision custom schemas yourself.
+The command is registered only when the configured storage implements `SchemaManageableInterface` — the built-in database storage does, and a custom backend opts in by implementing the interface. The filesystem backend has no schema, so it never gets the command. A custom storage whose class cannot be resolved at container-build time (a synthetic service, a child definition, a `%parameter%` class) is skipped conservatively and gets no command either.
 
 ## My `getDescription()` is empty in `deploytasks:status`
 
