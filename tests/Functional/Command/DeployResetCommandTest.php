@@ -357,6 +357,34 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertFalse($this->storage->has('test.multi_group', 'postdeploy'));
     }
 
+    public function testResetRepeatedGroupOptionDedupesIdenticalValues(): void
+    {
+        // --group=predeploy --group=predeploy must behave exactly like a single
+        // --group=predeploy: one confirmation naming the slot once (singular
+        // wording, not the plural "in groups ..." form a non-deduped
+        // ['predeploy', 'predeploy'] pair would produce), a single reset, and
+        // no duplicate rows/output.
+        $this->storage->save(new TaskExecution(
+            'test.multi_group', TaskStatus::Ran, new \DateTimeImmutable(), null, 'predeploy',
+        ));
+
+        $this->tester->setInputs(['yes']);
+        $this->tester->execute(
+            ['id' => 'test.multi_group', '--group' => ['predeploy', 'predeploy']],
+            ['interactive' => true],
+        );
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('Reset task "test.multi_group" in group "predeploy"?', $display);
+        self::assertStringNotContainsString('in groups', $display);
+        self::assertStringContainsString(
+            'has been reset in group "predeploy" and will run again on next deploytasks:run --group=predeploy.',
+            $display,
+        );
+        self::assertFalse($this->storage->has('test.multi_group', 'predeploy'));
+    }
+
     public function testResetRepeatedGroupOptionResetsRecordedSlotAndNotesPendingOne(): void
     {
         // Mixed case: only predeploy has a record. The pending group is noted

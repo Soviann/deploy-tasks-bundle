@@ -85,7 +85,7 @@ This requires a storage backend implementing `TransactionalStorageInterface`. Th
 | `skipped` | `int` | Slots not executed because they already hold a record — they will not run again. |
 | `deferred` | `int` | Slots whose task returned `TaskResult::SKIPPED` from its `run()`. Nothing is recorded for them: the slot stays pending and the task is retried on the next run. Always `0` in dry runs. |
 | `failed` | `int` | Tasks whose `run()` threw or returned `TaskResult::FAILURE`, plus tasks a caller-built transaction rolled back. |
-| `locked` | `bool` | `true` when the run was short-circuited because another process held the runner lock. No tasks ran in that case (`ran`/`skipped`/`deferred`/`failed` are all `0`). |
+| `locked` | `bool` | `true` when the run was stopped because the runner lock could not be held. If the lock could not be acquired at the start of the run, no tasks ran (`ran`/`skipped`/`deferred`/`failed` are all `0`). If the lock's lease was lost mid-run (between tasks), the run stops there instead, and the counters/records for the tasks that already completed are retained. |
 | `dryRun` | `bool` | `true` when this result describes a dry run — nothing was executed or persisted, and `ran` counts the slots that *would* run. Defaults to `false`. |
 
 Convenience method: `isSuccessful()` returns `true` iff `failed === 0 && !locked` — use it in custom CLI wrappers to map to process exit codes.

@@ -31,6 +31,7 @@ use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Lock\Exception\LockAcquiringException;
 use Symfony\Component\Lock\Exception\LockConflictedException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\LockInterface;
@@ -420,7 +421,7 @@ final readonly class TaskRunner
 
             try {
                 $lock?->refresh();
-            } catch (LockConflictedException $e) {
+            } catch (LockConflictedException|LockAcquiringException $e) {
                 $this->logger->warning(
                     'Deploy tasks run stopped: the run lock could not be refreshed — its lease expired and another process may hold it now',
                     ['task_id' => $item['taskId'], 'exception' => $e],

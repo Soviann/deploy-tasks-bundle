@@ -22,7 +22,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 **`Attribute/`**
 - `AsDeployTask` — task metadata (id, priority, env, timeout, slowTaskThreshold, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
 
-**`Command/`** — 9 console commands (`Deploy*Command.php`) plus `CommandMessages.php` (shared user-facing strings).
+**`Command/`** — 13 console commands (`Deploy*Command.php`) plus `CommandMessages.php` (shared user-facing strings).
 
 **`DependencyInjection/Compiler/`**
 - `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection on attribute `id`s and class-name-derived IDs (`TaskIdProviderInterface` tasks are skipped — checked at boot instead), and wires optional `event_dispatcher` and `lock.factory` into the runner.

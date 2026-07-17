@@ -56,6 +56,7 @@ use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionalTask;
 use Soviann\DeployTasksBundle\Tests\Fixtures\TransactionDepthProbeTask;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Lock\Exception\LockAcquiringException;
 use Symfony\Component\Lock\Exception\LockConflictedException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
@@ -2172,6 +2173,39 @@ final class TaskRunnerTest extends TestCase
         $lock = $this->createMock(SharedLockInterface::class);
         $lock->method('acquire')->willReturn(true);
         $lock->method('refresh')->willThrowException(new LockConflictedException('lease lost'));
+
+        $lockFactory = $this->createMock(LockFactory::class);
+        $lockFactory->method('createLock')->willReturn($lock);
+
+        $runner = $this->createRunner(
+            [
+                new SleepingTask('task.1', 1_000),
+                new SimpleTask('task.2', 'Second'),
+            ],
+            logger: $logger,
+            lockFactory: $lockFactory,
+        );
+
+        $result = $runner->runAll($this->output);
+
+        self::assertTrue($result->locked);
+        self::assertSame(1, $result->ran, 'The task that ran before the lease was lost must stay counted');
+        self::assertTrue($this->storage->has('task.1'), 'The completed task keeps its execution record');
+        self::assertFalse($this->storage->has('task.2'), 'The run must stop after the lease is lost');
+        self::assertTrue($logger->has('warning', 'could not be refreshed'));
+    }
+
+    public function testLockAcquiringExceptionDuringRefreshStopsRunWithLockedResult(): void
+    {
+        // LockAcquiringException is the type Lock::refresh() wraps a lock-store
+        // failure into (e.g. the store becomes unreachable mid-run). Before the
+        // catch was widened, this escaped as an uncaught exception and crashed
+        // the run instead of stopping it cleanly.
+        $logger = new ArrayLogger();
+
+        $lock = $this->createMock(SharedLockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        $lock->method('refresh')->willThrowException(new LockAcquiringException('lock store unreachable'));
 
         $lockFactory = $this->createMock(LockFactory::class);
         $lockFactory->method('createLock')->willReturn($lock);
