@@ -1,7 +1,7 @@
 # Upgrade notes
 
-## Reserved
+Migration notes for breaking changes, one section per release that ships any
+(pre-1.0, a breaking change bumps the minor version). No release since
+v0.1.0 has shipped a breaking change yet, so there is nothing to migrate.
 
-This file is reserved for migration notes. It begins collecting entries with the first breaking change after the first tagged release of this bundle.
-
-Until then, all user-visible changes are tracked in `CHANGELOG.md` under the `[Unreleased]` heading.
+Everything user-visible, breaking or not, is tracked in `CHANGELOG.md`.
