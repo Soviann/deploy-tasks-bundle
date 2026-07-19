@@ -136,7 +136,7 @@ This installs the runner script (executable), creates `deploy/host-tasks/` (with
 | `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>`, `--force` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
-| `deploytasks:generate:container` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
+| `deploytasks:generate` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
 | `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |
 | `deploytasks:host:install` | Install the host runner, `deploy/host-tasks/`, and the `.gitignore` block (idempotent) | `--force` |
 | `deploytasks:host:generate` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |

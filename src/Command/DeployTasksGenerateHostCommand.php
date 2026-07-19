@@ -60,7 +60,7 @@ final class DeployTasksGenerateHostCommand extends Command
                         <info>%command.full_name% --dir=deploy/tasks/</info>
 
                     Host tasks run outside the Symfony container via <info>bin/deploy-tasks-host.sh</info>.
-                    For container-scope tasks (PHP classes), see <info>deploytasks:generate:container</info>.
+                    For container-scope tasks (PHP classes), see <info>deploytasks:generate</info>.
                     EOT,
             )
         ;

@@ -1,6 +1,6 @@
 # Console Commands
 
-Two generator commands scaffold deploy tasks: [`deploytasks:generate:container`](#deploytasksgeneratecontainer) for PHP classes running inside the Symfony container, and [`deploytasks:host:generate`](#deploytaskshostgenerate) for bash scripts running on the host outside the container.
+Two generator commands scaffold deploy tasks: [`deploytasks:generate`](#deploytasksgenerate) for PHP classes running inside the Symfony container, and [`deploytasks:host:generate`](#deploytaskshostgenerate) for bash scripts running on the host outside the container.
 
 ## deploytasks:run
 
@@ -216,13 +216,13 @@ If the script exists but has no completion-log entry, the command reports it is 
 
 ---
 
-## deploytasks:generate:container
+## deploytasks:generate
 
 Generate a new container-scope deploy task class with a timestamp-based ID.
 
 ```bash
-bin/console deploytasks:generate:container
-bin/console deploytasks:generate:container --dir=src/Task/
+bin/console deploytasks:generate
+bin/console deploytasks:generate --dir=src/Task/
 ```
 
 **Options:**
