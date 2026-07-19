@@ -18,7 +18,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 /** @internal */
 #[AsCommand(
-    name: 'deploytasks:generate:container',
+    name: 'deploytasks:generate',
     description: 'Generate a blank deploy task (PHP class, runs inside the Symfony container).',
 )]
 final class DeployTasksGenerateCommand extends Command

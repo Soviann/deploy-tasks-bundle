@@ -7,8 +7,8 @@ A deploy task is a class that implements `DeployTaskInterface` and is registered
 The quickest way to create a task is via the generator command:
 
 ```bash
-bin/console deploytasks:generate:container                    # DeployTask20260412143000.php
-bin/console deploytasks:generate:container --dir=src/Task/    # custom target directory
+bin/console deploytasks:generate                    # DeployTask20260412143000.php
+bin/console deploytasks:generate --dir=src/Task/    # custom target directory
 ```
 
 The generated file is placed in `src/DeployTasks/Task/` by default and contains a stub `run()` method ready to implement. The filename is always `DeployTask<timestamp>.php` — the command takes no positional argument. Use `deploytasks:host:generate` instead to scaffold a host-scope bash script.

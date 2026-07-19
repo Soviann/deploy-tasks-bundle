@@ -11,7 +11,7 @@ namespace Soviann\DeployTasksBundle\Identifier;
  * uppercase letter or digit, so single words like `Tasking` keep their names)
  * and/or a trailing `DeployTask` or `Task` suffix, then converts the remainder
  * to snake_case. When the stripped remainder is purely numeric (timestamp class
- * produced by `deploytasks:generate:container`), prefixes `task_` so the output
+ * produced by `deploytasks:generate`), prefixes `task_` so the output
  * matches the recommended `task_<timestamp>` naming.
  *
  * Throws `\InvalidArgumentException` when stripping consumes the entire short name
@@ -57,7 +57,7 @@ final class DefaultTaskIdGenerator implements TaskIdGeneratorInterface
             throw new \InvalidArgumentException(\sprintf('Cannot derive task id from class name "%s"; supply #[AsDeployTask(id: ...)] explicitly.', $className));
         }
 
-        // Purely numeric remainder (timestamp from `deploytasks:generate:container`) → `task_<digits>`
+        // Purely numeric remainder (timestamp from `deploytasks:generate`) → `task_<digits>`
         if (1 === \preg_match('/^\d+$/', $shortName)) {
             return 'task_'.$shortName;
         }
