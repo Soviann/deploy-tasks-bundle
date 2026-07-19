@@ -5,29 +5,33 @@
 - PHP 8.2+ (8.4+ for Symfony 8)
 - Symfony 6.4 LTS, 7.x or 8.x
 
-## Composer
+## Install with Symfony Flex
 
-```bash
-composer require soviann/deploy-tasks-bundle
-```
+### 1. Enable the Flex recipe endpoint
 
-## Bundle registration
-
-With Symfony Flex, the bundle is registered automatically. Otherwise, add it to `config/bundles.php`:
-
-```php
-Soviann\DeployTasksBundle\SoviannDeployTasksBundle::class => ['all' => true],
-```
-
-### Flex recipe
-
-Until the bundle is on Packagist, enable the recipe endpoint:
+The bundle's Flex recipe is served from a dedicated endpoint until it lands in `symfony/recipes-contrib`. Enable it **before** requiring the bundle, so Flex applies the recipe on install:
 
 ```bash
 composer config extra.symfony.endpoint --json '["https://api.github.com/repos/Soviann/flex-recipes/contents/index.json", "flex://defaults"]'
 ```
 
-The endpoint repo (`Soviann/flex-recipes`) is private pre-release, so this requires `composer` GitHub auth; it becomes public at release. With the endpoint enabled, `composer require soviann/deploy-tasks-bundle` publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and maintains the host-task `.gitignore` entries automatically — see [`docs/host-tasks.md`](host-tasks.md) for the manual-install fallback.
+### 2. Require the bundle
+
+```bash
+composer require soviann/deploy-tasks-bundle
+```
+
+With the endpoint enabled, Flex applies the recipe automatically: it registers the bundle in `config/bundles.php`, publishes `config/packages/soviann_deploy_tasks.yaml`, creates `deploy/host-tasks/` (with a `.gitkeep`), installs the host runner `bin/deploy-tasks-host.sh`, and adds its `.gitignore` entries.
+
+## Install without Flex (or without the endpoint)
+
+Register the bundle manually in `config/bundles.php`:
+
+```php
+Soviann\DeployTasksBundle\SoviannDeployTasksBundle::class => ['all' => true],
+```
+
+Then install the host runner and its supporting files with `bin/console deploytasks:host:install` — see [`docs/host-tasks.md`](host-tasks.md).
 
 ## Optional packages
 
