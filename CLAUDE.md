@@ -99,7 +99,7 @@ soviann_deploy_tasks:
     lock:
         enabled: true
     generate:
-        directory: src/DeployTasks/Task/    # default output directory for `deploytasks:generate:container`
+        directory: src/DeployTasks/Task/    # default output directory for `deploytasks:generate`
         template: ~                         # path to a custom PHP template
         root_namespace: App                 # root namespace for `src/`-rooted `--dir` (mirrors symfony/maker-bundle)
     host:
@@ -137,7 +137,7 @@ Any class implementing `DeployTaskInterface` is automatically tagged `soviann_de
 | `deploytasks:skip <id> [--group=<name>]` | Record a task as `Skipped` without running it. Interactive confirm unless `--no-interaction`. |
 | `deploytasks:reset <id> [--group=<name>] [--force]` | Remove a task's execution record. Interactive unless `--no-interaction` (requires `--force`, otherwise the command refuses to run). |
 | `deploytasks:rollup [--group=<name>]* [--force]` | Clear execution history and mark all registered tasks as `Ran`. Interactive unless `--no-interaction` (requires `--force`). |
-| `deploytasks:generate:container [--dir=...] [--namespace=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
+| `deploytasks:generate [--dir=...] [--namespace=...]` | Create a `DeployTask<YYYYMMDDHHIISS>.php` task stub (PHP class, runs inside the Symfony container). Files written `0640`. |
 | `deploytasks:host:install [--force]` | Install the host runner (`bin/deploy-tasks-host.sh`, copied from the bundle's `.dist`, `0755`), `deploy/host-tasks/.gitkeep`, and the Flex-style `.gitignore` block. Idempotent — existing artifacts are skipped; `--force` overwrites and rewrites the block in place. Filesystem errors exit `1`. |
 | `deploytasks:host:generate [--dir=...]` | Create a `deploy_task_<YYYYMMDD>_<HHIISS>.sh` task stub (bash script, runs on the host outside the container). Files written `0750`. Warns if `bin/deploy-tasks-host.sh` is missing. |
 | `deploytasks:host:skip <id>` | Host-scope equivalent of `deploytasks:skip`: mark a host task done in the completion log without running its script. Interactive confirm unless `--no-interaction`. |

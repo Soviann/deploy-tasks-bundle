@@ -20,7 +20,7 @@ interface TaskIdGeneratorInterface
     /**
      * Generates a canonical task ID from a class name.
      *
-     * The class may not exist (yet): deploytasks:generate:container calls this
+     * The class may not exist (yet): deploytasks:generate calls this
      * with the name of the class it is about to create, so implementations must
      * not assume it is loadable.
      *

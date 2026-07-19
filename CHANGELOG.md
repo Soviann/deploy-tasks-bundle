@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the container-scope generator command from `deploytasks:generate:container` to `deploytasks:generate`. The bare `deploytasks:<verb>` form now consistently means the container scope (matching `run`, `reset`, `rollup`, `skip`, …), while the host scope keeps its `deploytasks:host:<verb>` prefix. The old name no longer exists — update any deploy scripts, Makefiles, or CI that call it. See [UPGRADE.md](UPGRADE.md#upgrade-to-030).
+
 ## [0.2.0] - 2026-07-17
 
 ### Added

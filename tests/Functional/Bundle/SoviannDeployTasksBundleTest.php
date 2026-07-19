@@ -440,7 +440,7 @@ final class SoviannDeployTasksBundleTest extends FunctionalTestCase
         yield 'skip' => ['soviann_deploy_tasks.command.skip', 'deploytasks:skip'];
         yield 'reset' => ['soviann_deploy_tasks.command.reset', 'deploytasks:reset'];
         yield 'rollup' => ['soviann_deploy_tasks.command.rollup', 'deploytasks:rollup'];
-        yield 'generate:container' => ['soviann_deploy_tasks.command.generate', 'deploytasks:generate:container'];
+        yield 'generate' => ['soviann_deploy_tasks.command.generate', 'deploytasks:generate'];
         yield 'host:generate' => ['soviann_deploy_tasks.command.host.generate', 'deploytasks:host:generate'];
     }
 
