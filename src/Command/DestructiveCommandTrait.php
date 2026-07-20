@@ -19,7 +19,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 trait DestructiveCommandTrait
 {
-    private function addForceOptions(): void
+    private function addForceOption(): void
     {
         $this
             ->addOption(

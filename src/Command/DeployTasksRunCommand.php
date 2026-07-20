@@ -298,7 +298,7 @@ final class DeployTasksRunCommand extends Command
     private function emptyRunMessage(bool $groupFilterActive): string
     {
         if ($groupFilterActive) {
-            return 'No tasks matched the requested group(s).';
+            return CommandMessages::NO_TASKS_MATCHED_GROUPS;
         }
 
         $candidates = $this->registry->all(null, []);

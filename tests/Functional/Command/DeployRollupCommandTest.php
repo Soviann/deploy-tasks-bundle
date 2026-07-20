@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\NullLogger;
+use Soviann\DeployTasksBundle\Command\CommandMessages;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -190,14 +191,14 @@ final class DeployRollupCommandTest extends FunctionalTestCase
     public function testRollupUnknownGroupEmitsWarningNoSlotsMatched(): void
     {
         // Kills MethodCallRemoval (#48, line 116): mutation removes the $io->warning() call that
-        // says "No task slots matched the requested group(s)." — the warning must appear.
+        // says "No tasks matched the requested group(s)." — the warning must appear.
         // Kills Foreach_ (#43, line 104): if the inner loop is replaced with an empty array,
         // $declaredCountByGroup stays empty and the typo-hint is never emitted.
         $this->tester->execute(['--group' => ['nosuchgroup'], '--force' => true], ['interactive' => false]);
 
         self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
         $display = $this->tester->getDisplay();
-        self::assertStringContainsString('No task slots matched', $display);
+        self::assertStringContainsString(CommandMessages::NO_TASKS_MATCHED_GROUPS, $display);
 
         // The typo-hint loop must have actually counted declared groups and found 0 for 'nosuchgroup'.
         // This kills Foreach_ (#43): if the foreach is emptied, $declaredCountByGroup is always empty

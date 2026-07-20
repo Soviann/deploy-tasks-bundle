@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `deploytasks:rollup` now words an empty `--group` selection the same way as `deploytasks:run` ("No tasks matched the requested group(s)." instead of "No task slots matched the requested group(s)."), and `deploytasks:skip` deduplicates a repeated `--group` value in its error messages like the other commands already did.
+
 ### Security
 
 - `deploytasks:reset` now strips terminal control bytes from a rejected `--group` value before echoing it back, so a malicious group name can no longer inject escape sequences into the operator's console.
