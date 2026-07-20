@@ -476,7 +476,7 @@ final readonly class TaskRunner
         // directly without entering the task-failure handling below.
         $this->dispatchGuarded(new BeforeTaskEvent($taskId, $task), $taskId);
 
-        $start = \microtime(true);
+        $start = $this->clock->now();
         $taskRanSuccessfully = false;
 
         // Runs the task and builds its success outcome. A returned TaskResult::FAILURE
@@ -492,7 +492,7 @@ final readonly class TaskRunner
 
             $taskRanSuccessfully = true;
 
-            return $this->buildSuccessOutcome($taskId, $result, \microtime(true) - $start, $slowTaskThreshold, $output);
+            return $this->buildSuccessOutcome($taskId, $result, $this->secondsSince($start), $slowTaskThreshold, $output);
         };
 
         try {
@@ -506,7 +506,7 @@ final readonly class TaskRunner
 
             return $outcome;
         } catch (\Throwable $e) {
-            $duration = \microtime(true) - $start;
+            $duration = $this->secondsSince($start);
 
             // Re-raise when the task itself ran to completion — a failure record would be
             // wrong. This covers a throwing AfterTaskEvent listener (record already
@@ -609,6 +609,16 @@ final readonly class TaskRunner
             durationSeconds: $duration,
             error: $e->getMessage(),
         );
+    }
+
+    /**
+     * Elapsed seconds since $start, measured on the injected clock — so tests
+     * drive durations deterministically through a MockClock while production
+     * keeps microsecond wall-clock precision through SystemClock.
+     */
+    private function secondsSince(\DateTimeImmutable $start): float
+    {
+        return (float) $this->clock->now()->format('U.u') - (float) $start->format('U.u');
     }
 
     /**
