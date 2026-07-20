@@ -483,6 +483,21 @@ final class DeployResetCommandTest extends FunctionalTestCase
         self::assertStringContainsString('pre deploy', $this->tester->getDisplay());
     }
 
+    public function testMalformedGroupNameErrorStripsControlBytes(): void
+    {
+        // The rejected value is by definition untrusted — it just failed the
+        // pattern — so echoing it back must strip control bytes, same as the
+        // sibling commands do for their group-mismatch messages.
+        $this->tester->execute(
+            ['id' => 'test.simple', '--group' => "pre\x1b[2Jdeploy", '--force' => true],
+            ['interactive' => false],
+        );
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        self::assertStringContainsString('Invalid group name', $this->tester->getDisplay());
+        self::assertStringNotContainsString("\x1b", $this->tester->getDisplay());
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
