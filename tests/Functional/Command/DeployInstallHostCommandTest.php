@@ -92,6 +92,33 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
         self::assertStringContainsString('ops/host-jobs/.gitkeep:created', $flat);
     }
 
+    public function testInstallReportsAnAbsolutePathForAHostDirectoryOutsideTheProject(): void
+    {
+        // host.directory may point outside the project (absolute values pass
+        // through un-anchored); the status line then shows the absolute path —
+        // a project-relative label would be a lie.
+        $outsideDir = \sys_get_temp_dir().'/dtb-outside-'.\uniqid('', true);
+
+        try {
+            self::useConfigurableKernel(
+                ['host' => ['directory' => $outsideDir]],
+                projectDir: $this->tempProjectDir,
+            );
+            self::bootKernel();
+
+            $tester = $this->runConsoleCommand('deploytasks:host:install');
+
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+            self::assertFileExists($outsideDir.'/.gitkeep');
+            // Strip ALL whitespace: paths in display assertions wrap mid-token
+            // on narrow terminals (see GOTCHAS).
+            $flat = (string) \preg_replace('/\s+/', '', $tester->getDisplay());
+            self::assertStringContainsString($outsideDir.'/.gitkeep:created', $flat);
+        } finally {
+            FilesystemTestHelper::cleanup($outsideDir);
+        }
+    }
+
     public function testRerunWithoutForceSkipsEveryStepAndLeavesFilesUntouched(): void
     {
         $this->runConsoleCommand('deploytasks:host:install');
