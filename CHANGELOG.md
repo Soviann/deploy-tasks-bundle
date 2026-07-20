@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `deploytasks:rollup` now words an empty `--group` selection the same way as `deploytasks:run` ("No tasks matched the requested group(s)." instead of "No task slots matched the requested group(s)."), and `deploytasks:skip` deduplicates a repeated `--group` value in its error messages like the other commands already did.
+- `deploytasks:host:install` now scaffolds the configured `host.directory` instead of always creating `deploy/host-tasks/` — a host with a custom directory no longer ends up with a task directory the other commands never look at. The default is unchanged.
 
 ### Fixed
 

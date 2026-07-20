@@ -124,7 +124,7 @@ Host tasks run outside the Symfony container — useful for operations that must
 bin/console deploytasks:host:install
 ```
 
-This installs the runner script (executable), creates `deploy/host-tasks/` (with a `.gitkeep`), and adds a Flex-style `.gitignore` block for the runner's log, lock, and local-override files — each step idempotent. Re-run with `--force` to refresh the runner after a bundle update. See [`docs/host-tasks.md`](docs/host-tasks.md) for generation, execution, `.env` cascade, and concurrency details.
+This installs the runner script (executable), creates the configured host-task directory (default `deploy/host-tasks/`, with a `.gitkeep`), and adds a Flex-style `.gitignore` block for the runner's log, lock, and local-override files — each step idempotent. Re-run with `--force` to refresh the runner after a bundle update. See [`docs/host-tasks.md`](docs/host-tasks.md) for generation, execution, `.env` cascade, and concurrency details.
 
 ## Commands
 
@@ -138,7 +138,7 @@ This installs the runner script (executable), creates `deploy/host-tasks/` (with
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
 | `deploytasks:generate` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
 | `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |
-| `deploytasks:host:install` | Install the host runner, `deploy/host-tasks/`, and the `.gitignore` block (idempotent) | `--force` |
+| `deploytasks:host:install` | Install the host runner, the configured host-task directory, and the `.gitignore` block (idempotent) | `--force` |
 | `deploytasks:host:generate` | Generate a blank deploy task (bash script, runs on the host outside the container) | `--dir` |
 | `deploytasks:host:skip <id>` | Mark a host-scope task as done in the completion log (interactive confirm) | — |
 | `deploytasks:host:reset <id>` | Remove a host-scope task's completion-log entry | `--no-interaction`, `--force` |
