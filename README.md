@@ -133,8 +133,8 @@ This installs the runner script (executable), creates `deploy/host-tasks/` (with
 | `deploytasks:run` | Execute pending tasks | `--dry-run`, `--rerun-all`, `--id=<id>`, `--group=<name>` (repeatable), `--require-some` |
 | `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable), `--filter-status=<comma-list>` |
 | `deploytasks:show <id>` | Show full metadata and every stored execution record for a single task | — |
-| `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` |
-| `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--group=<name>`, `--force` |
+| `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` (repeatable) |
+| `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
 | `deploytasks:generate` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
 | `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |
