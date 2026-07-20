@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `deploytasks:rollup` now words an empty `--group` selection the same way as `deploytasks:run` ("No tasks matched the requested group(s)." instead of "No task slots matched the requested group(s)."), and `deploytasks:skip` deduplicates a repeated `--group` value in its error messages like the other commands already did.
 
+### Fixed
+
+- A run that lost its lock lease mid-run no longer reports "Run skipped: another process is already running." — which hid the tasks that did execute. It now reports the early stop and how many tasks ran before it (`RunResult` gained a `leaseLost` flag alongside `locked`).
+
 ### Security
 
 - `deploytasks:reset` now strips terminal control bytes from a rejected `--group` value before echoing it back, so a malicious group name can no longer inject escape sequences into the operator's console.

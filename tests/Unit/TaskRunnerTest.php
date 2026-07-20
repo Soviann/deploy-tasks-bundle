@@ -1051,6 +1051,7 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output);
 
         self::assertTrue($result->locked);
+        self::assertFalse($result->leaseLost, 'A lock that was never acquired is not a lost lease');
         // Lock-failure sentinel has all zero counts: kills IncrementInteger on the `0, 0, 0` literals.
         self::assertSame(0, $result->ran);
         self::assertSame(0, $result->skipped);
@@ -2189,6 +2190,7 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output);
 
         self::assertTrue($result->locked);
+        self::assertTrue($result->leaseLost, 'A mid-run refresh failure must be reported as a lost lease, not a plain lock');
         self::assertSame(1, $result->ran, 'The task that ran before the lease was lost must stay counted');
         self::assertTrue($this->storage->has('task.1'), 'The completed task keeps its execution record');
         self::assertFalse($this->storage->has('task.2'), 'The run must stop after the lease is lost');
@@ -2222,6 +2224,7 @@ final class TaskRunnerTest extends TestCase
         $result = $runner->runAll($this->output);
 
         self::assertTrue($result->locked);
+        self::assertTrue($result->leaseLost, 'A mid-run refresh failure must be reported as a lost lease, not a plain lock');
         self::assertSame(1, $result->ran, 'The task that ran before the lease was lost must stay counted');
         self::assertTrue($this->storage->has('task.1'), 'The completed task keeps its execution record');
         self::assertFalse($this->storage->has('task.2'), 'The run must stop after the lease is lost');

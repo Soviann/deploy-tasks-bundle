@@ -427,7 +427,7 @@ final readonly class TaskRunner
                     ['task_id' => $item['taskId'], 'exception' => $e],
                 );
 
-                return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, deferred: $deferred, locked: true);
+                return new RunResult(ran: $ran, skipped: $skipped, failed: $failed, deferred: $deferred, locked: true, leaseLost: true);
             }
         }
 
