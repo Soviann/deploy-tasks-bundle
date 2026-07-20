@@ -31,13 +31,24 @@ return [
 
 ### Flex recipe
 
-The bundle's Flex recipe is served from a dedicated endpoint until it lands in `symfony/recipes-contrib`. To use it, add the endpoint before requiring the bundle:
+The bundle's [Flex recipe](https://github.com/symfony/recipes-contrib/tree/main/soviann/deploy-tasks-bundle) lives in `symfony/recipes-contrib`. When Contrib recipes are enabled, `composer require soviann/deploy-tasks-bundle` registers the bundle, publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and adds the host-task `.gitignore` entries automatically. Flex asks once per project before running a Contrib recipe — answer yes, or enable them permanently:
+
+```bash
+composer config extra.symfony.allow-contrib true
+```
+
+The recipe is optional — without it, the bundle works with its default configuration, and `deploytasks:host:install` scaffolds the host runner on demand.
+
+<details>
+<summary>Alternative: dedicated recipe endpoint</summary>
+
+Prefer not to enable Contrib recipes globally? The same recipe is also served from a dedicated endpoint:
 
 ```bash
 composer config extra.symfony.endpoint --json '["https://api.github.com/repos/Soviann/flex-recipes/contents/index.json", "flex://defaults"]'
 ```
 
-With the endpoint enabled, `composer require soviann/deploy-tasks-bundle` registers the bundle, publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and adds the host-task `.gitignore` entries automatically. The recipe is optional — without it, the bundle works with its default configuration, and `deploytasks:host:install` scaffolds the host runner on demand.
+</details>
 
 ## Quick Start
 
