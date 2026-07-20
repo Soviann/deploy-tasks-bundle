@@ -129,7 +129,7 @@ Any mode other than `none` requires a storage backend implementing `Transactiona
 
 ## Ephemeral filesystems (Docker, Kubernetes)
 
-Filesystem storage writes task-execution records under `%kernel.project_dir%` by default. On container platforms this directory sits on an overlay filesystem that resets with every pod restart or image rebuild, so execution records silently disappear and one-shot tasks run again.
+Filesystem storage writes task-execution records to `%kernel.project_dir%/var/deploy-tasks` by default. On container platforms this directory sits on an overlay filesystem that resets with every pod restart or image rebuild, so execution records silently disappear and one-shot tasks run again.
 
 For containerised deployments, prefer one of:
 
