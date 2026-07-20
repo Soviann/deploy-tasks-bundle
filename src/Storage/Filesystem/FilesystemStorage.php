@@ -31,9 +31,10 @@ final class FilesystemStorage implements TaskStorageInterface
      * Regex pattern for valid record filenames: `<task-id>.json` or `<task-id>@<group>.json`.
      * Built from the shared identifier charset (AsDeployTask::TASK_ID_PATTERN /
      * GROUP_NAME_PATTERN) so widening the charset there cannot orphan existing records,
-     * and the `@` separator stays unambiguous.
+     * and the `@` separator stays unambiguous. Anchored with \z, not $ — POSIX
+     * filenames may end in a newline, which `$` would still match.
      */
-    private const RECORD_NAME_PATTERN = '/^'.AsDeployTask::IDENTIFIER_CHAR.'+(@'.AsDeployTask::IDENTIFIER_CHAR.'+)?\.json$/';
+    private const RECORD_NAME_PATTERN = '/^'.AsDeployTask::IDENTIFIER_CHAR.'+(@'.AsDeployTask::IDENTIFIER_CHAR.'+)?\.json\z/';
 
     /**
      * ext4/APFS/NTFS cap file names at 255 bytes. Enforced in filePath() so an

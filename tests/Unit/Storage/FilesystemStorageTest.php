@@ -374,6 +374,23 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         $this->storage->all();
     }
 
+    public function testRecordListingIgnoresTrailingNewlineFilenames(): void
+    {
+        // POSIX filenames may contain a trailing newline; a `$` anchor in the
+        // record-name pattern would still match "….json\n" and hydrate the
+        // stray file as a record. The pattern must be \z-anchored instead.
+        $this->storage->save(new TaskExecution('task.real', TaskStatus::Ran, new \DateTimeImmutable()));
+        \file_put_contents(
+            $this->storagePath."/task.smuggled.json\n",
+            '{"id":"task.smuggled","status":"ran","executed_at":"2026-01-01T00:00:00+00:00"}',
+        );
+
+        $all = $this->storage->all();
+
+        self::assertCount(1, $all);
+        self::assertSame('task.real', $all[0]->id);
+    }
+
     public function testSaveWithUnencodablePayloadThrowsStorageException(): void
     {
         // Invalid UTF-8 in the error payload makes json_encode() fail.

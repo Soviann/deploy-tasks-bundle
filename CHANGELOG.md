@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `deploytasks:reset` now strips terminal control bytes from a rejected `--group` value before echoing it back, so a malicious group name can no longer inject escape sequences into the operator's console.
+- Filesystem storage no longer recognizes record files whose name ends in a newline — the record-name pattern is anchored to the absolute end of the filename (`\z`), matching the trailing-newline hardening already applied to task ids and group names.
+
 ## [0.3.0] - 2026-07-19
 
 ### Changed
