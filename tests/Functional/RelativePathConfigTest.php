@@ -26,6 +26,14 @@ final class RelativePathConfigTest extends FunctionalTestCase
         $cwd = \getcwd();
         self::assertNotFalse($cwd);
         $this->originalCwd = $cwd;
+
+        // A KILLED path-anchoring mutant resolves these paths against the CWD
+        // (sys_get_temp_dir()) and writes there before dying — polluting the
+        // shared /tmp for every later honest run, whose "not written to CWD"
+        // assertions then fail. Clean the /tmp side up front, not just in
+        // tearDown: an aborted prior run never reaches its tearDown. (The
+        // projectDir side needs a booted kernel and stays in tearDown.)
+        $this->removeTempSideDirs();
     }
 
     protected function tearDown(): void
@@ -35,6 +43,7 @@ final class RelativePathConfigTest extends FunctionalTestCase
             self::projectDir().'/var/rel-deploy-state',
             self::projectDir().'/var/rel-host-tasks',
         ]);
+        $this->removeTempSideDirs();
         parent::tearDown();
     }
 
@@ -69,5 +78,13 @@ final class RelativePathConfigTest extends FunctionalTestCase
 
         self::assertStringContainsString('Host tasks', $tester->getDisplay());
         self::assertStringContainsString('deploy_task_20260101_000000', $tester->getDisplay());
+    }
+
+    private function removeTempSideDirs(): void
+    {
+        (new Filesystem())->remove([
+            \sys_get_temp_dir().'/var/rel-deploy-state',
+            \sys_get_temp_dir().'/var/rel-host-tasks',
+        ]);
     }
 }
