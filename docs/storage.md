@@ -105,16 +105,7 @@ soviann_deploy_tasks:
 
 `group_column` and `group_column_length` control the column that stores the task group slot. Override them when your existing table uses a different column name or a shorter/longer `VARCHAR` definition. The column must allow an empty-string default (not `NULL`) because the bundle stores `''` for the default (ungrouped) slot — SQL forbids `NULL` in a composite primary key.
 
-## Ephemeral filesystems (Docker, Kubernetes)
-
-Filesystem storage writes task-execution records under `%kernel.project_dir%` by default. On container platforms this directory sits on an overlay filesystem that resets with every pod restart or image rebuild, so execution records silently disappear and one-shot tasks run again.
-
-For containerised deployments, prefer one of:
-
-- a dedicated bind mount (Docker) or `PersistentVolumeClaim` (Kubernetes) mapped at `%kernel.project_dir%/var/deploy-tasks/`;
-- the database backend, which records executions in a durable SQL table and is not affected by overlay-FS resets.
-
-### Transaction mode
+## Transaction mode
 
 Transaction wrapping is configured per storage backend via `storage.<type>.transaction_mode`: `none`, `per_task`, or `all_or_nothing`.
 
@@ -133,6 +124,15 @@ soviann_deploy_tasks:
 Any mode other than `none` requires a storage backend implementing `TransactionalStorageInterface` (the built-in `DbalStorage` supports this). The pairing is validated twice: at container build (`IncompatibleStorageException`) whenever the storage class is known at compile time, and again by `TaskRunner`'s constructor against the real storage instance — closing the gap for a storage resolvable only at runtime (a factory-built or synthetic service), which the compiler pass skips rather than guesses about.
 
 `#[AsDeployTask(transactional:)]` only has an effect under `transaction_mode: per_task`: unset or `null` wraps the task like every other one, `false` opts it out. Declaring `transactional: true` under `transaction_mode: none`, or `transactional: false` under `transaction_mode: all_or_nothing`, fails the container build instead of being silently ignored — see [`docs/advanced.md` → Transaction Wrapping](advanced.md#transaction-wrapping).
+
+## Ephemeral filesystems (Docker, Kubernetes)
+
+Filesystem storage writes task-execution records under `%kernel.project_dir%` by default. On container platforms this directory sits on an overlay filesystem that resets with every pod restart or image rebuild, so execution records silently disappear and one-shot tasks run again.
+
+For containerised deployments, prefer one of:
+
+- a dedicated bind mount (Docker) or `PersistentVolumeClaim` (Kubernetes) mapped at `%kernel.project_dir%/var/deploy-tasks/`;
+- the database backend, which records executions in a durable SQL table and is not affected by overlay-FS resets.
 
 ## InMemoryStorage
 
