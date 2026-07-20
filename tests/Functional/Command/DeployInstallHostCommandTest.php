@@ -70,6 +70,28 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
         self::assertSame(1, \substr_count($gitignore, '###> soviann/deploy-tasks-bundle ###'));
     }
 
+    public function testInstallScaffoldsTheConfiguredHostDirectory(): void
+    {
+        // host.directory is configurable; install must scaffold THAT directory,
+        // not the hardcoded default — otherwise a host with a custom directory
+        // gets a task dir no other command will ever look at.
+        self::useConfigurableKernel(
+            ['host' => ['directory' => 'ops/host-jobs']],
+            projectDir: $this->tempProjectDir,
+        );
+        self::bootKernel();
+
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertFileExists($this->tempProjectDir.'/ops/host-jobs/.gitkeep');
+        self::assertFileDoesNotExist($this->tempProjectDir.'/deploy/host-tasks/.gitkeep');
+        // Strip ALL whitespace before matching: a path in a display assertion
+        // can wrap mid-token on narrow terminals (see GOTCHAS).
+        $flat = (string) \preg_replace('/\s+/', '', $tester->getDisplay());
+        self::assertStringContainsString('ops/host-jobs/.gitkeep:created', $flat);
+    }
+
     public function testRerunWithoutForceSkipsEveryStepAndLeavesFilesUntouched(): void
     {
         $this->runConsoleCommand('deploytasks:host:install');

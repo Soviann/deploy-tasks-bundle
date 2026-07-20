@@ -331,6 +331,7 @@ final class SoviannDeployTasksBundle extends AbstractBundle
 
         $services->set('soviann_deploy_tasks.command.host.install', DeployTasksInstallHostCommand::class)
             ->args([
+                '$hostDirectory' => $hostConfig['directory'],
                 '$projectDir' => param('kernel.project_dir'),
             ])
             ->tag('console.command')

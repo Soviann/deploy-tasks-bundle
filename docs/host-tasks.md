@@ -24,7 +24,7 @@ Without Flex, or if the recipe endpoint isn't enabled, one command scaffolds eve
 It produces three artifacts, each step idempotent (existing files are reported as skipped, unrelated `.gitignore` content is preserved):
 
 - `bin/deploy-tasks-host.sh` — the host runner, copied from the bundle and made executable (`0755`)
-- `deploy/host-tasks/.gitkeep` — the directory scanned for `*.sh` tasks
+- the configured `host.directory` (default `deploy/host-tasks/`, kept in git via a `.gitkeep`) — the directory scanned for `*.sh` tasks
 - a `###> soviann/deploy-tasks-bundle ###` block in `.gitignore` ignoring `/.deploy-tasks-host.log`, `/.deploy-tasks-host.lock`, and `/deploy-tasks-host.local.sh`
 
 Re-run with `--force` to refresh the runner after a bundle update.

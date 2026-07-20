@@ -22,7 +22,6 @@ use Symfony\Component\Filesystem\Filesystem;
 final class DeployTasksInstallHostCommand extends Command
 {
     private const RUNNER_RELATIVE_PATH = 'bin/deploy-tasks-host.sh';
-    private const GITKEEP_RELATIVE_PATH = 'deploy/host-tasks/.gitkeep';
 
     private const GITIGNORE_MARKER_START = '###> soviann/deploy-tasks-bundle ###';
     private const GITIGNORE_MARKER_END = '###< soviann/deploy-tasks-bundle ###';
@@ -40,8 +39,11 @@ final class DeployTasksInstallHostCommand extends Command
 
     private readonly Filesystem $fs;
 
-    public function __construct(private readonly string $projectDir)
-    {
+    public function __construct(
+        /** Configured `host.directory`, project-dir-anchored by the extension. */
+        private readonly string $hostDirectory,
+        private readonly string $projectDir,
+    ) {
         $this->fs = new Filesystem();
         parent::__construct();
     }
@@ -63,7 +65,8 @@ final class DeployTasksInstallHostCommand extends Command
                         <info>%command.full_name%</info>
 
                       - <comment>bin/deploy-tasks-host.sh</comment> — the host runner, copied from the bundle and made executable
-                      - <comment>deploy/host-tasks/</comment> — the directory scanned for <comment>*.sh</comment> tasks (kept in git via a <comment>.gitkeep</comment>)
+                      - the configured <comment>soviann_deploy_tasks.host.directory</comment> (default <comment>deploy/host-tasks/</comment>) — the
+                        directory scanned for <comment>*.sh</comment> tasks (kept in git via a <comment>.gitkeep</comment>)
                       - a <comment>###> soviann/deploy-tasks-bundle ###</comment> block in <comment>.gitignore</comment> covering the runner's
                         log, lock, and local-override files
 
@@ -87,7 +90,7 @@ final class DeployTasksInstallHostCommand extends Command
         try {
             $statuses = [
                 self::RUNNER_RELATIVE_PATH => $this->installRunner($force),
-                self::GITKEEP_RELATIVE_PATH => $this->installTaskDirectory($force),
+                $this->gitkeepLabel() => $this->installTaskDirectory($force),
                 '.gitignore block' => $this->installGitignoreBlock($force),
             ];
         } catch (IOExceptionInterface $e) {
@@ -130,11 +133,11 @@ final class DeployTasksInstallHostCommand extends Command
     }
 
     /**
-     * Ensures the host-task directory exists and stays in git via a .gitkeep.
+     * Ensures the configured host-task directory exists and stays in git via a .gitkeep.
      */
     private function installTaskDirectory(bool $force): string
     {
-        $target = $this->projectDir.'/'.self::GITKEEP_RELATIVE_PATH;
+        $target = $this->hostDirectory.'/.gitkeep';
         $existed = $this->fs->exists($target);
 
         if ($existed && !$force) {
@@ -145,6 +148,21 @@ final class DeployTasksInstallHostCommand extends Command
         $this->fs->dumpFile($target, '');
 
         return $existed ? self::STATUS_OVERWRITTEN : self::STATUS_CREATED;
+    }
+
+    /**
+     * Status-line label for the .gitkeep artifact: project-relative when the
+     * configured directory lives under the project, absolute otherwise.
+     */
+    private function gitkeepLabel(): string
+    {
+        $target = $this->hostDirectory.'/.gitkeep';
+
+        if (\str_starts_with($target, $this->projectDir.'/')) {
+            return \substr($target, \strlen($this->projectDir) + 1);
+        }
+
+        return $target;
     }
 
     /**
