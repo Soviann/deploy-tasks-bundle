@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Command\DeployTasksRunCommand;
 use Soviann\DeployTasksBundle\Command\ExitCodes;
+use Soviann\DeployTasksBundle\Storage\InMemory\InMemoryStorage;
+use Soviann\DeployTasksBundle\Tests\Fixtures\LeaseLosingLockFactory;
+use Soviann\DeployTasksBundle\Tests\Fixtures\SimpleTask;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
 use Soviann\DeployTasksBundle\Tests\Functional\KernelConfig;
 use Soviann\DeployTasksBundle\Tests\Functional\TestKernel;
@@ -97,6 +101,40 @@ final class DeployRunLockCommandTest extends FunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertStringContainsString('concurrent-run protection is inactive', $tester->getDisplay());
+    }
+
+    public function testMidRunLeaseLossReportsPartialWorkNotRunSkipped(): void
+    {
+        // A run that loses its lease AFTER executing tasks must not claim
+        // "Run skipped: another process is already running." — work happened.
+        // The summary has to name the early stop and the partial progress.
+        $extensionConfig = KernelConfig::customStorageExtension();
+        $extensionConfig['lock'] = ['enabled' => true, 'ttl' => 3600];
+
+        $services = KernelConfig::customStorageServices();
+        // Overrides the framework's lock.factory: acquire succeeds, every
+        // between-task refresh throws — a deterministic mid-run lease loss.
+        $services['lock.factory'] = ['class' => LeaseLosingLockFactory::class, 'public' => true];
+        // The lease-loss path logs a warning; keep it off stderr (Infection).
+        $services['logger'] = ['class' => NullLogger::class, 'public' => true];
+        $services['test.task.one'] = ['class' => SimpleTask::class, 'args' => ['test.one', 'First'], 'tags' => ['soviann_deploy_tasks.task']];
+        $services['test.task.two'] = ['class' => SimpleTask::class, 'args' => ['test.two', 'Second'], 'tags' => ['soviann_deploy_tasks.task']];
+
+        self::useConfigurableKernel($extensionConfig, $services);
+        self::bootKernel();
+
+        $tester = $this->runConsoleCommand('deploytasks:run');
+
+        self::assertSame(ExitCodes::EX_TEMPFAIL, $tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Run stopped early', $display);
+        self::assertStringContainsString('after 1 task(s)', $display);
+        self::assertStringNotContainsString('already running', $display);
+
+        $storage = self::getContainer()->get('test.custom_storage');
+        \assert($storage instanceof InMemoryStorage);
+        self::assertTrue($storage->has('test.one'), 'The task that ran before the lease loss keeps its record');
+        self::assertFalse($storage->has('test.two'), 'No task may run after the lease is lost');
     }
 
     public function testRunDoesNotWarnWhenLockDisabled(): void

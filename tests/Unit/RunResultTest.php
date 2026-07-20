@@ -66,6 +66,7 @@ final class RunResultTest extends TestCase
 
         self::assertSame(0, $result->deferred);
         self::assertFalse($result->locked);
+        self::assertFalse($result->leaseLost);
         self::assertFalse($result->dryRun);
     }
 }

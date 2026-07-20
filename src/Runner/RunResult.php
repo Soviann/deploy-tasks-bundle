@@ -23,6 +23,13 @@ final readonly class RunResult
          */
         public int $deferred = 0,
         public bool $locked = false,
+        /**
+         * True when the run acquired the lock, executed tasks, then lost the
+         * lease mid-run (a between-task refresh failed). $locked is also true;
+         * unlike a never-acquired lock, the counts describe real partial work
+         * done before the stop.
+         */
+        public bool $leaseLost = false,
         /** Whether this result describes a dry run: nothing was executed or persisted. */
         public bool $dryRun = false,
     ) {

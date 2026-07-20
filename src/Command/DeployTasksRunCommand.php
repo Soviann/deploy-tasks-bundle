@@ -239,6 +239,17 @@ final class DeployTasksRunCommand extends Command
     private function writeSummary(SymfonyStyle $io, RunResult $result, bool $groupFilterActive): void
     {
         if ($result->locked) {
+            // A lease lost mid-run is not a skipped run: tasks were executed
+            // before the stop, and claiming nothing happened would hide them.
+            if ($result->leaseLost) {
+                $io->warning(\sprintf(
+                    'Run stopped early after %d task(s): the run lock lease expired — another process may hold the lock now. The remaining tasks stay pending; run deploytasks:run again to resume.',
+                    $result->ran,
+                ));
+
+                return;
+            }
+
             $io->warning('Run skipped: another process is already running.');
 
             return;
