@@ -1460,13 +1460,16 @@ final class TaskRunnerTest extends TestCase
     {
         $logger = new ArrayLogger();
 
-        // The task declares slowTaskThreshold: 1 and sleeps ~1.1s; the configured
-        // threshold (3600) alone would never warn, so a warning proves the
-        // attribute override is consulted. Slow by design (~1.1s per run).
+        // The task declares slowTaskThreshold: 1 and advances the clock 1.1s;
+        // the configured threshold (3600) alone would never warn, so a warning
+        // proves the attribute override is consulted. Duration is measured on
+        // the injected clock — no real sleeping.
+        $clock = new MockClock();
         $runner = $this->createRunner(
-            [new SlowThresholdLoweringTask()],
+            [new SlowThresholdLoweringTask(static fn () => $clock->sleep(1.1))],
             logger: $logger,
             slowTaskThreshold: 3600,
+            clock: $clock,
         );
 
         $result = $runner->runOne('test.slow_threshold_lowering', $this->output);
@@ -1484,12 +1487,15 @@ final class TaskRunnerTest extends TestCase
     {
         $logger = new ArrayLogger();
 
-        // The task opts out (slowTaskThreshold: 0) and sleeps ~1.1s past the 1s
-        // configured threshold: no warning may fire. Slow by design (~1.1s per run).
+        // The task opts out (slowTaskThreshold: 0) and advances the clock 1.1s
+        // past the 1s configured threshold: no warning may fire. Duration is
+        // measured on the injected clock — no real sleeping.
+        $clock = new MockClock();
         $runner = $this->createRunner(
-            [new SlowThresholdDisabledTask()],
+            [new SlowThresholdDisabledTask(static fn () => $clock->sleep(1.1))],
             logger: $logger,
             slowTaskThreshold: 1,
+            clock: $clock,
         );
 
         $result = $runner->runOne('test.slow_threshold_disabled', $this->output);
@@ -1504,13 +1510,15 @@ final class TaskRunnerTest extends TestCase
         $logger = new ArrayLogger();
 
         // `timeout:` drives only the hard Process kill (ProcessRunnerTrait). The task
-        // declares timeout: 3600 and sleeps ~1.1s past the 1s configured threshold:
-        // the slow-task warning must still fire — the hard knob no longer doubles as
-        // a per-task soft override. Slow by design (~1.1s per run).
+        // declares timeout: 3600 and advances the clock 1.1s past the 1s configured
+        // threshold: the slow-task warning must still fire — the hard knob no longer
+        // doubles as a per-task soft override. Clock-driven, no real sleeping.
+        $clock = new MockClock();
         $runner = $this->createRunner(
-            [new HardTimeoutOnlySleepingTask()],
+            [new HardTimeoutOnlySleepingTask(static fn () => $clock->sleep(1.1))],
             logger: $logger,
             slowTaskThreshold: 1,
+            clock: $clock,
         );
 
         $result = $runner->runOne('test.hard_timeout_only', $this->output);
