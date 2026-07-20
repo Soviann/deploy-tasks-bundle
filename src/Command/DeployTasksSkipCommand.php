@@ -83,8 +83,14 @@ final class DeployTasksSkipCommand extends Command
         /** @var string $id */
         $id = $input->getArgument('id');
 
-        /** @var list<string> $groups */
-        $groups = \array_values((array) $input->getOption('group'));
+        /** @var list<string> $requestedGroups */
+        $requestedGroups = \array_values((array) $input->getOption('group'));
+
+        // Deduplicated like RunOptions does for deploytasks:run and reset does
+        // for deploytasks:reset — SlotResolver documents deduplicated input as
+        // its contract, and a repeated value must not surface twice in the
+        // mismatch message.
+        $groups = \array_values(\array_unique($requestedGroups));
 
         if (!$this->registry->has($id)) {
             $io->error(\sprintf(CommandMessages::UNKNOWN_TASK, $id));

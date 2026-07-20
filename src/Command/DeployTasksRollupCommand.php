@@ -65,7 +65,7 @@ final class DeployTasksRollupCommand extends Command
                 EOT)
         ;
 
-        $this->addForceOptions();
+        $this->addForceOption();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -116,7 +116,7 @@ final class DeployTasksRollupCommand extends Command
                 }
             }
 
-            $io->warning('No task slots matched the requested group(s).');
+            $io->warning(CommandMessages::NO_TASKS_MATCHED_GROUPS);
 
             return Command::SUCCESS;
         }

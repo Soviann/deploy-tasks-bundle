@@ -24,6 +24,9 @@ final class CommandMessages
     /** Shared by host:skip and host:reset — the sanitized rejected id fills the placeholder. */
     public const HOST_TASK_ID_INVALID = 'Invalid host task id "%s" — allowed: letters, digits, dot, underscore, hyphen.';
 
+    /** Shared by run and rollup — a --group filter that selects nothing. */
+    public const NO_TASKS_MATCHED_GROUPS = 'No tasks matched the requested group(s).';
+
     /**
      * Renders a task status as its colour-tagged console label.
      */

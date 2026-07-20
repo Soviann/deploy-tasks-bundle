@@ -47,7 +47,7 @@ final class DeployTasksRollupHostCommand extends Command
                 EOT)
         ;
 
-        $this->addForceOptions();
+        $this->addForceOption();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

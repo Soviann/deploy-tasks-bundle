@@ -247,6 +247,19 @@ final class DeploySkipCommandTest extends FunctionalTestCase
         self::assertFalse($storage->has('test.simple'));
     }
 
+    public function testSkipRepeatedGroupOptionIsDeduplicatedInMismatchMessage(): void
+    {
+        // Same dedup as deploytasks:run (RunOptions) and deploytasks:reset:
+        // a repeated --group value must not surface twice in the mismatch
+        // message — SlotResolver documents deduplicated input as its contract.
+        $this->tester->execute(['id' => 'test.simple', '--group' => ['predeploy', 'predeploy']]);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        $display = (string) \preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('cannot target --group=[predeploy]', $display);
+        self::assertStringNotContainsString('predeploy, predeploy', $display);
+    }
+
     public function testSkipWithNoInteractionOptionSkipsPrompt(): void
     {
         // Pins the $input->isInteractive() guard: a non-interactive invocation must skip
