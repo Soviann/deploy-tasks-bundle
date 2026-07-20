@@ -374,6 +374,33 @@ final class FilesystemStorageTest extends TaskStorageContractTestCase
         $this->storage->all();
     }
 
+    public function testResetRefusesADirectoryContainingComposerJson(): void
+    {
+        // composer.json matches RECORD_NAME_PATTERN, so a storage path
+        // misconfigured to a project root would list it as a "record" and
+        // reset()/rollup would DELETE it. Refuse loudly instead.
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents($this->storagePath.'/composer.json', '{}');
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/dedicated/');
+
+        $this->storage->reset();
+    }
+
+    public function testSaveRefusesADirectoryContainingComposerJson(): void
+    {
+        // Same guard on the write path: records must not be sprayed into a
+        // directory that looks like a project root.
+        \mkdir($this->storagePath, 0755, true);
+        \file_put_contents($this->storagePath.'/composer.json', '{}');
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessageMatches('/dedicated/');
+
+        $this->storage->save(new TaskExecution('task.1', TaskStatus::Ran, new \DateTimeImmutable()));
+    }
+
     public function testRecordListingIgnoresTrailingNewlineFilenames(): void
     {
         // POSIX filenames may contain a trailing newline; a `$` anchor in the

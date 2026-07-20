@@ -321,6 +321,8 @@ final class FilesystemStorage implements TaskStorageInterface
             return [];
         }
 
+        $this->assertDedicatedStorageDir();
+
         $finder = (new Finder())
             ->files()
             ->in($this->storagePath)
@@ -371,11 +373,30 @@ final class FilesystemStorage implements TaskStorageInterface
     }
 
     /**
+     * Refuses to operate on a directory that looks like a project root. A
+     * storage path misconfigured to e.g. `%kernel.project_dir%` is a data-loss
+     * trap: `composer.json` (and `package.json`, …) match RECORD_NAME_PATTERN,
+     * so reset()/rollup would list them as records and DELETE them. A dedicated
+     * state directory never contains a composer.json.
+     *
+     * @throws StorageException When the storage directory contains a composer.json
+     */
+    private function assertDedicatedStorageDir(): void
+    {
+        if (\is_file($this->storagePath.'/composer.json')) {
+            throw new StorageException(\sprintf('Storage path "%s" contains a composer.json — it looks like a project root, not a dedicated deploy-task state directory. Point storage.filesystem.path at a dedicated directory (e.g. "%%kernel.project_dir%%/var/deploy-tasks").', $this->storagePath));
+        }
+    }
+
+    /**
      * @throws \InvalidArgumentException When the task id or group name fails validation
-     * @throws StorageException          When the record file name exceeds the filesystem limit
+     * @throws StorageException          When the record file name exceeds the filesystem limit or the
+     *                                   storage directory is not dedicated to deploy-task state
      */
     private function filePath(string $taskId, ?string $group): string
     {
+        $this->assertDedicatedStorageDir();
+
         $this->validateTaskId($taskId);
 
         if (null === $group) {

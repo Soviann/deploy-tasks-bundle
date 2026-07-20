@@ -16,6 +16,8 @@ soviann_deploy_tasks:
 
 Filesystem storage does not implement `TransactionalStorageInterface` and is inherently non-transactional — there is no `transaction_mode` key under `storage.filesystem`. Setting one fails at container build with Symfony's standard "Unrecognized option" error. Use `storage.type: database` (or a custom transactional backend) if you need transaction wrapping.
 
+The directory must be dedicated to deploy-task state: a path that contains a `composer.json` (e.g. `path: '%kernel.project_dir%'`) is refused with a `StorageException` — record files are named `<id>.json`, so operating on a project root would let `deploytasks:reset`/`rollup` treat files like `composer.json` as stale records and delete them.
+
 The directory is created automatically on the first write. Add it to `.gitignore`:
 
 ```

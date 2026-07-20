@@ -90,6 +90,40 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
         // can wrap mid-token on narrow terminals (see GOTCHAS).
         $flat = (string) \preg_replace('/\s+/', '', $tester->getDisplay());
         self::assertStringContainsString('ops/host-jobs/.gitkeep:created', $flat);
+        // The label must be exactly project-relative: no leading slash, no
+        // absolute-prefix remnant (kills the off-by-one and unwrap mutants
+        // on the substr() relativization).
+        self::assertStringNotContainsString('/ops/host-jobs/.gitkeep:created', $flat);
+
+        if ('/' === \DIRECTORY_SEPARATOR) {
+            // The scaffolded directory is world-listable like the default one.
+            FilesystemTestHelper::assertPermissions($this->tempProjectDir.'/ops/host-jobs', 0o755);
+        }
+    }
+
+    public function testInstallDoesNotMistakeAPrefixSiblingForTheProjectDir(): void
+    {
+        // "{projectDir}-adjacent" shares the string prefix but is OUTSIDE the
+        // project: the label must stay absolute. A prefix check without the
+        // trailing slash would mangle it into a fake relative path.
+        $siblingDir = $this->tempProjectDir.'-adjacent';
+
+        try {
+            self::useConfigurableKernel(
+                ['host' => ['directory' => $siblingDir]],
+                projectDir: $this->tempProjectDir,
+            );
+            self::bootKernel();
+
+            $tester = $this->runConsoleCommand('deploytasks:host:install');
+
+            self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+            self::assertFileExists($siblingDir.'/.gitkeep');
+            $flat = (string) \preg_replace('/\s+/', '', $tester->getDisplay());
+            self::assertStringContainsString($siblingDir.'/.gitkeep:created', $flat);
+        } finally {
+            FilesystemTestHelper::cleanup($siblingDir);
+        }
     }
 
     public function testInstallReportsAnAbsolutePathForAHostDirectoryOutsideTheProject(): void

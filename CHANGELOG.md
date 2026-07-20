@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Filesystem storage now refuses to operate on a directory containing a `composer.json` — a storage path misconfigured to the project root could otherwise let `deploytasks:reset`/`rollup` delete project files (`composer.json`, `package.json`, … match the record-name pattern). A dedicated state directory never contains one.
 - `deploytasks:reset` now strips terminal control bytes from a rejected `--group` value before echoing it back, so a malicious group name can no longer inject escape sequences into the operator's console.
 - Filesystem storage no longer recognizes record files whose name ends in a newline — the record-name pattern is anchored to the absolute end of the filename (`\z`), matching the trailing-newline hardening already applied to task ids and group names.
 
