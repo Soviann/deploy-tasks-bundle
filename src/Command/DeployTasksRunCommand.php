@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Soviann\DeployTasksBundle\Command;
 
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\Exception\AllOrNothingFailureException;
 use Soviann\DeployTasksBundle\Exception\TaskEnvironmentMismatchException;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
@@ -15,6 +16,8 @@ use Soviann\DeployTasksBundle\Runner\TaskRunner;
 use Soviann\DeployTasksBundle\TaskResult;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Completion\CompletionInput;
+use Symfony\Component\Console\Completion\CompletionSuggestions;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -32,6 +35,28 @@ final class DeployTasksRunCommand extends Command
         private readonly ?string $environment = null,
     ) {
         parent::__construct();
+    }
+
+    public function complete(CompletionInput $input, CompletionSuggestions $suggestions): void
+    {
+        if ($input->mustSuggestOptionValuesFor('id')) {
+            $suggestions->suggestValues(\array_keys($this->registry->allRegistered()));
+
+            return;
+        }
+
+        if ($input->mustSuggestOptionValuesFor('group')) {
+            $groups = [];
+            foreach ($this->registry->allRegistered() as $task) {
+                $declared = AsDeployTask::groupsOf($task);
+                if (null !== $declared) {
+                    foreach ($declared as $group) {
+                        $groups[$group] = true;
+                    }
+                }
+            }
+            $suggestions->suggestValues(\array_keys($groups));
+        }
     }
 
     protected function configure(): void

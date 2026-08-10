@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `ProcessRunnerTrait` now provides `runCommand()` to execute shell command strings or argument arrays directly without instantiating `Process` manually, as well as `quiet` (suppress streaming) and `outputPrefix` (line prefixing) options.
+- Shell autocompletion support (`Symfony\Component\Console\Completion`) for all `deploytasks:*` console commands (autocompleting task IDs, group names, status filters, and host tasks).
 
 ## [0.4.0] - 2026-07-20
 

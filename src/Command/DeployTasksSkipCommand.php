@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Psr\Clock\ClockInterface;
+use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\Exception\TaskGroupMismatchException;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Helper\SystemClock;
@@ -15,6 +16,8 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Storage\TaskStorageInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Completion\CompletionInput;
+use Symfony\Component\Console\Completion\CompletionSuggestions;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -36,6 +39,28 @@ final class DeployTasksSkipCommand extends Command
         private readonly ClockInterface $clock = new SystemClock(),
     ) {
         parent::__construct();
+    }
+
+    public function complete(CompletionInput $input, CompletionSuggestions $suggestions): void
+    {
+        if ($input->mustSuggestArgumentValuesFor('id')) {
+            $suggestions->suggestValues(\array_keys($this->registry->allRegistered()));
+
+            return;
+        }
+
+        if ($input->mustSuggestOptionValuesFor('group')) {
+            $groups = [];
+            foreach ($this->registry->allRegistered() as $task) {
+                $declared = AsDeployTask::groupsOf($task);
+                if (null !== $declared) {
+                    foreach ($declared as $group) {
+                        $groups[$group] = true;
+                    }
+                }
+            }
+            $suggestions->suggestValues(\array_keys($groups));
+        }
     }
 
     protected function configure(): void
