@@ -7,6 +7,8 @@ namespace Soviann\DeployTasksBundle\Command;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Completion\CompletionInput;
+use Symfony\Component\Console\Completion\CompletionSuggestions;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -28,6 +30,13 @@ final class DeployTasksResetHostCommand extends Command
         private readonly string $hostLockPath,
     ) {
         parent::__construct();
+    }
+
+    public function complete(CompletionInput $input, CompletionSuggestions $suggestions): void
+    {
+        if ($input->mustSuggestArgumentValuesFor('id') && \is_dir($this->hostTasksDir)) {
+            $suggestions->suggestValues($this->listHostTaskIds($this->hostTasksDir));
+        }
     }
 
     protected function configure(): void
