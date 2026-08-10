@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ProcessRunnerTrait` now provides `runCommand()` to execute shell command strings or argument arrays directly without instantiating `Process` manually, as well as `quiet` (suppress streaming) and `outputPrefix` (line prefixing) options.
+
 ## [0.4.0] - 2026-07-20
 
 ### Changed

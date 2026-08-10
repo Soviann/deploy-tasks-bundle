@@ -5,6 +5,23 @@ Migration notes for breaking changes, one section per release that ships any
 
 Everything user-visible, breaking or not, is tracked in `CHANGELOG.md`.
 
+## Upgrade to 0.5.0
+
+### What broke
+
+`ProcessRunnerTrait::runProcessWithTimeout()` was removed. `runProcess()` now accepts an optional `$timeout` parameter directly (`runProcess($process, $output, timeout: $seconds)`).
+
+### Before / after
+
+```diff
+-$this->runProcessWithTimeout($process, 30, $output);
++$this->runProcess($process, $output, timeout: 30);
+```
+
+### Migration
+
+Replace calls to `runProcessWithTimeout($process, $seconds, $output)` with `$this->runProcess($process, $output, timeout: $seconds)`.
+
 ## Upgrade to 0.3.0
 
 ### What broke
