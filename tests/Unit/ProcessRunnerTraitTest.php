@@ -31,6 +31,141 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('hello', $output->fetch());
     }
 
+    public function testRunCommandWithArrayExecutesSuccessfully(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(['php', '-r', 'echo "array cmd";'], $output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('array cmd', $output->fetch());
+    }
+
+    public function testRunCommandWithStringExecutesSuccessfully(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd('php -r "echo \'string cmd\';"', $output);
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertStringContainsString('string cmd', $output->fetch());
+    }
+
+    public function testRunCommandWithCwdAndEnv(): void
+    {
+        $output = self::createRawOutput();
+        $cwd = \sys_get_temp_dir();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'echo getcwd() . ":" . getenv("MY_VAR");'],
+            $output,
+            cwd: $cwd,
+            env: ['MY_VAR' => 'custom_val'],
+        );
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        $fetched = $output->fetch();
+        self::assertStringContainsString($cwd, $fetched);
+        self::assertStringContainsString('custom_val', $fetched);
+    }
+
+    public function testRunCommandWithTimeoutFailsWhenExceeded(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'sleep(5);'],
+            $output,
+            timeout: 1,
+        );
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        self::assertStringContainsString('timed out', $output->fetch());
+    }
+
+    public function testRunCommandWithNegativeTimeoutThrowsException(): void
+    {
+        $output = self::createRawOutput();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid timeout -3 in runProcess(): must be >= 0.');
+
+        self::createCaller()->runCmd(['php', '-r', 'echo 1;'], $output, timeout: -3);
+    }
+
+    public function testQuietModeSuppressesStreamingOutput(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'echo "silent out"; fwrite(STDERR, "silent err");'],
+            $output,
+            quiet: true,
+        );
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        self::assertSame('', $output->fetch());
+    }
+
+    public function testOutputPrefixPrependsToEachLine(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'echo "line1\nline2\n";'],
+            $output,
+            outputPrefix: '[LOG] ',
+        );
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        $fetched = $output->fetch();
+        self::assertStringContainsString("[LOG] line1\n[LOG] line2\n", $fetched);
+    }
+
+    public function testOutputPrefixHandlesMiddleLineChunksWithoutLineStart(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'echo "part1"; usleep(50000); echo "part2\n";'],
+            $output,
+            outputPrefix: '[LOG] ',
+        );
+
+        self::assertSame(TaskResult::SUCCESS, $result);
+        $fetched = $output->fetch();
+        self::assertStringContainsString('[LOG] part1part2', $fetched);
+    }
+
+    public function testQuietModeSuppressesFailureOutput(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'exit(1);'],
+            $output,
+            quiet: true,
+        );
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        self::assertSame('', $output->fetch());
+    }
+
+    public function testQuietModeSuppressesTimeoutOutput(): void
+    {
+        $output = self::createRawOutput();
+
+        $result = self::createCaller()->runCmd(
+            ['php', '-r', 'sleep(5);'],
+            $output,
+            timeout: 1,
+            quiet: true,
+        );
+
+        self::assertSame(TaskResult::FAILURE, $result);
+        self::assertSame('', $output->fetch());
+    }
+
     public function testNonzeroExitReturnsFailure(): void
     {
         $output = self::createRawOutput();
@@ -232,7 +367,7 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('<error>x</error>', $fetched, 'Formatter tags must render literally, not be interpreted.');
     }
 
-    public function testRunProcessWithTimeoutForwardsSecondsAndDelegates(): void
+    public function testRunProcessExplicitTimeoutForwardsSecondsAndDelegates(): void
     {
         $output = self::createRawOutput();
 
@@ -247,33 +382,30 @@ final class ProcessRunnerTraitTest extends TestCase
             }
         };
 
-        $caller = new ProcessRunnerTraitWithTimeoutCaller();
-        $result = $caller->invokeWithTimeout($process, 42, $output);
+        $result = self::createCaller()->invoke($process, $output, timeout: 42);
 
         self::assertSame(42, $process->capturedTimeout);
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertStringContainsString('ok', $output->fetch());
     }
 
-    public function testRunProcessWithTimeoutRejectsNegativeSeconds(): void
+    public function testRunProcessExplicitTimeoutRejectsNegativeSeconds(): void
     {
         $output = self::createRawOutput();
-        $caller = new ProcessRunnerTraitWithTimeoutCaller();
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid timeout -5 in runProcessWithTimeout(): must be >= 0.');
+        $this->expectExceptionMessage('Invalid timeout -5 in runProcess(): must be >= 0.');
 
-        $caller->invokeWithTimeout(new Process(['php', '-r', 'echo 1;']), -5, $output);
+        self::createCaller()->invoke(new Process(['php', '-r', 'echo 1;']), $output, timeout: -5);
     }
 
-    public function testRunProcessWithTimeoutAcceptsZero(): void
+    public function testRunProcessExplicitTimeoutAcceptsZero(): void
     {
         // 0 stays legal: it disables the hard timeout (Process normalizes 0.0 to
         // null), mirroring #[AsDeployTask(timeout: 0)]'s "no enforcement" meaning.
         $output = self::createRawOutput();
-        $caller = new ProcessRunnerTraitWithTimeoutCaller();
 
-        $result = $caller->invokeWithTimeout(new Process(['php', '-r', 'echo "ok";']), 0, $output);
+        $result = self::createCaller()->invoke(new Process(['php', '-r', 'echo "ok";']), $output, timeout: 0);
 
         self::assertSame(TaskResult::SUCCESS, $result);
         self::assertStringContainsString('ok', $output->fetch());
@@ -290,7 +422,7 @@ final class ProcessRunnerTraitTest extends TestCase
         self::assertStringContainsString('timed out', $output->fetch());
     }
 
-    public function testRunProcessWithTimeoutOverridesAttributeTimeout(): void
+    public function testRunProcessExplicitTimeoutOverridesAttributeTimeout(): void
     {
         $output = self::createRawOutput();
         $caller = new ProcessRunnerTraitAttributeTimeoutOverrideCaller();
@@ -340,22 +472,18 @@ final class ProcessRunnerTraitCaller
 {
     use ProcessRunnerTrait;
 
-    public function invoke(Process $process, OutputInterface $output): TaskResult
+    public function invoke(Process $process, OutputInterface $output, ?int $timeout = null, bool $quiet = false, ?string $outputPrefix = null): TaskResult
     {
-        return $this->runProcess($process, $output);
+        return $this->runProcess($process, $output, $timeout, $quiet, $outputPrefix);
     }
-}
 
-/**
- * @internal
- */
-final class ProcessRunnerTraitWithTimeoutCaller
-{
-    use ProcessRunnerTrait;
-
-    public function invokeWithTimeout(Process $process, int $seconds, OutputInterface $output): TaskResult
+    /**
+     * @param string|array<string>       $command
+     * @param array<string, string>|null $env
+     */
+    public function runCmd(string|array $command, OutputInterface $output, ?string $cwd = null, ?array $env = null, ?int $timeout = null, bool $quiet = false, ?string $outputPrefix = null): TaskResult
     {
-        return $this->runProcessWithTimeout($process, $seconds, $output);
+        return $this->runCommand($command, $output, $cwd, $env, $timeout, $quiet, $outputPrefix);
     }
 }
 
@@ -393,7 +521,7 @@ final class ProcessRunnerTraitAttributeTimeoutOverrideCaller implements DeployTa
 
     public function run(OutputInterface $output): TaskResult
     {
-        return $this->runProcessWithTimeout(new Process(['php', '-r', 'echo 1;']), 10, $output);
+        return $this->runProcess(new Process(['php', '-r', 'echo 1;']), $output, timeout: 10);
     }
 }
 

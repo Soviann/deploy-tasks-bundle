@@ -15,24 +15,36 @@ use Symfony\Component\Process\Process;
 /**
  * Optional helper for deploy tasks that shell out to external commands.
  *
- * Streams stdout/stderr to the task's OutputInterface, enforces the Process's
- * own timeout, and maps the outcome to a TaskResult.
+ * Streams stdout/stderr to the task's OutputInterface, enforces timeouts,
+ * and maps the outcome to a TaskResult.
  *
  * Timeout precedence: when the using class implements DeployTaskInterface and
  * declares `#[AsDeployTask(timeout: N)]` with N > 0, runProcess() sets the
- * Process's hard timeout to N, overriding any timeout already set on the
- * Process instance. `timeout: 0` (or no attribute) means the attribute has no
- * opinion on the hard timeout — the Process's own timeout, if any, is left
- * untouched. Use runProcessWithTimeout() to apply an explicit, different
- * limit — it bypasses attribute resolution entirely.
+ * Process's hard timeout to N if no explicit $timeout argument is passed.
+ * `timeout: 0` (or no attribute) leaves the Process's own timeout untouched.
  *
  * Requires symfony/process (listed under "suggest" in composer.json).
  */
 trait ProcessRunnerTrait
 {
-    protected function runProcess(Process $process, OutputInterface $output): TaskResult
+    /**
+     * Executes a Process instance, streaming stdout/stderr to $output.
+     *
+     * @param int|null    $timeout      Hard timeout in seconds; null uses attribute/Process default
+     * @param bool        $quiet        When true, suppresses streaming output to $output
+     * @param string|null $outputPrefix Prefix prepended to each streamed output line
+     *
+     * @throws \InvalidArgumentException When $timeout is negative
+     */
+    protected function runProcess(Process $process, OutputInterface $output, ?int $timeout = null, bool $quiet = false, ?string $outputPrefix = null): TaskResult
     {
-        if ($this instanceof DeployTaskInterface) {
+        if (null !== $timeout) {
+            if ($timeout < 0) {
+                throw new \InvalidArgumentException(\sprintf('Invalid timeout %d in runProcess(): must be >= 0.', $timeout));
+            }
+
+            $process->setTimeout((float) $timeout);
+        } elseif ($this instanceof DeployTaskInterface) {
             $attributeTimeout = AsDeployTask::timeoutOf($this);
 
             if (null !== $attributeTimeout && $attributeTimeout > 0) {
@@ -40,36 +52,66 @@ trait ProcessRunnerTrait
             }
         }
 
-        return $this->doRunProcess($process, $output);
+        return $this->doRunProcess($process, $output, $quiet, $outputPrefix);
     }
 
     /**
-     * @param int $seconds Hard timeout in seconds; 0 disables it. Must be >= 0.
+     * Executes a command specified as a string or array of arguments.
      *
-     * @throws \InvalidArgumentException When $seconds is negative
+     * @param string|array<string>       $command      Command line string or array of arguments
+     * @param array<string, string>|null $env          Environment variables
+     * @param int|null                   $timeout      Hard timeout in seconds; null uses attribute/Process default
+     * @param bool                       $quiet        When true, suppresses streaming output to $output
+     * @param string|null                $outputPrefix Prefix prepended to each streamed output line
+     *
+     * @throws \InvalidArgumentException When $timeout is negative
      */
-    protected function runProcessWithTimeout(
-        Process $process,
-        int $seconds,
-        OutputInterface $output,
-    ): TaskResult {
-        if ($seconds < 0) {
-            throw new \InvalidArgumentException(\sprintf('Invalid timeout %d in runProcessWithTimeout(): must be >= 0.', $seconds));
-        }
+    protected function runCommand(string|array $command, OutputInterface $output, ?string $cwd = null, ?array $env = null, ?int $timeout = null, bool $quiet = false, ?string $outputPrefix = null): TaskResult
+    {
+        $process = \is_string($command)
+            ? Process::fromShellCommandline($command, $cwd, $env)
+            : new Process($command, $cwd, $env);
 
-        $process->setTimeout($seconds);
-
-        return $this->doRunProcess($process, $output);
+        return $this->runProcess($process, $output, $timeout, $quiet, $outputPrefix);
     }
 
-    private function doRunProcess(Process $process, OutputInterface $output): TaskResult
+    private function doRunProcess(Process $process, OutputInterface $output, bool $quiet = false, ?string $outputPrefix = null): TaskResult
     {
+        $atLineStart = true;
+
         try {
-            $exitCode = $process->run(static function (string $type, string $buffer) use ($output): void {
-                // Child output is untrusted (it can embed attacker-influenced data):
-                // strip control bytes and escape formatter tags before the terminal —
-                // the same ConsoleSanitizer discipline as every other untrusted path.
+            $exitCode = $process->run(static function (string $type, string $buffer) use ($output, $quiet, $outputPrefix, &$atLineStart): void {
+                if ($quiet) {
+                    return;
+                }
+
                 $sanitized = ConsoleSanitizer::sanitizeForFormatter($buffer);
+
+                if (null !== $outputPrefix && '' !== $outputPrefix) {
+                    $prefixSanitized = ConsoleSanitizer::sanitizeForFormatter($outputPrefix);
+                    $lines = \explode("\n", $sanitized);
+                    $count = \count($lines);
+                    $formattedLines = [];
+
+                    for ($i = 0; $i < $count; ++$i) {
+                        if ($i > 0) {
+                            $atLineStart = true;
+                        }
+
+                        if ($i < $count - 1 || '' !== $lines[$i]) {
+                            if ($atLineStart) {
+                                $formattedLines[] = $prefixSanitized.$lines[$i];
+                                $atLineStart = false;
+                            } else {
+                                $formattedLines[] = $lines[$i];
+                            }
+                        } else {
+                            $formattedLines[] = '';
+                        }
+                    }
+
+                    $sanitized = \implode("\n", $formattedLines);
+                }
 
                 if (Process::ERR === $type) {
                     $output->write(\sprintf('<error>%s</error>', $sanitized));
@@ -78,25 +120,29 @@ trait ProcessRunnerTrait
                 }
             });
         } catch (ProcessTimedOutException $e) {
-            // getExceededTimeout() reports the limit that actually fired (hard or
-            // idle) — getTimeout() is null for idle-only timeouts, misreporting "0s".
-            $output->writeln(\sprintf(
-                '<error>Process timed out after %ss.</error>',
-                $e->getExceededTimeout() ?? '0',
-            ));
+            if (!$quiet) {
+                $output->writeln(\sprintf(
+                    '<error>Process timed out after %ss.</error>',
+                    $e->getExceededTimeout() ?? '0',
+                ));
+            }
 
             return TaskResult::FAILURE;
         } catch (ProcessExceptionInterface $e) {
-            $output->writeln(\sprintf(
-                '<error>Process error: %s</error>',
-                ConsoleSanitizer::sanitizeForFormatter($e->getMessage()),
-            ));
+            if (!$quiet) {
+                $output->writeln(\sprintf(
+                    '<error>Process error: %s</error>',
+                    ConsoleSanitizer::sanitizeForFormatter($e->getMessage()),
+                ));
+            }
 
             return TaskResult::FAILURE;
         }
 
         if (0 !== $exitCode) {
-            $output->writeln(\sprintf('<error>Process exited with code %d.</error>', $exitCode));
+            if (!$quiet) {
+                $output->writeln(\sprintf('<error>Process exited with code %d.</error>', $exitCode));
+            }
 
             return TaskResult::FAILURE;
         }

@@ -148,7 +148,7 @@ Container-scope tasks (the default) run through the Symfony kernel and are the r
 
 ## Running shell commands
 
-Tasks that shell out to external binaries (asset builds, `rsync`, CLI migrations) can opt into the `ProcessRunnerTrait`. It wraps `symfony/process` to stream stdout/stderr, enforce a per-call timeout, and map the outcome to a `TaskResult`.
+Tasks that shell out to external binaries (asset builds, `rsync`, CLI migrations) can opt into the `ProcessRunnerTrait`. It wraps `symfony/process` to stream stdout/stderr, enforce timeouts, and map the outcome to a `TaskResult`.
 
 Install the soft dependency first:
 
@@ -178,18 +178,25 @@ final class BuildAssetsTask implements DeployTaskInterface
 
     public function run(OutputInterface $output): TaskResult
     {
-        return $this->runProcess(
-            new Process(['npm', 'run', 'build'], cwd: __DIR__.'/../../assets'),
-            $output,
-        );
+        // Option A: Execute a command directly (string or array of arguments):
+        $result = $this->runCommand(['npm', 'run', 'build'], $output, cwd: __DIR__.'/../../assets');
+        if (TaskResult::SUCCESS !== $result) {
+            return $result;
+        }
+
+        // Option B: Pass a custom Process instance when specialized configuration is needed:
+        $process = new Process(['npm', 'run', 'postbuild'], cwd: __DIR__.'/../../assets');
+
+        return $this->runProcess($process, $output);
     }
 }
 ```
 
 Behavior notes:
 
-- **You own the `Process` instance** — use array-form commands to avoid shell parsing, or `Process::fromShellCommandline()` if you deliberately need shell features.
-- **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()`, but only when `N > 0` — in that case it overrides any timeout already set on the `Process` instance. When the attribute timeout is `null` or `0`, `runProcess()` leaves the `Process`'s own timeout untouched (see the trap below). Use `runProcessWithTimeout()` to apply a different explicit limit per call.
+- **Direct command helper (`runCommand`) or custom `Process` (`runProcess`)**: Use `$this->runCommand(['npm', 'run', 'build'], $output)` to run commands without instantiating `Process` manually. Pass a `Process` instance to `$this->runProcess($process, $output)` if you need custom process configuration.
+- **`#[AsDeployTask(timeout: N)]` is applied automatically** as the `Process`'s hard timeout by `runProcess()` and `runCommand()`, but only when `N > 0` — in that case it overrides any default timeout. When the attribute timeout is `null` or `0`, the `Process`'s own timeout is left untouched. Pass `timeout: N` to `runProcess()` or `runCommand()` to apply an explicit limit.
+- **Options (`quiet`, `outputPrefix`, `cwd`, `env`)**: Set `quiet: true` to suppress streaming output while evaluating return status, or `outputPrefix: '[assets] '` to prefix each output line.
 - **stdout streams as-is**; **stderr is wrapped in `<error>…</error>`** tags so the runner's styling applies.
 - **Non-zero exit or timeout → `TaskResult::FAILURE`.** Any `ProcessExceptionInterface` (e.g. invalid cwd, unstartable process) is also mapped to `FAILURE` with an error message.
 - **A hard-killed process is recorded as a plain failure.** The runner's [slow-task warning](advanced.md#slow-task-threshold) is a separate mechanism: it fires only for tasks that run to completion, and never kills anything.
