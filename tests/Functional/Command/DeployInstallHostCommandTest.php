@@ -66,7 +66,7 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
 
         self::assertFileExists($this->gitignorePath);
         $gitignore = (string) \file_get_contents($this->gitignorePath);
-        self::assertStringContainsString(self::GITIGNORE_BLOCK, $gitignore);
+        self::assertSame(self::GITIGNORE_BLOCK."\n", $gitignore);
         self::assertSame(1, \substr_count($gitignore, '###> soviann/deploy-tasks-bundle ###'));
     }
 
@@ -227,7 +227,7 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
         self::assertSame(1, \substr_count($rewritten, '###> soviann/deploy-tasks-bundle ###'));
     }
 
-    public function testForeignGitignoreContentIsPreserved(): void
+    public function testForeignGitignoreContentWithTrailingNewlineIsPreserved(): void
     {
         \file_put_contents($this->gitignorePath, "/vendor/\n/var/\n");
 
@@ -235,8 +235,29 @@ final class DeployInstallHostCommandTest extends FunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         $gitignore = (string) \file_get_contents($this->gitignorePath);
-        self::assertStringStartsWith("/vendor/\n/var/\n", $gitignore);
-        self::assertStringContainsString(self::GITIGNORE_BLOCK, $gitignore);
+        self::assertSame("/vendor/\n/var/\n\n".self::GITIGNORE_BLOCK."\n", $gitignore);
+    }
+
+    public function testForeignGitignoreContentWithoutTrailingNewlineIsSeparatedByDoubleNewline(): void
+    {
+        \file_put_contents($this->gitignorePath, "/vendor/\n/var");
+
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        $gitignore = (string) \file_get_contents($this->gitignorePath);
+        self::assertSame("/vendor/\n/var\n\n".self::GITIGNORE_BLOCK."\n", $gitignore);
+    }
+
+    public function testEmptyForeignGitignoreIsPopulatedDirectly(): void
+    {
+        \file_put_contents($this->gitignorePath, '');
+
+        $tester = $this->runConsoleCommand('deploytasks:host:install');
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        $gitignore = (string) \file_get_contents($this->gitignorePath);
+        self::assertSame(self::GITIGNORE_BLOCK."\n", $gitignore);
     }
 
     public function testReadonlyBinDirectoryFailsWithIoError(): void
