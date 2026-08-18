@@ -26,7 +26,8 @@ final class DeployTasksCreateSchemaCommandUnitTest extends TestCase
         $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('Storage schema was created.', $tester->getDisplay());
+        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Storage schema was created.', $display);
     }
 
     public function testExecuteWithConfigButNullConnection(): void
@@ -41,8 +42,9 @@ final class DeployTasksCreateSchemaCommandUnitTest extends TestCase
         $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('Storage schema was created.', $tester->getDisplay());
-        self::assertStringNotContainsString('Storage table', $tester->getDisplay());
+        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Storage schema was created.', $display);
+        self::assertStringNotContainsString('Storage table', $display);
     }
 
     public function testExecuteWithNullConfigButConnectionName(): void
@@ -56,8 +58,9 @@ final class DeployTasksCreateSchemaCommandUnitTest extends TestCase
         $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('Storage schema was created.', $tester->getDisplay());
-        self::assertStringNotContainsString('Storage table', $tester->getDisplay());
+        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Storage schema was created.', $display);
+        self::assertStringNotContainsString('Storage table', $display);
     }
 
     public function testExecuteWithBothConfigAndConnectionName(): void
@@ -72,8 +75,9 @@ final class DeployTasksCreateSchemaCommandUnitTest extends TestCase
         $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('Storage table "deploy_task_executions"', $tester->getDisplay());
-        self::assertStringContainsString('was created on my_conn.', $tester->getDisplay());
+        $display = (string) \preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Storage table "deploy_task_executions"', $display);
+        self::assertStringContainsString('was created on my_conn.', $display);
     }
 
     public function testExecuteDumpSqlOption(): void
