@@ -123,6 +123,24 @@ final class DeployCompletionTest extends FunctionalTestCase
         (new Filesystem())->remove($hostTasksDir);
     }
 
+    public function testCompletionNegativeCasesAndNonExistentHostDir(): void
+    {
+        $runCommand = $this->application->find('deploytasks:run');
+        $statusCommand = $this->application->find('deploytasks:status');
+        $rollupCommand = $this->application->find('deploytasks:rollup');
+
+        self::assertEmpty($this->getCompletionSuggestions($runCommand, 'deploytasks:run --unknown-option='));
+        self::assertEmpty($this->getCompletionSuggestions($statusCommand, 'deploytasks:status --unknown-option='));
+        self::assertEmpty($this->getCompletionSuggestions($rollupCommand, 'deploytasks:rollup --unknown-option='));
+
+        $nonExistentDir = \sys_get_temp_dir().'/non_existent_host_dir_'.\uniqid();
+        $skipHostCommand = new DeployTasksSkipHostCommand($nonExistentDir, $nonExistentDir.'/log', $nonExistentDir.'/lock');
+        $resetHostCommand = new DeployTasksResetHostCommand($nonExistentDir, $nonExistentDir.'/log', $nonExistentDir.'/lock');
+
+        self::assertEmpty($this->getCompletionSuggestions($skipHostCommand, 'deploytasks:host:skip '));
+        self::assertEmpty($this->getCompletionSuggestions($resetHostCommand, 'deploytasks:host:reset '));
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

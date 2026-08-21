@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksCreateSchemaCommand;
+use Soviann\DeployTasksBundle\Storage\SchemaManageableInterface;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
 use Soviann\DeployTasksBundle\Tests\Functional\FunctionalTestCase;
@@ -113,5 +114,18 @@ final class DeployCreateSchemaCommandTest extends FunctionalTestCase
         self::assertNotNull($retrieved);
         self::assertSame('test.roundtrip', $retrieved->id);
         self::assertSame(TaskStatus::Ran, $retrieved->status);
+    }
+
+    public function testCreateSchemaWhenOnePropertyIsNullEmitsGenericInfoMessage(): void
+    {
+        $storage = $this->storage();
+        self::assertInstanceOf(SchemaManageableInterface::class, $storage);
+
+        $command = new DeployTasksCreateSchemaCommand($storage, null, 'default');
+        $tester = new CommandTester($command);
+
+        $tester->execute([]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('Storage schema was created.', $tester->getDisplay());
     }
 }
