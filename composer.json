@@ -14,7 +14,17 @@
         "issues": "https://github.com/Soviann/deploy-tasks-bundle/issues",
         "source": "https://github.com/Soviann/deploy-tasks-bundle"
     },
-    "keywords": ["symfony", "deploy", "tasks", "migration", "bundle"],
+    "keywords": [
+        "symfony",
+        "symfony-bundle",
+        "deploy",
+        "deployment",
+        "deploy-tasks",
+        "tasks",
+        "migration",
+        "data-migration",
+        "bundle"
+    ],
     "require": {
         "php": ">=8.2",
         "psr/clock": "^1.0",
