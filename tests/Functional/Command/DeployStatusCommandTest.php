@@ -795,6 +795,267 @@ final class DeployStatusCommandTest extends FunctionalTestCase
         }
     }
 
+    // --- Orphaned task detection ---
+
+    public function testStatusWithoutOrphanedRecordsDoesNotDisplayOrphanedSection(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringNotContainsString('Orphaned tasks', $display);
+        self::assertStringNotContainsString('do not match any registered task', $display);
+    }
+
+    public function testStatusDisplaysOrphanedTaskSectionWhenStorageContainsUnknownTaskId(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('task_20250101_deleted', TaskStatus::Ran, new \DateTimeImmutable('2025-01-01 12:00:00'), durationMs: 42));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertMatchesRegularExpression('/1 task execution record\(s\) in storage do not match any registered/s', $display);
+        self::assertStringContainsString('Orphaned tasks', $display);
+        self::assertMatchesRegularExpression('/ID\s+Group\s+Status\s+Error\s+Executed At\s+Duration/', $display);
+        self::assertStringContainsString('task_20250101_deleted', $display);
+        self::assertStringContainsString('ran', $display);
+        self::assertStringContainsString('2025-01-01 12:00:00', $display);
+        self::assertStringContainsString('42ms', $display);
+    }
+
+    public function testStatusDisplaysOrphanedTaskSectionWhenTaskHasUndeclaredGroupSlot(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        // test.simple only has default slot (null group); a record with group 'old_slot' is orphaned
+        $storage->save(new TaskExecution('test.simple', TaskStatus::Ran, new \DateTimeImmutable(), group: 'old_slot'));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Orphaned tasks', $display);
+        self::assertStringContainsString('old_slot', $display);
+    }
+
+    public function testShowOrphanedOptionRendersOnlyOrphanedTable(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('orphaned_task_a', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute(['--show-orphaned' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('orphaned_task_a', $display);
+        self::assertStringContainsString('1 orphaned execution(s) displayed.', $display);
+        self::assertStringNotContainsString('task(s) registered', $display);
+        self::assertStringNotContainsString('test.simple', $display);
+        self::assertStringNotContainsString('Host tasks', $display);
+        self::assertStringNotContainsString('[WARNING]', $display);
+        self::assertMatchesRegularExpression("/\n\n[0-9]+ orphaned execution\(s\) displayed\./", $display);
+    }
+
+    public function testShowOrphanedWhenNoOrphanedTasksExist(): void
+    {
+        $this->tester->execute(['--show-orphaned' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('No orphaned task execution records found in storage.', $display);
+        self::assertStringNotContainsString('task(s) registered', $display);
+        self::assertStringNotContainsString('test.simple', $display);
+        self::assertStringNotContainsString('Orphaned tasks', $display);
+        self::assertStringNotContainsString('orphaned execution(s) displayed', $display);
+    }
+
+    public function testShowOrphanedIncompatibleWithNoState(): void
+    {
+        $this->tester->execute(['--show-orphaned' => true, '--no-state' => true]);
+
+        self::assertSame(Command::INVALID, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('Cannot combine --show-orphaned with --no-state', $display);
+    }
+
+    public function testNoStateSuppressesOrphanedSection(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('orphaned_task_a', TaskStatus::Ran, new \DateTimeImmutable()));
+
+        $this->tester->execute(['--no-state' => true]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringNotContainsString('Orphaned tasks', $display);
+        self::assertStringNotContainsString('orphaned_task_a', $display);
+    }
+
+    public function testGroupFilterAppliesToOrphanedTable(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('orphaned_other', TaskStatus::Ran, new \DateTimeImmutable(), group: 'other'));
+        $storage->save(new TaskExecution('orphaned_prod', TaskStatus::Ran, new \DateTimeImmutable(), group: 'prod'));
+        $storage->save(new TaskExecution('orphaned_staging', TaskStatus::Ran, new \DateTimeImmutable(), group: 'staging'));
+
+        $this->tester->execute(['--group' => ['prod']]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('orphaned_prod', $display);
+        self::assertStringNotContainsString('orphaned_other', $display);
+        self::assertStringNotContainsString('orphaned_staging', $display);
+    }
+
+    public function testFilterStatusAppliesToOrphanedTable(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        // orphaned_a_ran must be alphabetically before orphaned_z_failed so a break on mismatch skips the latter
+        $storage->save(new TaskExecution('orphaned_a_ran', TaskStatus::Ran, new \DateTimeImmutable()));
+        $storage->save(new TaskExecution('orphaned_z_failed', TaskStatus::Failed, new \DateTimeImmutable(), 'error msg'));
+        $storage->save(new TaskExecution('orphaned_z_skipped', TaskStatus::Skipped, new \DateTimeImmutable()));
+
+        $this->tester->execute(['--filter-status' => 'FAILED']);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('orphaned_z_failed', $display);
+        self::assertStringNotContainsString('orphaned_a_ran', $display);
+        self::assertStringNotContainsString('orphaned_z_skipped', $display);
+
+        // PENDING filter excludes all orphaned storage records
+        $this->tester->execute(['--filter-status' => 'PENDING']);
+        self::assertStringNotContainsString('Orphaned tasks', $this->tester->getDisplay());
+    }
+
+    public function testOrphanedFailedTaskTruncatesAndSanitizesError(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $longError = \str_repeat('Orphaned error message to truncate. ', 5);
+        $storage->save(new TaskExecution('orphaned_failed', TaskStatus::Failed, new \DateTimeImmutable(), $longError."\x1b[2J"));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('orphaned_failed', $display);
+        self::assertStringContainsString('…', $display);
+        self::assertStringNotContainsString("\x1b", $display);
+    }
+
+    public function testNonFailedOrphanedTaskDoesNotRenderErrorText(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $storage->save(new TaskExecution('orphaned_ran_corrupt', TaskStatus::Ran, new \DateTimeImmutable(), error: 'residual error'));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        self::assertStringContainsString('orphaned_ran_corrupt', $display);
+        self::assertStringNotContainsString('residual error', $display);
+    }
+
+    public function testStatusOrphanedTasksSorting(): void
+    {
+        $storage = self::getContainer()->get(TaskStorageInterface::class);
+        \assert($storage instanceof TaskStorageInterface);
+
+        $now = new \DateTimeImmutable();
+        $storage->save(new TaskExecution('sort_z', TaskStatus::Ran, $now));
+        $storage->save(new TaskExecution('sort_a', TaskStatus::Ran, $now, group: 'beta'));
+        $storage->save(new TaskExecution('sort_a', TaskStatus::Ran, $now, group: 'alpha'));
+        $storage->save(new TaskExecution('sort_a', TaskStatus::Ran, $now));
+
+        $this->tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $this->tester->getStatusCode());
+        $display = $this->tester->getDisplay();
+        // default slot (null) sorts before named groups, and groups sort alphabetically
+        self::assertMatchesRegularExpression(
+            '/\bsort_a\b[^\n]*—.*?\bsort_a\b[^\n]*alpha.*?\bsort_a\b[^\n]*beta.*?\bsort_z\b[^\n]*—/s',
+            $display,
+        );
+    }
+
+    public function testHostTasksDetectsOrphanedCompletionLogEntries(): void
+    {
+        $projectDir = FilesystemTestHelper::tempDir('deploy-tasks-status-host-');
+        $hostDir = $projectDir.'/deploy/host-tasks';
+        \mkdir($hostDir, 0o755, true);
+        \touch($hostDir.'/active.sh');
+        // 'deleted_script' was logged as done, but its .sh file no longer exists
+        \file_put_contents($projectDir.'/.deploy-tasks-host.log', "active\nz_orphaned\na_orphaned\n");
+
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            $exitCode = $tester->execute([]);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            $display = $tester->getDisplay();
+            self::assertStringContainsString('Host tasks', $display);
+            self::assertMatchesRegularExpression('/ID\s+Status/', $display);
+            self::assertStringContainsString('From ', $display);
+            self::assertStringContainsString('/deploy/host-tasks:', $display);
+            self::assertSame(1, \substr_count($display, 'active'));
+            self::assertMatchesRegularExpression('/\bactive\b[^\n]*done\b(?!\s*\(orphaned\)).*?\ba_orphaned\b[^\n]*done \(orphaned\).*?\bz_orphaned\b[^\n]*done \(orphaned\)/s', $display);
+
+            // Pending-only filter skips done and orphaned
+            $tester->execute(['--filter-status' => 'PENDING']);
+            self::assertStringNotContainsString('a_orphaned', $tester->getDisplay());
+            self::assertStringNotContainsString('z_orphaned', $tester->getDisplay());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
+    public function testHostSectionOmittedWhenHostTasksDirectoryIsEmpty(): void
+    {
+        $projectDir = FilesystemTestHelper::tempDir('deploy-tasks-status-host-empty-');
+        $hostDir = $projectDir.'/deploy/host-tasks';
+        \mkdir($hostDir, 0o755, true);
+
+        $tester = new CommandTester(
+            (new Application(HostTasksKernelFactory::boot($projectDir)))->find('deploytasks:status'),
+        );
+
+        try {
+            $exitCode = $tester->execute([]);
+
+            self::assertSame(Command::SUCCESS, $exitCode);
+            self::assertStringNotContainsString('Host tasks', $tester->getDisplay());
+        } finally {
+            FilesystemTestHelper::cleanup($projectDir);
+            HostTasksKernelFactory::cleanupAll();
+        }
+    }
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;

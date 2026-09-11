@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Command;
 
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
+use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
 use Soviann\DeployTasksBundle\Helper\HostRunnerConfig;
 use Soviann\DeployTasksBundle\Identifier\TaskDescriptionResolver;
@@ -92,10 +93,20 @@ final class DeployTasksStatusCommand extends Command
                 InputOption::VALUE_REQUIRED,
                 'Comma-separated list of statuses to display (RAN, FAILED, SKIPPED, PENDING — case-insensitive). Incompatible with --no-state.',
             )
+            ->addOption(
+                'show-orphaned',
+                null,
+                InputOption::VALUE_NONE,
+                'Only display orphaned task execution records in storage that no longer exist in the codebase.',
+            )
             ->setHelp(<<<'EOT'
                 The <info>%command.name%</info> command displays a table of all registered deploy tasks and their current execution state:
 
                     <info>%command.full_name%</info>
+
+                To inspect only orphaned execution records in storage:
+
+                    <info>%command.full_name% --show-orphaned</info>
 
                 A task declared in multiple groups appears on one row per slot it belongs to.
                 Ungrouped tasks use the default slot (shown as "—" in the Group column).
@@ -126,6 +137,13 @@ final class DeployTasksStatusCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $noState = (bool) $input->getOption('no-state');
+        $showOrphaned = (bool) $input->getOption('show-orphaned');
+
+        if ($showOrphaned && $noState) {
+            $io->error('Cannot combine --show-orphaned with --no-state: orphaned tasks are execution records with no registered definition.');
+
+            return Command::INVALID;
+        }
 
         /** @var list<string> $groupFilter */
         $groupFilter = \array_values((array) $input->getOption('group'));
@@ -139,7 +157,36 @@ final class DeployTasksStatusCommand extends Command
         }
 
         $tasks = $this->registry->allRegistered();
-        $executions = $this->indexExecutions();
+        $partition = $this->partitionExecutions($tasks);
+        $executions = $partition['active'];
+        $orphanedExecutions = $partition['orphaned'];
+
+        $filteredOrphaned = [];
+        foreach ($orphanedExecutions as $execution) {
+            if ([] !== $groupFilter && (null === $execution->group || !\in_array($execution->group, $groupFilter, true))) {
+                continue;
+            }
+
+            if ([] !== $filterStatus && !$this->matchesStatusFilter($execution, $filterStatus)) {
+                continue;
+            }
+
+            $filteredOrphaned[] = $execution;
+        }
+
+        if ($showOrphaned) {
+            if ([] === $filteredOrphaned) {
+                $io->note('No orphaned task execution records found in storage.');
+
+                return Command::SUCCESS;
+            }
+
+            $this->renderOrphanedTasks($io, $filteredOrphaned, withWarning: false);
+            $io->newLine();
+            $io->writeln(\sprintf('%d orphaned execution(s) displayed.', \count($filteredOrphaned)));
+
+            return Command::SUCCESS;
+        }
 
         $headers = $noState
             ? ['ID', 'Group', 'Description']
@@ -174,6 +221,10 @@ final class DeployTasksStatusCommand extends Command
         $table->render();
         $io->newLine();
         $io->writeln(\sprintf('%d task(s) registered, %d slot(s) displayed.', \count($tasks), \count($rows)));
+
+        if (!$noState && [] !== $filteredOrphaned) {
+            $this->renderOrphanedTasks($io, $filteredOrphaned, withWarning: true);
+        }
 
         $this->renderHostTasks($io, $noState, $groupFilter, $filterStatus);
 
@@ -250,9 +301,11 @@ final class DeployTasksStatusCommand extends Command
         }
 
         $done = \array_flip($this->readHostLog($this->hostLogPath));
+        $scriptIds = $this->listHostTaskIds($this->hostTasksDir);
+        $scriptIdMap = \array_flip($scriptIds);
 
         $rows = [];
-        foreach ($this->listHostTaskIds($this->hostTasksDir) as $id) {
+        foreach ($scriptIds as $id) {
             $isDone = isset($done[$id]);
 
             if ($pendingOnly && $isDone) {
@@ -265,6 +318,23 @@ final class DeployTasksStatusCommand extends Command
                 ConsoleSanitizer::sanitizeForFormatter($id),
                 $isDone ? '<info>done</info>' : '<comment>pending</comment>',
             ];
+        }
+
+        if (!$pendingOnly) {
+            $orphanedHostIds = [];
+            foreach (\array_keys($done) as $id) {
+                if (!isset($scriptIdMap[$id])) {
+                    $orphanedHostIds[] = $id;
+                }
+            }
+            \sort($orphanedHostIds);
+
+            foreach ($orphanedHostIds as $id) {
+                $rows[] = [
+                    ConsoleSanitizer::sanitizeForFormatter($id),
+                    '<comment>done (orphaned)</comment>',
+                ];
+            }
         }
 
         if ([] === $rows) {
@@ -281,17 +351,83 @@ final class DeployTasksStatusCommand extends Command
     }
 
     /**
-     * @return array<string, TaskExecution>
+     * @param list<TaskExecution> $orphaned
      */
-    private function indexExecutions(): array
+    private function renderOrphanedTasks(SymfonyStyle $io, array $orphaned, bool $withWarning): void
     {
-        $index = [];
-
-        foreach ($this->storage->all() as $execution) {
-            $index[TaskExecution::slotKey($execution->id, $execution->group)] = $execution;
+        if ($withWarning) {
+            $io->warning(\sprintf(
+                '%d task execution record(s) in storage do not match any registered task in the codebase.',
+                \count($orphaned),
+            ));
         }
 
-        return $index;
+        $io->section('Orphaned tasks');
+
+        $headers = ['ID', 'Group', 'Status', 'Error', 'Executed At', 'Duration'];
+        $rows = [];
+
+        foreach ($orphaned as $execution) {
+            $status = CommandMessages::statusTag($execution->status);
+
+            $errorCell = TaskStatus::Failed === $execution->status && null !== $execution->error
+                ? u(ConsoleSanitizer::sanitizeForFormatter($execution->error))
+                    ->truncate(self::ERROR_COLUMN_MAX_WIDTH, '…')
+                    ->toString()
+                : '';
+
+            $durationCell = null === $execution->durationMs ? '' : CommandMessages::formatDuration($execution->durationMs);
+
+            $rows[] = [
+                ConsoleSanitizer::sanitizeForFormatter($execution->id),
+                $execution->group ?? self::DEFAULT_SLOT_LABEL,
+                $status,
+                $errorCell,
+                $execution->executedAt->format('Y-m-d H:i:s'),
+                $durationCell,
+            ];
+        }
+
+        $table = $io->createTable();
+        $table->setHeaders($headers);
+        $table->setRows($rows);
+        $table->setColumnMaxWidth(3, self::ERROR_COLUMN_MAX_WIDTH);
+        $table->render();
+    }
+
+    /**
+     * @param array<string, DeployTaskInterface> $tasks
+     *
+     * @return array{active: array<string, TaskExecution>, orphaned: list<TaskExecution>}
+     */
+    private function partitionExecutions(array $tasks): array
+    {
+        $activeSlotKeys = [];
+        foreach ($tasks as $id => $task) {
+            $declared = AsDeployTask::groupsOf($task);
+            $slots = null === $declared ? [null] : $declared;
+
+            foreach ($slots as $slot) {
+                $activeSlotKeys[TaskExecution::slotKey($id, $slot)] = true;
+            }
+        }
+
+        $active = [];
+        $orphaned = [];
+
+        foreach ($this->storage->all() as $execution) {
+            $key = TaskExecution::slotKey($execution->id, $execution->group);
+            if ($activeSlotKeys[$key] ?? false) {
+                $active[$key] = $execution;
+            } else {
+                $orphaned[] = $execution;
+            }
+        }
+
+        \usort($orphaned, static fn (TaskExecution $a, TaskExecution $b): int => [$a->id, null !== $a->group, $a->group, $a->executedAt] <=> [$b->id, null !== $b->group, $b->group, $b->executedAt]
+        );
+
+        return ['active' => $active, 'orphaned' => $orphaned];
     }
 
     /**
