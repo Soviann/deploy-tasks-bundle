@@ -60,6 +60,7 @@ bin/console deploytasks:status --group=predeploy --group=postdeploy
 | `--no-state` | Show only task IDs and descriptions; omit execution state (useful for scripting) |
 | `--group=<name>` | Only display rows for the given group slot(s); repeatable. Without this flag, every slot's rows are shown — the default slot and every declared group. |
 | `--filter-status=<list>` | Comma-separated statuses to display (`RAN`, `FAILED`, `SKIPPED`, `PENDING` — case-insensitive). Rejected when combined with `--no-state`. Failed slots are retried on the next run — use `PENDING,FAILED` to list everything the next `deploytasks:run` will execute (or `deploytasks:run --dry-run` for the authoritative preview). |
+| `--show-orphaned` | Only display orphaned task execution records in storage that no longer exist in the codebase. Incompatible with `--no-state`. |
 
 Multi-group tasks are displayed once per declared slot. The `Group` column shows the slot name; the default slot is rendered as `—`.
 
@@ -71,6 +72,8 @@ Multi-group tasks are displayed once per declared slot. The `Group` column shows
 | `ran` | Executed successfully |
 | `failed` | Execution failed; will be retried on the next `deploytasks:run` |
 | `skipped` | Manually marked as skipped via `deploytasks:skip` (a task returning `TaskResult::SKIPPED` records nothing — its slot stays `pending`) |
+
+**Orphaned tasks:** when execution records exist in storage for tasks or group slots that are no longer present in the codebase (e.g. after a task class was deleted or renamed), a warning banner and a dedicated "Orphaned tasks" table are displayed automatically below the registered tasks table. Use `--show-orphaned` to bypass registered tasks and inspect only orphaned records. Stored error messages in failed orphaned records are truncated and sanitized. Host tasks recorded in the completion log whose script file no longer exists in `host.directory` are surfaced with status `done (orphaned)`.
 
 **Host tasks:** when the `host.directory` config path exists and contains at least one `*.sh` script, a separate "Host tasks" section is appended listing each script as `done` or `pending`. This is a read-only view onto [host-scope tasks](host-tasks.md) — `done` means the script's basename appears as a full line in the host runner's completion log (`host.log_path`), mirroring `bin/deploy-tasks-host.sh`'s own `grep -Fxq` check. The section is omitted entirely when the host directory doesn't exist. See [host-tasks.md](host-tasks.md#status-visibility) for the env-override caveat.
 

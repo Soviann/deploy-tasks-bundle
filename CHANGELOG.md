@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Detection and display of orphaned task execution records in `deploytasks:status` (executed unavailable tasks whose PHP class or group slot is no longer present in the codebase), with a dedicated warning section and a `--show-orphaned` query option.
 - `ProcessRunnerTrait` now provides `runCommand()` to execute shell command strings or argument arrays directly without instantiating `Process` manually, as well as `quiet` (suppress streaming) and `outputPrefix` (line prefixing) options.
 - Shell autocompletion support (`Symfony\Component\Console\Completion`) for all `deploytasks:*` console commands (autocompleting task IDs, group names, status filters, and host tasks).
 
