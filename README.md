@@ -146,6 +146,7 @@ This installs the runner script (executable), creates the configured host-task d
 | `deploytasks:show <id>` | Show full metadata and every stored execution record for a single task | — |
 | `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` (repeatable) |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
+| `deploytasks:prune` | Prune orphaned task execution records from storage (interactive confirm) | `--dry-run`, `--group=<name>` (repeatable), `--no-interaction`, `--force` |
 | `deploytasks:rollup` | Clear history and mark all tasks as executed | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
 | `deploytasks:generate` | Generate a blank deploy task (PHP class, runs inside the Symfony container) | `--dir`, `--namespace` |
 | `deploytasks:create-schema` | Create the storage schema (storages implementing `SchemaManageableInterface`) | `--dump-sql` |

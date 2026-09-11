@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `deploytasks:prune` console command to safely inspect and prune orphaned deploy task execution records from storage backends (JSON/filesystem and DBAL) when tasks or group slots are deleted from the codebase. Supports `--dry-run`, interactive confirmation (with `--force` / `--no-interaction` opt-out), `--group` filtering, and shell completion.
+
 ## [0.5.0] - 2026-09-11
 
 ### Added

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Command;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Soviann\DeployTasksBundle\Command\DeployTasksPruneCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
@@ -22,6 +23,7 @@ use Symfony\Component\Console\Completion\CompletionSuggestions;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Filesystem\Filesystem;
 
+#[CoversClass(DeployTasksPruneCommand::class)]
 #[CoversClass(DeployTasksShowCommand::class)]
 #[CoversClass(DeployTasksSkipCommand::class)]
 #[CoversClass(DeployTasksResetCommand::class)]
@@ -132,6 +134,7 @@ final class DeployCompletionTest extends FunctionalTestCase
         self::assertEmpty($this->getCompletionSuggestions($runCommand, 'deploytasks:run --unknown-option='));
         self::assertEmpty($this->getCompletionSuggestions($statusCommand, 'deploytasks:status --unknown-option='));
         self::assertEmpty($this->getCompletionSuggestions($rollupCommand, 'deploytasks:rollup --unknown-option='));
+        self::assertEmpty($this->getCompletionSuggestions($this->application->find('deploytasks:prune'), 'deploytasks:prune --unknown-option='));
 
         $nonExistentDir = \sys_get_temp_dir().'/non_existent_host_dir_'.\uniqid();
         $skipHostCommand = new DeployTasksSkipHostCommand($nonExistentDir, $nonExistentDir.'/log', $nonExistentDir.'/lock');
@@ -139,6 +142,17 @@ final class DeployCompletionTest extends FunctionalTestCase
 
         self::assertEmpty($this->getCompletionSuggestions($skipHostCommand, 'deploytasks:host:skip '));
         self::assertEmpty($this->getCompletionSuggestions($resetHostCommand, 'deploytasks:host:reset '));
+    }
+
+    public function testPruneCommandCompletesGroupOption(): void
+    {
+        $command = $this->application->find('deploytasks:prune');
+
+        $groupSuggestions = $this->getCompletionSuggestions($command, 'deploytasks:prune --group=');
+        self::assertContains('predeploy', $groupSuggestions);
+        self::assertContains('postdeploy', $groupSuggestions);
+        self::assertCount(1, \array_keys($groupSuggestions, 'predeploy', true));
+        self::assertSame(\array_keys($groupSuggestions), \range(0, \count($groupSuggestions) - 1));
     }
 
     protected static function getKernelClass(): string
