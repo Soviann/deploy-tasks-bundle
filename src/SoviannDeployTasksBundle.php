@@ -8,6 +8,7 @@ use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksHostConfigCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksInstallHostCommand;
+use Soviann\DeployTasksBundle\Command\DeployTasksPruneCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksResetHostCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksRollupCommand;
@@ -286,6 +287,14 @@ final class SoviannDeployTasksBundle extends AbstractBundle
         ;
 
         $services->set('soviann_deploy_tasks.command.skip', DeployTasksSkipCommand::class)
+            ->args([
+                service('soviann_deploy_tasks.registry'),
+                service('soviann_deploy_tasks.storage'),
+            ])
+            ->tag('console.command')
+        ;
+
+        $services->set('soviann_deploy_tasks.command.prune', DeployTasksPruneCommand::class)
             ->args([
                 service('soviann_deploy_tasks.registry'),
                 service('soviann_deploy_tasks.storage'),

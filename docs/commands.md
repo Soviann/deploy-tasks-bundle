@@ -171,6 +171,33 @@ If the task has no execution record, the command reports it is already pending a
 
 ---
 
+## deploytasks:prune
+
+Prune orphaned deploy task execution records from storage backends (JSON/filesystem and DBAL) when tasks or group slots are deleted from the codebase.
+
+```bash
+bin/console deploytasks:prune
+bin/console deploytasks:prune --dry-run
+bin/console deploytasks:prune --no-interaction --force
+bin/console deploytasks:prune --group=predeploy
+bin/console deploytasks:prune --group=predeploy --group=postdeploy
+```
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--dry-run` | Preview which orphaned records would be pruned without deleting anything |
+| `--group=<name>` | Only prune orphaned records for the given group slot(s); repeatable |
+| `--force` | Confirm the destructive action under `--no-interaction` |
+| `--no-interaction` | Run without prompting; **requires** `--force` (unless combined with `--dry-run`), otherwise the command refuses to run |
+
+If no orphaned task execution records exist in storage (or none match the supplied `--group` filter), the command reports this and exits with code `0`. Otherwise, it renders a table of candidate orphaned records and asks for confirmation before deleting them.
+
+**Exit codes:** `0` on success (including `--dry-run` and the no-orphans no-op); `2` (`Command::INVALID`) when a non-interactive run omits `--force` (without `--dry-run`), or when `--group` names an invalid group name; `1` when the confirmation is declined.
+
+---
+
 ## deploytasks:host:skip
 
 Host-scope equivalent of [`deploytasks:skip`](#deploytasksskip): marks a host task as done in the completion log without running its script. See [`docs/host-tasks.md`](host-tasks.md#managing-host-task-state) for the full contract.
