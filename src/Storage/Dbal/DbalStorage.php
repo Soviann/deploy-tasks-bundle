@@ -11,8 +11,10 @@ use Doctrine\DBAL\Platforms\MariaDBPlatform;
 use Doctrine\DBAL\Platforms\MySQLPlatform;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Schema;
+use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\SchemaManageableInterface;
@@ -539,8 +541,7 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
     /**
      * Builds the CREATE TABLE SQL statements for the current platform using the Schema builder.
      *
-     * Every asset name is wrapped in quotes ("…") before being handed to Doctrine, which
-     * marks it as a quoted identifier — the platform then emits its own correctly-quoted
+     * Every asset name is marked as quoted so the platform emits its own correctly-quoted
      * DDL for it, safe even for keyword-shaped configured names (e.g. an `order` table or
      * a `default` column, both legal per {@see DbalStorageConfiguration::SQL_IDENTIFIER_PATTERN}).
      *
@@ -550,42 +551,75 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
      */
     private function buildSchemaSql(): array
     {
-        $schema = new Schema();
-        $table = $schema->createTable($this->quotedAssetName($this->configuration->tableName));
+        /** @var non-empty-string $tableName */
+        $tableName = $this->configuration->tableName;
+        /** @var non-empty-string $idColumn */
+        $idColumn = $this->configuration->idColumn;
+        /** @var non-empty-string $groupColumn */
+        $groupColumn = $this->configuration->groupColumn;
+        /** @var non-empty-string $statusColumn */
+        $statusColumn = $this->configuration->statusColumn;
+        /** @var non-empty-string $executedAtColumn */
+        $executedAtColumn = $this->configuration->executedAtColumn;
+        /** @var non-empty-string $errorColumn */
+        $errorColumn = $this->configuration->errorColumn;
+        /** @var non-empty-string $durationColumn */
+        $durationColumn = $this->configuration->durationColumn;
 
-        $table->addColumn(
-            $this->quotedAssetName($this->configuration->idColumn),
-            Types::STRING,
-            ['length' => $this->configuration->idColumnLength],
-        );
-        $table->addColumn(
-            $this->quotedAssetName($this->configuration->groupColumn),
-            Types::STRING,
-            ['length' => $this->configuration->groupColumnLength, 'default' => ''],
-        );
-        $table->addColumn($this->quotedAssetName($this->configuration->statusColumn), Types::STRING, ['length' => 16]);
-        $table->addColumn($this->quotedAssetName($this->configuration->executedAtColumn), Types::DATETIME_IMMUTABLE);
-        $table->addColumn($this->quotedAssetName($this->configuration->errorColumn), Types::TEXT, ['notnull' => false]);
-        $table->addColumn($this->quotedAssetName($this->configuration->durationColumn), Types::INTEGER, ['notnull' => false]);
+        $table = Table::editor()
+            ->setQuotedName($tableName)
+            ->addColumn(
+                Column::editor()
+                    ->setQuotedName($idColumn)
+                    ->setTypeName(Types::STRING)
+                    ->setLength($this->configuration->idColumnLength)
+                    ->create(),
+            )
+            ->addColumn(
+                Column::editor()
+                    ->setQuotedName($groupColumn)
+                    ->setTypeName(Types::STRING)
+                    ->setLength($this->configuration->groupColumnLength)
+                    ->setDefaultValue('')
+                    ->create(),
+            )
+            ->addColumn(
+                Column::editor()
+                    ->setQuotedName($statusColumn)
+                    ->setTypeName(Types::STRING)
+                    ->setLength(16)
+                    ->create(),
+            )
+            ->addColumn(
+                Column::editor()
+                    ->setQuotedName($executedAtColumn)
+                    ->setTypeName(Types::DATETIME_IMMUTABLE)
+                    ->create(),
+            )
+            ->addColumn(
+                Column::editor()
+                    ->setQuotedName($errorColumn)
+                    ->setTypeName(Types::TEXT)
+                    ->setNotNull(false)
+                    ->create(),
+            )
+            ->addColumn(
+                Column::editor()
+                    ->setQuotedName($durationColumn)
+                    ->setTypeName(Types::INTEGER)
+                    ->setNotNull(false)
+                    ->create(),
+            )
+            ->addPrimaryKeyConstraint(
+                PrimaryKeyConstraint::editor()
+                    ->setQuotedColumnNames($idColumn, $groupColumn)
+                    ->create(),
+            )
+            ->create();
 
-        /** @var non-empty-string $pkIdColumn */
-        $pkIdColumn = $this->configuration->idColumn;
-        /** @var non-empty-string $pkGroupColumn */
-        $pkGroupColumn = $this->configuration->groupColumn;
-
-        $table->addPrimaryKeyConstraint(
-            PrimaryKeyConstraint::editor()
-                ->setQuotedColumnNames($pkIdColumn, $pkGroupColumn)
-                ->create(),
-        );
+        $schema = new Schema([$table]);
 
         return $schema->toSql($this->connection->getDatabasePlatform());
-    }
-
-    /** Wraps an identifier in SQL quotes so Doctrine's Schema marks it as a quoted asset. */
-    private function quotedAssetName(string $identifier): string
-    {
-        return '"'.$identifier.'"';
     }
 
     /**
