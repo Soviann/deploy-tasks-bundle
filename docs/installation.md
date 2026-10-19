@@ -7,21 +7,26 @@
 
 ## Install with Symfony Flex
 
-### 1. Enable the Flex recipe endpoint
+```bash
+composer require soviann/deploy-tasks-bundle
+```
 
-The bundle's Flex recipe is served from a dedicated endpoint until it lands in `symfony/recipes-contrib`. Enable it **before** requiring the bundle, so Flex applies the recipe on install:
+The bundle's [Flex recipe](https://github.com/symfony/recipes-contrib/tree/main/soviann/deploy-tasks-bundle) lives in `symfony/recipes-contrib`. When Contrib recipes are enabled, Flex registers the bundle in `config/bundles.php`, publishes `config/packages/soviann_deploy_tasks.yaml`, installs the host runner (`bin/deploy-tasks-host.sh`), and adds its `.gitignore` entries automatically. Flex prompts once per project before applying a Contrib recipe — answer yes, or enable them permanently:
+
+```bash
+composer config extra.symfony.allow-contrib true
+```
+
+<details>
+<summary>Alternative: dedicated recipe endpoint</summary>
+
+Prefer not to enable Contrib recipes globally? The same recipe is also served from a dedicated endpoint:
 
 ```bash
 composer config extra.symfony.endpoint --json '["https://api.github.com/repos/Soviann/flex-recipes/contents/index.json", "flex://defaults"]'
 ```
 
-### 2. Require the bundle
-
-```bash
-composer require soviann/deploy-tasks-bundle
-```
-
-With the endpoint enabled, Flex applies the recipe automatically: it registers the bundle in `config/bundles.php`, publishes `config/packages/soviann_deploy_tasks.yaml`, creates `deploy/host-tasks/` (with a `.gitkeep`), installs the host runner `bin/deploy-tasks-host.sh`, and adds its `.gitignore` entries.
+</details>
 
 ## Install without Flex (or without the endpoint)
 
@@ -40,6 +45,7 @@ Then install the host runner and its supporting files with `bin/console deployta
 | `doctrine/dbal` | Database storage backend |
 | `symfony/event-dispatcher` | Task lifecycle events (`BeforeTaskEvent`, `AfterTaskEvent`, `TaskFailedEvent`) |
 | `symfony/lock` | Prevent concurrent execution of `deploytasks:run` |
+| `symfony/process` | Required by `ProcessRunnerTrait` for tasks that shell out to external commands |
 
 These packages are detected at runtime. If they are not installed, the corresponding features are disabled — silently for events and storage, but not for locking: `deploytasks:run` unconditionally prints a console warning when `lock.enabled` is `true` and symfony/lock is missing, since that means concurrent-run protection is off. Separately, whenever no lock factory ends up wired at all (package missing, or `lock.enabled: false`), the runner itself also logs a PSR-3 `warning` on every run (`Deploy tasks runner has no lock factory — concurrent execution is not protected`) and, only under `-v`/`--verbose`, prints its own additional console line to the same effect.
 

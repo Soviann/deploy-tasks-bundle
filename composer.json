@@ -1,6 +1,6 @@
 {
     "name": "soviann/deploy-tasks-bundle",
-    "description": "One-time deploy task runner for Symfony applications",
+    "description": "Run-once deploy tasks and service-injected data migrations for Symfony applications (pre-deploy, post-deploy, seeding, one-time commands)",
     "type": "symfony-bundle",
     "license": "MIT",
     "homepage": "https://github.com/Soviann/deploy-tasks-bundle",
@@ -15,15 +15,25 @@
         "source": "https://github.com/Soviann/deploy-tasks-bundle"
     },
     "keywords": [
+        "backfill",
+        "bundle",
+        "data-migration",
+        "deploy",
+        "deploy-tasks",
+        "deployment",
+        "migration",
+        "one-off",
+        "one-time",
+        "one-time-tasks",
+        "post-deploy",
+        "pre-deploy",
+        "release-tasks",
+        "run-once",
+        "seed",
+        "seeder",
         "symfony",
         "symfony-bundle",
-        "deploy",
-        "deployment",
-        "deploy-tasks",
-        "tasks",
-        "migration",
-        "data-migration",
-        "bundle"
+        "tasks"
     ],
     "require": {
         "php": ">=8.2",
@@ -99,7 +109,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.1.x-dev"
+            "dev-main": "0.6.x-dev"
         }
     }
 }
