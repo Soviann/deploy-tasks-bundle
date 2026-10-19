@@ -5,9 +5,15 @@
 [![Latest Stable Version](https://poser.pugx.org/soviann/deploy-tasks-bundle/v/stable)](https://packagist.org/packages/soviann/deploy-tasks-bundle)
 [![License](https://poser.pugx.org/soviann/deploy-tasks-bundle/license)](https://packagist.org/packages/soviann/deploy-tasks-bundle)
 
-A Symfony bundle for running one-time deploy tasks — data migrations, cache warmups, seed scripts — via CLI. Each task is tracked so it executes exactly once across deployments.
+A Symfony bundle for running **one-time (`run-once`) deploy tasks** — service-injected data migrations, backfills, cache warmups, seed scripts, and pre/post-deploy operations — via CLI. Each task is tracked so it executes **exactly once** across deployments.
 
 > **Status: pre-1.0.** Public API and configuration may change without a major-version bump until `v1.0.0`. Breaking changes bump the minor version and are documented in [`UPGRADE.md`](UPGRADE.md).
+
+## Why DeployTasksBundle?
+
+- **Doctrine Migrations vs. Deploy Tasks** — `doctrine/doctrine-migrations-bundle` is built for SQL schema changes (DDL) and intentionally discourages injecting Symfony services into migrations. Use `DeployTasksBundle` for one-off **data migrations, data backfills, seeders, and external API syncs** that need full **Symfony Dependency Injection** (autowired repositories, domain services, message buses, HTTP clients).
+- **No custom `ExecutedTask` boilerplate** — replaces hand-rolled "run-once console command" tables or flag files with ready-to-use state tracking (Filesystem JSON or Doctrine DBAL table), concurrent-run protection (`symfony/lock`), configurable database transactions (`per_task`, `all_or_nothing`, `none`), and staged task groups (`predeploy`, `postdeploy`).
+- **Coming from Laravel or Rails?** — fills the same role in Symfony as [`timokoerber/laravel-one-time-operations`](https://github.com/TimoKoerber/laravel-one-time-operations) in Laravel, or [`after_party`](https://github.com/iszandro/after_party) / Shopify's [`maintenance_tasks`](https://github.com/Shopify/maintenance_tasks) in Ruby on Rails.
 
 ## Requirements
 
@@ -54,7 +60,10 @@ composer config extra.symfony.endpoint --json '["https://api.github.com/repos/So
 
 ### Creating a task
 
+Tasks are regular Symfony services — inject any autowired dependency in `__construct()` and implement `DeployTaskInterface`:
+
 ```php
+use App\Repository\CategoryRepository;
 use Soviann\DeployTasksBundle\Attribute\AsDeployTask;
 use Soviann\DeployTasksBundle\DeployTaskInterface;
 use Soviann\DeployTasksBundle\TaskResult;
@@ -63,6 +72,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsDeployTask(id: 'task_20260412143000_seed_categories', priority: 10)]
 final class SeedCategoriesTask implements DeployTaskInterface
 {
+    public function __construct(
+        private readonly CategoryRepository $categories,
+    ) {
+    }
+
     public function getDescription(): string
     {
         return 'Seeds the categories table with initial data.';
@@ -70,7 +84,7 @@ final class SeedCategoriesTask implements DeployTaskInterface
 
     public function run(OutputInterface $output): TaskResult
     {
-        // Your task logic here
+        $this->categories->seedDefaults();
         $output->writeln('Categories seeded.');
 
         return TaskResult::SUCCESS;
@@ -142,7 +156,7 @@ This installs the runner script (executable), creates the configured host-task d
 | Command | Description | Options |
 |---|---|---|
 | `deploytasks:run` | Execute pending tasks | `--dry-run`, `--rerun-all`, `--id=<id>`, `--group=<name>` (repeatable), `--require-some` |
-| `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable), `--filter-status=<comma-list>` |
+| `deploytasks:status` | List tasks with their execution state | `--no-state`, `--group=<name>` (repeatable), `--filter-status=<comma-list>`, `--show-orphaned` |
 | `deploytasks:show <id>` | Show full metadata and every stored execution record for a single task | — |
 | `deploytasks:skip <id>` | Mark a task as skipped (interactive confirm) | `--group=<name>` (repeatable) |
 | `deploytasks:reset <id>` | Clear the execution record for a task (interactive confirm) | `--no-interaction`, `--group=<name>` (repeatable), `--force` |
