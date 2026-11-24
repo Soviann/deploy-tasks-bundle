@@ -17,7 +17,8 @@ use Soviann\DeployTasksBundle\Storage\TaskStatus;
 /**
  * DBAL reports its deprecations through doctrine/deprecations, silent by default,
  * so they never reach PHPUnit's deprecation gate. Tracks them explicitly over a
- * full storage round-trip to pin "no DBAL deprecation" on DBAL 4.3+.
+ * full storage round-trip (editor schema path included) to pin "no DBAL
+ * deprecation" on DBAL 4.3+.
  */
 #[CoversClass(DbalStorage::class)]
 final class DbalStorageDeprecationTest extends TestCase
@@ -34,6 +35,10 @@ final class DbalStorageDeprecationTest extends TestCase
         }
 
         Deprecation::enableTrackingDeprecations();
+        // Counters are process-global and survive disable(): other tests (e.g. the
+        // parity test, which runs the DBAL 3 builder on DBAL 4) may already have
+        // bumped them, so only this round-trip's delta is asserted.
+        $before = Deprecation::getTriggeredDeprecations();
 
         $storage = new DbalStorage(
             DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]),
@@ -47,10 +52,14 @@ final class DbalStorageDeprecationTest extends TestCase
         $storage->transactional(static fn (): bool => $storage->has('t1', 'grp'));
         $storage->remove('t1', 'grp');
 
-        self::assertSame(
-            0,
-            Deprecation::getUniqueTriggeredDeprecationsCount(),
-            'DBAL deprecations triggered: '.\implode(', ', \array_keys(Deprecation::getTriggeredDeprecations())),
-        );
+        $triggered = [];
+
+        foreach (Deprecation::getTriggeredDeprecations() as $link => $count) {
+            if ($count > ($before[$link] ?? 0)) {
+                $triggered[] = $link;
+            }
+        }
+
+        self::assertSame([], $triggered);
     }
 }

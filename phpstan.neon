@@ -11,12 +11,16 @@ parameters:
         - src
         - tests
     ignoreErrors:
-        # DBAL 3.x / 4.0–4.2 schema path: only runs when Table::editor() is missing,
-        # so the APIs DBAL 4.5 deprecates are never called on the version analysed here.
+        # DBAL 3 schema path: only runs when Table::editor() is missing, so the APIs
+        # DBAL 4.5/4.6 deprecate are never called on the DBAL 4 analysed here.
         -
             identifier: method.deprecated
             path: src/Storage/Dbal/DbalStorage.php
             message: '#^Call to deprecated method (addColumn|addOption|setPrimaryKey)\(\) of class Doctrine\\DBAL\\Schema\\Table#'
+        -
+            identifier: classConstant.deprecated
+            path: src/Storage/Dbal/DbalStorage.php
+            message: '#^Fetching deprecated class constant DATETIME_MUTABLE of class Doctrine\\DBAL\\Types\\Types#'
         -
             identifier: function.alreadyNarrowedType
             path: src/Storage/Dbal/DbalStorage.php
