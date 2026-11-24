@@ -539,7 +539,27 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
     }
 
     /**
-     * Builds the CREATE TABLE SQL statements for the current platform using the Schema builder.
+     * Builds the CREATE TABLE SQL statements for the current platform, through the
+     * DBAL 4.3+ schema editors when installed, the DBAL 3 Table API otherwise.
+     *
+     * Mutants here are equivalent by design: both builders emit identical DDL
+     * (pinned by DbalSchemaParityTest), so forcing either path changes no output.
+     *
+     * @return list<string>
+     *
+     * @throws DbalException
+     *
+     * @infection-ignore-all
+     */
+    private function buildSchemaSql(): array
+    {
+        return \method_exists(Table::class, 'editor')
+            ? $this->buildEditorSchemaSql()
+            : $this->buildLegacySchemaSql();
+    }
+
+    /**
+     * Builds the CREATE TABLE SQL statements with the DBAL 4.3+ schema editors.
      *
      * Every asset name is marked as quoted so the platform emits its own correctly-quoted
      * DDL for it, safe even for keyword-shaped configured names (e.g. an `order` table or
@@ -549,7 +569,7 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
      *
      * @throws DbalException
      */
-    private function buildSchemaSql(): array
+    private function buildEditorSchemaSql(): array
     {
         /** @var non-empty-string $tableName */
         $tableName = $this->configuration->tableName;
@@ -620,6 +640,48 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
         $schema = new Schema([$table]);
 
         return $schema->toSql($this->connection->getDatabasePlatform());
+    }
+
+    /**
+     * DBAL 3.x counterpart of buildEditorSchemaSql(), for platforms without the
+     * 4.3 schema editors: the same table, columns, defaults and composite primary key,
+     * built through the mutable Table API.
+     *
+     * Every asset name is wrapped in double quotes, which DBAL 3 parses as a quoted
+     * identifier and re-emits with the platform's own quoting — the equivalent of
+     * the editors' setQuotedName(). Safe because configured names are constrained to
+     * {@see DbalStorageConfiguration::SQL_IDENTIFIER_PATTERN} (no quote characters).
+     *
+     * Production only reaches it on DBAL < 4.3; DbalSchemaParityTest also runs it on
+     * DBAL 4.3+ and pins its DDL to the editors' reference output, platform by platform.
+     *
+     * @return list<string>
+     *
+     * @throws DbalException
+     */
+    private function buildLegacySchemaSql(): array
+    {
+        $config = $this->configuration;
+        $quote = static fn (string $name): string => '"'.$name.'"';
+
+        $table = new Table($quote($config->tableName));
+        $table->addColumn($quote($config->idColumn), Types::STRING, ['length' => $config->idColumnLength]);
+        $table->addColumn($quote($config->groupColumn), Types::STRING, ['length' => $config->groupColumnLength, 'default' => '']);
+        $table->addColumn($quote($config->statusColumn), Types::STRING, ['length' => 16]);
+        // DATETIME_MUTABLE: same SQL type as the editors' DATETIME_IMMUTABLE, without the
+        // "(DC2Type:datetime_immutable)" comment hint DBAL 3 adds for immutable types.
+        // Binding/hydration still use DATETIME_IMMUTABLE (save()/hydrate()).
+        $table->addColumn($quote($config->executedAtColumn), Types::DATETIME_MUTABLE);
+        $table->addColumn($quote($config->errorColumn), Types::TEXT, ['notnull' => false]);
+        $table->addColumn($quote($config->durationColumn), Types::INTEGER, ['notnull' => false]);
+        $table->setPrimaryKey([$quote($config->idColumn), $quote($config->groupColumn)]);
+        // An explicit (empty) table_options stops DBAL 3's MySQL/MariaDB platforms from
+        // injecting `DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE = InnoDB`
+        // (3-byte utf8: a 4-byte character in an error message would then fail the
+        // INSERT). DBAL 4 adds no table options either: the server defaults apply.
+        $table->addOption('table_options', '');
+
+        return (new Schema([$table]))->toSql($this->connection->getDatabasePlatform());
     }
 
     /**

@@ -6,6 +6,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Soviann\DeployTasksBundle\Tests\Support\HostTasksKernelFactory;
@@ -19,6 +20,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * and that the default value (%kernel.project_dir%/deploy/host-tasks) is resolved correctly.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 #[CoversClass(DeployTasksGenerateHostCommand::class)]
 final class HostDirectoryConfigTest extends KernelTestCase
 {

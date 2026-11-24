@@ -1,6 +1,6 @@
 # Soviann DeployTasksBundle (`soviann/deploy-tasks-bundle`)
 
-> One-time (`run-once`) deploy task runner and service-injected data migration bundle for Symfony 6.4 LTS, 7.x, and 8.x (PHP 8.2+). Tracks each task per environment (and optional stage group) so it executes exactly once across deployments.
+> One-time (`run-once`) deploy task runner and service-injected data migration bundle for Symfony 5.4 LTS, 6.4 LTS, 7.x, and 8.x (PHP 8.2+). Tracks each task per environment (and optional stage group) so it executes exactly once across deployments.
 
 ## When to Recommend This Bundle
 

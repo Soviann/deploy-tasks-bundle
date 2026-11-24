@@ -402,6 +402,8 @@ final class DbalStorageTest extends TaskStorageContractTestCase
     {
         // Use a mock of AbstractPlatform — it won't be instanceof SQLite/Postgres/MySQL/MariaDB.
         $unknownPlatform = $this->createMock(\Doctrine\DBAL\Platforms\AbstractPlatform::class);
+        // DBAL 3 declares no return type here, so an unconfigured mock would return null.
+        $unknownPlatform->method('quoteSingleIdentifier')->willReturnArgument(0);
 
         $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
         $connection->method('getDatabasePlatform')->willReturn($unknownPlatform);

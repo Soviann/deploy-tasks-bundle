@@ -10,3 +10,26 @@ parameters:
     paths:
         - src
         - tests
+    ignoreErrors:
+        # DBAL 3 schema path: only runs when Table::editor() is missing, so the APIs
+        # DBAL 4.5/4.6 deprecate are never called on the DBAL 4 analysed here.
+        -
+            identifier: method.deprecated
+            path: src/Storage/Dbal/DbalStorage.php
+            message: '#^Call to deprecated method (addColumn|addOption|setPrimaryKey)\(\) of class Doctrine\\DBAL\\Schema\\Table#'
+        -
+            identifier: classConstant.deprecated
+            path: src/Storage/Dbal/DbalStorage.php
+            message: '#^Fetching deprecated class constant DATETIME_MUTABLE of class Doctrine\\DBAL\\Types\\Types#'
+        -
+            identifier: function.alreadyNarrowedType
+            path: src/Storage/Dbal/DbalStorage.php
+            message: "#^Call to function method_exists\\(\\) with 'Doctrine\\\\\\\\DBAL\\\\\\\\Schema\\\\\\\\Table' and 'editor' will always evaluate to true\\.$#"
+        # DBAL 3 skip guard: constant-false against the analysed DBAL 4.
+        -
+            identifier: function.alreadyNarrowedType
+            path: tests/Unit/Storage/DbalStorageDeprecationTest.php
+        # Version gate for Symfony 5.4 LTS: constant-true against the analysed Symfony line.
+        -
+            identifier: greaterOrEqual.alwaysTrue
+            path: tests/Support/FrameworkTestConfig.php
