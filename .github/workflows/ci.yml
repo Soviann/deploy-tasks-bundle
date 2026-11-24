@@ -10,6 +10,9 @@ on:
   # entries that Symfony has patched in the meantime.
   schedule:
     - cron: '30 5 * * 1'
+  # Manual runs: merges made by a bot with GITHUB_TOKEN trigger no push run,
+  # so main can otherwise go untested (mutation job included) until Monday.
+  workflow_dispatch:
 
 permissions:
   contents: read
