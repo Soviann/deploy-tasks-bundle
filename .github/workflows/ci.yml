@@ -247,6 +247,11 @@ jobs:
         if: matrix.symfony == '5.4.*'
         run: composer remove --dev --no-update --no-interaction infection/infection friendsofphp/php-cs-fixer
 
+      # Infection 0.33+ requires PHP 8.3+; mutation testing runs in its own PHP 8.3 job.
+      - name: Drop dev tools without PHP 8.2 support
+        if: matrix.php == '8.2' && matrix.symfony != '5.4.*'
+        run: composer remove --dev --no-update --no-interaction infection/infection
+
       - name: Pin doctrine/dbal
         if: matrix.dbal-constraint
         run: composer require --dev --no-update --no-interaction "doctrine/dbal:${{ matrix.dbal-constraint }}"
