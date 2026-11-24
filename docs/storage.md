@@ -109,6 +109,12 @@ soviann_deploy_tasks:
 
 `group_column` and `group_column_length` control the column that stores the task group slot. Override them when your existing table uses a different column name or a shorter/longer `VARCHAR` definition. The column must allow an empty-string default (not `NULL`) because the bundle stores `''` for the default (ungrouped) slot — SQL forbids `NULL` in a composite primary key.
 
+### Connection charset (MySQL/MariaDB)
+
+Use a `utf8mb4` connection charset (`charset=utf8mb4` in the DSN or `charset: utf8mb4` in the connection options) and `utf8mb4` columns. The table the bundle creates takes the database's default charset.
+
+With a `utf8` (utf8mb3) connection or column, a strict-mode server rejects 4-byte UTF-8 characters (emoji, U+1D11E…) with error 1366 ("Incorrect string value"). Task ids and group names are ASCII, so only error messages are exposed: when a failed task's message holds such characters, the storage retries the write once with each of them replaced by U+FFFD (`�`) and logs a warning. The failure is recorded and the task stays pending (under `all_or_nothing` the record rolls back with the run as usual, and the task's own error surfaces rather than a storage error); only those characters are lost from the stored message (the console output and the `Deploy task failed` log record keep the original). Any other database error, or a retry that fails too, propagates unchanged.
+
 ## Transaction mode
 
 Transaction wrapping is configured per storage backend via `storage.<type>.transaction_mode`: `none`, `per_task`, or `all_or_nothing`.

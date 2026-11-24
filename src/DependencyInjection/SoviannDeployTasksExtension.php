@@ -36,6 +36,7 @@ use Soviann\DeployTasksBundle\Storage\TransactionalStorageInterface;
 use Symfony\Component\DependencyInjection\Argument\TaggedIteratorArgument;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -152,17 +153,6 @@ final class SoviannDeployTasksExtension extends Extension
 
         $container->setParameter('soviann_deploy_tasks.runner.transaction_mode', $transactionMode->value);
 
-        if (null === $config['logger']) {
-            // Bundle owns the logger — resolves to the app logger when present (monolog's
-            // LoggerChannelPass rewrites it to the channel-scoped logger via the tag below).
-            $logger = new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE);
-        } else {
-            /** @var string $userLoggerId */
-            $userLoggerId = $config['logger'];
-            // User supplied a logger service — route as-is, no channel tag.
-            $logger = new Reference($userLoggerId);
-        }
-
         $runnerDefinition = $container->register('soviann_deploy_tasks.runner', TaskRunner::class)
             ->setArguments([
                 '$registry' => new Reference('soviann_deploy_tasks.registry'),
@@ -175,15 +165,13 @@ final class SoviannDeployTasksExtension extends Extension
                 '$slowTaskThreshold' => $config['slow_task_threshold'],
                 '$environment' => '%kernel.environment%',
                 '$transactionMode' => $transactionMode,
-                '$logger' => $logger,
+                '$logger' => self::loggerReference($config),
                 '$lockTtl' => $lockConfig['ttl'],
                 '$lockDisabledByConfig' => !$lockConfig['enabled'],
             ])
         ;
 
-        if (null === $config['logger']) {
-            $runnerDefinition->addTag('monolog.logger', ['channel' => 'soviann_deploy_tasks']);
-        }
+        self::tagLoggerChannel($config, $runnerDefinition);
         $container->setAlias(TaskRunner::class, 'soviann_deploy_tasks.runner');
 
         $this->registerCommands($config, $container);
@@ -347,12 +335,14 @@ final class SoviannDeployTasksExtension extends Extension
                     ])
                 ;
 
-                $container->register('soviann_deploy_tasks.storage', DbalStorage::class)
+                $storageDefinition = $container->register('soviann_deploy_tasks.storage', DbalStorage::class)
                     ->setArguments([
-                        new Reference($connectionServiceId),
-                        new Reference('soviann_deploy_tasks.storage.configuration'),
+                        '$connection' => new Reference($connectionServiceId),
+                        '$configuration' => new Reference('soviann_deploy_tasks.storage.configuration'),
+                        '$logger' => self::loggerReference($config),
                     ])
                 ;
+                self::tagLoggerChannel($config, $storageDefinition);
 
                 $container->setAlias(TransactionalStorageInterface::class, 'soviann_deploy_tasks.storage');
 
@@ -428,10 +418,41 @@ final class SoviannDeployTasksExtension extends Extension
         if (null !== $userLoggerId) {
             $container->setAlias('soviann_deploy_tasks.logger', $userLoggerId);
         }
-        // When null, the runner argument is a NULL_ON_INVALID_REFERENCE to the `logger` service:
-        // resolves to the app logger when present (monolog's LoggerChannelPass then rewrites the
-        // literal 'logger' reference to the channel-scoped logger via the runner's monolog.logger tag),
-        // and TaskRunner falls back to a NullLogger when the app has no logger service.
+        // When null, the logger arguments (runner, database storage) are a NULL_ON_INVALID_REFERENCE
+        // to the `logger` service: resolves to the app logger when present (monolog's LoggerChannelPass
+        // then rewrites the literal 'logger' reference to the channel-scoped logger via the services'
+        // monolog.logger tag), and both fall back to a NullLogger when the app has no logger service.
+    }
+
+    /**
+     * The logger argument shared by the services that log (runner, database storage).
+     *
+     * @param array<string, mixed> $config
+     */
+    private static function loggerReference(array $config): Reference
+    {
+        /** @var string|null $userLoggerId */
+        $userLoggerId = $config['logger'];
+
+        // Bundle owns the logger — resolves to the app logger when present (monolog's
+        // LoggerChannelPass rewrites it to the channel-scoped logger via tagLoggerChannel()).
+        // A user-supplied logger service is routed as-is.
+        return null === $userLoggerId
+            ? new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE)
+            : new Reference($userLoggerId);
+    }
+
+    /**
+     * Puts a logging service on the bundle's Monolog channel, unless the user supplied
+     * a logger — the channel rewrite must not override that explicit choice.
+     *
+     * @param array<string, mixed> $config
+     */
+    private static function tagLoggerChannel(array $config, Definition $definition): void
+    {
+        if (null === $config['logger']) {
+            $definition->addTag('monolog.logger', ['channel' => 'soviann_deploy_tasks']);
+        }
     }
 
     /**

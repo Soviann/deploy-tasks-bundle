@@ -259,6 +259,82 @@ jobs:
           SYMFONY_DEPRECATIONS_HELPER: ${{ matrix.prefer-lowest && 'disabled=1' || 'max[direct]=0' }}
         run: vendor/bin/phpunit
 
+  database:
+    name: Database tests (MySQL 8.4, MariaDB 11.4, DBAL ${{ matrix.dbal }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Real-server tests skipped elsewhere (no DSN): a utf8mb3 connection rejecting
+    # 4-byte characters (error 1366) must not cost a task its failure record.
+    env:
+      COLUMNS: 120
+      MYSQL_DSN: mysql://root@127.0.0.1:3306/deploy_tasks?serverVersion=8.4.0
+      MARIADB_DSN: mariadb://root@127.0.0.1:3307/deploy_tasks?serverVersion=11.4.0-MariaDB
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: deploy_tasks
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+          MARIADB_DATABASE: deploy_tasks
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dbal: '4'
+            dbal-constraint: '^4.3'
+          - dbal: '3'
+            dbal-constraint: '^3.6'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.composer/cache
+          key: composer-database-dbal${{ matrix.dbal }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-database-
+
+      - name: Pin doctrine/dbal
+        run: composer require --dev --no-update --no-interaction "doctrine/dbal:${{ matrix.dbal-constraint }}"
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-progress --no-scripts
+
+      # --fail-on-skipped: a missing or unreachable server must fail the job, not
+      # silently skip the very tests it exists for.
+      - name: Run database tests
+        run: vendor/bin/phpunit --fail-on-skipped tests/Functional/Storage/Dbal/DbalStorageConnectionCharsetTest.php
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

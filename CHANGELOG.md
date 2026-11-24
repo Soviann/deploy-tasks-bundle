@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Database storage on MySQL/MariaDB with a `utf8` (utf8mb3) connection or column: a task failure whose error message contains 4-byte characters (emoji, U+1D11E…) is now recorded instead of being lost to error 1366 ("Incorrect string value"), which also masked the task's own error under `all_or_nothing`. The write is retried once with those characters replaced by U+FFFD, and a warning is logged on the bundle's logger. Other platforms, utf8mb4 connections and every other database error are unaffected — see `docs/storage.md` § Connection charset.
+
 ## [0.7.0] - 2026-11-24
 
 ### Added
