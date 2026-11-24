@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Helper;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Helper\ConsoleSanitizer;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 #[CoversClass(ConsoleSanitizer::class)]
 final class ConsoleSanitizerTest extends TestCase
@@ -50,8 +51,10 @@ final class ConsoleSanitizerTest extends TestCase
         // The combined helper applies BOTH halves at once: control bytes are
         // stripped (ANSI injection) and formatter tags are escaped (terminal
         // hyperlink / color spoofing) — no caller can end up with half the pair.
+        // Expected escape computed by the installed formatter: Symfony 5.4 escapes `<`
+        // only, later lines also escape `>` — either way no tag survives.
         self::assertSame(
-            '[31m\<href=https://evil.example\>click\</\>',
+            '[31m'.OutputFormatter::escape('<href=https://evil.example>click</>'),
             ConsoleSanitizer::sanitizeForFormatter("\x1b[31m<href=https://evil.example>click</>"),
         );
     }

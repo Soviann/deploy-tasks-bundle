@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
+use Soviann\DeployTasksBundle\Tests\Support\FrameworkTestConfig;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\Filesystem\Filesystem;
@@ -65,12 +66,6 @@ abstract class AbstractTestKernel extends Kernel
      */
     protected function frameworkConfig(): array
     {
-        return [
-            'test' => true,
-            'secret' => 'test',
-            'http_method_override' => false,
-            'handle_all_throwables' => true,
-            'php_errors' => ['log' => true],
-        ];
+        return FrameworkTestConfig::base();
     }
 }

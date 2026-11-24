@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional\Bundle;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\Event\AfterTaskEvent;
 use Soviann\DeployTasksBundle\Identifier\TaskIdGeneratorInterface;
 use Soviann\DeployTasksBundle\Identifier\TaskIdResolver;
@@ -33,6 +34,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Lock\LockFactory;
 
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 final class SoviannDeployTasksBundleTest extends FunctionalTestCase
 {
     public function testServicesAreRegistered(): void

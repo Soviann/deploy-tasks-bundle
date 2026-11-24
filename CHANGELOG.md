@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-24
+
+### Fixed
+
+- Database storage on MySQL/MariaDB with a `utf8` (utf8mb3) connection or column: a task failure whose error message contains 4-byte characters (emoji, U+1D11E…) is now recorded instead of being lost to error 1366 ("Incorrect string value"), which also masked the task's own error under `all_or_nothing`. The write is retried once with those characters replaced by U+FFFD, and a warning is logged on the bundle's logger. Other platforms, utf8mb4 connections and every other database error are unaffected — see `docs/storage.md` § Connection charset.
+
+## [0.7.0] - 2026-11-24
+
+### Added
+
+- Symfony 5.4 LTS support, alongside 6.4 LTS, 7.x and 8.x (5.4 needs `symfony/dependency-injection` 5.4.19 or later).
+- Database storage support for `doctrine/dbal` 3.6+ in addition to 4.3+: the same table, created by `deploytasks:create-schema` or on first use, with the same behaviour on both major lines.
+- `psr/log` 2.x is accepted in addition to 3.x.
+
+### Changed
+
+- `SoviannDeployTasksBundle` now extends `Bundle` instead of `AbstractBundle`, with its configuration and services moved to an internal `DependencyInjection\SoviannDeployTasksExtension` / `Configuration` pair; the `configure()` and `loadExtension()` methods are gone from the bundle class. The `soviann_deploy_tasks` configuration, its defaults and every service ID and alias are unchanged — see `UPGRADE.md`.
+
 ## [0.6.0] - 2026-09-11
 
 ### Added
@@ -84,7 +102,9 @@ so it executes exactly once per environment.
 - **Credential-safe logging** — DBAL failure context is scrubbed of full exception objects before it reaches any log handler, so database credentials cannot leak into shared log sinks.
 - **Lock hardening** — the run lock's lease is refreshed between tasks, a mid-run lock failure aborts the run cleanly instead of crashing it, and the TTL semantics are documented so operators size it against the longest single task.
 
-[Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.3.0...v0.4.0

@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateCommand;
 use Soviann\DeployTasksBundle\Command\DeployTasksGenerateHostCommand;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Storage\Filesystem\FilesystemStorage;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
@@ -18,6 +19,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  * against the supplied project directory, with no literal placeholder leakage.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 final class ProjectDirTest extends TestCase
 {
     private string $projectDir;

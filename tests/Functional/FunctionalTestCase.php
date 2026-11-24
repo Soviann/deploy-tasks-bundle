@@ -30,7 +30,9 @@ abstract class FunctionalTestCase extends KernelTestCase
 
     protected function tearDown(): void
     {
-        if (null !== self::$kernel) {
+        // `$booted` too: a boot that threw (expected-failure tests) leaves `$kernel` set
+        // on Symfony 5.4, and cleanStorage() would re-boot it and rethrow in tearDown.
+        if (null !== self::$kernel && static::$booted) {
             try {
                 $this->cleanStorage();
             } catch (StorageException) {

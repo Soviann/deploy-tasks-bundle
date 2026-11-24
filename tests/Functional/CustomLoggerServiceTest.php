@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Functional;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Fixtures\ArrayLogger;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
@@ -26,6 +27,7 @@ use Symfony\Component\DependencyInjection\Reference;
  * rewrite the user's explicit choice.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
 final class CustomLoggerServiceTest extends TestCase
 {

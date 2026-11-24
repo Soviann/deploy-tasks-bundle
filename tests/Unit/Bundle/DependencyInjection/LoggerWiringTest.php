@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -27,6 +28,7 @@ use Symfony\Component\DependencyInjection\Reference;
  * must not silently override the user's explicit choice.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
 final class LoggerWiringTest extends TestCase
 {
@@ -69,6 +71,36 @@ final class LoggerWiringTest extends TestCase
         );
     }
 
+    /**
+     * The database storage logs a warning when it has to sanitize an error message
+     * (MySQL/MariaDB error 1366), through the same logger and channel as the runner.
+     */
+    public function testDatabaseStorageReferencesAppLoggerOnTheBundleChannel(): void
+    {
+        $container = $this->buildContainer(['storage' => ['type' => 'database']]);
+
+        $storage = $container->getDefinition('soviann_deploy_tasks.storage');
+        $loggerArg = $storage->getArgument('$logger');
+
+        self::assertInstanceOf(Reference::class, $loggerArg);
+        self::assertSame('logger', (string) $loggerArg);
+        self::assertSame(ContainerInterface::NULL_ON_INVALID_REFERENCE, $loggerArg->getInvalidBehavior());
+        self::assertMonologChannelTag($storage);
+    }
+
+    public function testDatabaseStorageReferencesUserLoggerDirectlyWhenUserOverrides(): void
+    {
+        $container = $this->buildContainer(['storage' => ['type' => 'database'], 'logger' => 'my_logger']);
+
+        $storage = $container->getDefinition('soviann_deploy_tasks.storage');
+        $loggerArg = $storage->getArgument('$logger');
+
+        self::assertInstanceOf(Reference::class, $loggerArg);
+        self::assertSame('my_logger', (string) $loggerArg);
+        self::assertSame(ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE, $loggerArg->getInvalidBehavior());
+        self::assertEmpty($storage->getTag('monolog.logger'));
+    }
+
     public function testCompilerPassDoesNotTouchLoggerArgument(): void
     {
         $container = $this->buildContainer();
@@ -81,10 +113,10 @@ final class LoggerWiringTest extends TestCase
         self::assertEquals($loggerArgBefore, $loggerArgAfter);
     }
 
-    private static function assertMonologChannelTag(Definition $runner): void
+    private static function assertMonologChannelTag(Definition $service): void
     {
-        $tags = $runner->getTag('monolog.logger');
-        self::assertCount(1, $tags, 'runner must carry a single monolog.logger tag');
+        $tags = $service->getTag('monolog.logger');
+        self::assertCount(1, $tags, 'service must carry a single monolog.logger tag');
         self::assertSame('soviann_deploy_tasks', $tags[0]['channel'] ?? null);
     }
 

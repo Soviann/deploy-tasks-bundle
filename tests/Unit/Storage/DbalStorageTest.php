@@ -6,6 +6,8 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Storage;
 
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LoggerInterface;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorage;
 use Soviann\DeployTasksBundle\Storage\Dbal\DbalStorageConfiguration;
@@ -254,7 +256,7 @@ final class DbalStorageTest extends TaskStorageContractTestCase
     /**
      * @param \Closure(DbalStorage): void $call
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('autoCreateEntryPointProvider')]
+    #[DataProvider('autoCreateEntryPointProvider')]
     public function testEachPublicMethodAutoCreatesTableWhenUsedFirst(\Closure $call): void
     {
         // Kills MethodCallRemoval on the `$this->ensureInitialized()` call at the top of every
@@ -402,6 +404,8 @@ final class DbalStorageTest extends TaskStorageContractTestCase
     {
         // Use a mock of AbstractPlatform — it won't be instanceof SQLite/Postgres/MySQL/MariaDB.
         $unknownPlatform = $this->createMock(\Doctrine\DBAL\Platforms\AbstractPlatform::class);
+        // DBAL 3 declares no return type here, so an unconfigured mock would return null.
+        $unknownPlatform->method('quoteSingleIdentifier')->willReturnArgument(0);
 
         $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
         $connection->method('getDatabasePlatform')->willReturn($unknownPlatform);
@@ -1096,8 +1100,171 @@ final class DbalStorageTest extends TaskStorageContractTestCase
         self::assertSame($error, $this->storage->get('task.1')?->error);
     }
 
+    // -------------------------------------------------------------------------
+    // MySQL/MariaDB error 1366: connection charset rejecting 4-byte characters
+    // -------------------------------------------------------------------------
+
+    /**
+     * A utf8mb3 connection rejects 4-byte UTF-8 characters with error 1366: the
+     * failure record (and its error text) must still be stored, with those
+     * characters replaced by U+FFFD, and a warning must say so.
+     *
+     * @param class-string<\Doctrine\DBAL\Platforms\AbstractPlatform> $platformClass
+     */
+    #[DataProvider('mysqlFamilyPlatformProvider')]
+    public function testSaveRetriesOnceWithFourByteCharactersReplacedWhenTheServerRejectsTheString(string $platformClass): void
+    {
+        $calls = [];
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')->willReturn(new $platformClass());
+        $connection->expects(self::exactly(2))->method('executeStatement')
+            ->willReturnCallback(static function (string $sql, array $params) use (&$calls): int {
+                $calls[] = $params;
+
+                if (1 === \count($calls)) {
+                    throw self::incorrectStringValueException();
+                }
+
+                return 1;
+            });
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(
+            self::stringContains('U+FFFD'),
+            self::identicalTo(['task_id' => 'task.emoji', 'group' => 'nightly']),
+        );
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false), $logger);
+        $storage->save(new TaskExecution(
+            'task.emoji', TaskStatus::Failed, new \DateTimeImmutable('2026-01-01T00:00:00+00:00'), "boom \u{1F4A5} cl\u{E9}f \u{1D11E}\u{1F600} \u{20AC}", 'nightly',
+        ));
+
+        self::assertCount(2, $calls);
+        self::assertSame("boom \u{1F4A5} cl\u{E9}f \u{1D11E}\u{1F600} \u{20AC}", $calls[0][4], 'The first attempt sends the error verbatim.');
+        self::assertSame("boom \u{FFFD} cl\u{E9}f \u{FFFD}\u{FFFD} \u{20AC}", $calls[1][4], 'Only 4-byte characters are replaced, one U+FFFD each.');
+
+        // Everything but the error text is retried unchanged.
+        unset($calls[0][4], $calls[1][4]);
+        self::assertEquals($calls[0], $calls[1]);
+    }
+
+    /**
+     * @return iterable<string, array{class-string<\Doctrine\DBAL\Platforms\AbstractPlatform>}>
+     */
+    public static function mysqlFamilyPlatformProvider(): iterable
+    {
+        yield 'MySQL' => [\Doctrine\DBAL\Platforms\MySQLPlatform::class];
+        yield 'MariaDB' => [\Doctrine\DBAL\Platforms\MariaDBPlatform::class];
+    }
+
+    /**
+     * Every failure other than "1366 on a MySQL-family platform with 4-byte
+     * characters in the error text" propagates after a single attempt, unchanged.
+     *
+     * @param \Closure(): \Doctrine\DBAL\Platforms\AbstractPlatform $platform
+     */
+    #[DataProvider('nonSanitizableFailureProvider')]
+    public function testSaveDoesNotRetryOtherFailures(\Closure $platform, \Doctrine\DBAL\Exception $failure, ?string $error): void
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')->willReturn($platform());
+        $connection->expects(self::once())->method('executeStatement')->willThrowException($failure);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('warning');
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false), $logger);
+
+        try {
+            $storage->save(new TaskExecution('task.x', TaskStatus::Failed, new \DateTimeImmutable(), $error));
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame($failure, $e->getPrevious());
+        }
+    }
+
+    /**
+     * @return iterable<string, array{\Closure(): \Doctrine\DBAL\Platforms\AbstractPlatform, \Doctrine\DBAL\Exception, string|null}>
+     */
+    public static function nonSanitizableFailureProvider(): iterable
+    {
+        $mysql = static fn (): \Doctrine\DBAL\Platforms\AbstractPlatform => new \Doctrine\DBAL\Platforms\MySQLPlatform();
+        $emoji = "boom \u{1F4A5}";
+
+        yield 'other MySQL error code' => [$mysql, self::incorrectStringValueException(1406), $emoji];
+        yield 'non-driver DBAL exception' => [$mysql, new \Doctrine\DBAL\Exception\InvalidArgumentException('nope'), $emoji];
+        yield '1366 without 4-byte characters' => [$mysql, self::incorrectStringValueException(), "caf\u{E9} \u{20AC}"];
+        yield '1366 without error text' => [$mysql, self::incorrectStringValueException(), null];
+        yield '1366 on SQLite' => [static fn (): \Doctrine\DBAL\Platforms\AbstractPlatform => new \Doctrine\DBAL\Platforms\SQLitePlatform(), self::incorrectStringValueException(), $emoji];
+        yield '1366 on PostgreSQL' => [static fn (): \Doctrine\DBAL\Platforms\AbstractPlatform => new \Doctrine\DBAL\Platforms\PostgreSQLPlatform(), self::incorrectStringValueException(), $emoji];
+    }
+
+    /**
+     * The retry happens once: when the sanitized write fails too (e.g. a latin1
+     * column also rejects 3-byte characters), that failure propagates.
+     */
+    public function testSaveRetriesAtMostOnce(): void
+    {
+        $retryFailure = self::incorrectStringValueException();
+        /** @var \SplQueue<\Doctrine\DBAL\Exception\DriverException> $failures */
+        $failures = new \SplQueue();
+        $failures->enqueue(self::incorrectStringValueException());
+        $failures->enqueue($retryFailure);
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')->willReturn(new \Doctrine\DBAL\Platforms\MySQLPlatform());
+        $connection->expects(self::exactly(2))->method('executeStatement')
+            ->willReturnCallback(static function () use ($failures): int {
+                throw $failures->dequeue();
+            });
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('warning');
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false), $logger);
+
+        try {
+            $storage->save(new TaskExecution('task.x', TaskStatus::Failed, new \DateTimeImmutable(), "boom \u{1F4A5}"));
+            self::fail('Expected StorageException');
+        } catch (StorageException $e) {
+            self::assertSame($retryFailure, $e->getPrevious());
+            self::assertSame(0, $e->getCode());
+            self::assertStringContainsString('Failed to save task "task.x"', $e->getMessage());
+        }
+    }
+
+    /**
+     * Without an injected logger the retry still happens (NullLogger fallback).
+     */
+    public function testSaveRetriesWithoutLogger(): void
+    {
+        $attempts = 0;
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('getDatabasePlatform')->willReturn(new \Doctrine\DBAL\Platforms\MySQLPlatform());
+        $connection->expects(self::exactly(2))->method('executeStatement')
+            ->willReturnCallback(static function () use (&$attempts): int {
+                if (1 === ++$attempts) {
+                    throw self::incorrectStringValueException();
+                }
+
+                return 1;
+            });
+
+        $storage = new DbalStorage($connection, new DbalStorageConfiguration(autoCreateTable: false));
+        $storage->save(new TaskExecution('task.x', TaskStatus::Failed, new \DateTimeImmutable(), "boom \u{1F4A5}"));
+
+        self::assertSame(2, $attempts);
+    }
+
     protected function createStorage(): TaskStorageInterface
     {
         return $this->storage;
+    }
+
+    private static function incorrectStringValueException(int $code = 1366): \Doctrine\DBAL\Exception\DriverException
+    {
+        $driverException = new class(\sprintf('SQLSTATE[HY000]: General error: %d Incorrect string value: \'\\xF0\\x9F\\x92\\xA5\' for column `error` at row 1', $code), 'HY000', $code) extends \Doctrine\DBAL\Driver\AbstractException {
+        };
+
+        return new \Doctrine\DBAL\Exception\DriverException($driverException, null);
     }
 }

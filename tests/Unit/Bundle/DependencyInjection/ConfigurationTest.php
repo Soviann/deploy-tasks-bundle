@@ -7,24 +7,20 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Soviann\DeployTasksBundle\DependencyInjection\Configuration;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\EventsConfigNode;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\LockConfigNode;
 use Soviann\DeployTasksBundle\DependencyInjection\Configuration\StorageConfigNode;
-use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
-use Symfony\Component\Config\Definition\Builder\TreeBuilder;
-use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
-use Symfony\Component\Config\Definition\Loader\DefinitionFileLoader;
 use Symfony\Component\Config\Definition\Processor;
-use Symfony\Component\Config\FileLocator;
 
 /**
  * Round-trip snapshot guard for the composed configuration tree.
  *
  * Freezes the processed-config output of every known YAML shape so any future
- * edit to `SoviannDeployTasksBundle::configure()` or its per-subtree nodes that shifts
+ * edit to `Configuration::getConfigTreeBuilder()` or its per-subtree nodes that shifts
  * a default, renames a key, or drops a field fails here first.
  */
-#[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(Configuration::class)]
 #[CoversClass(StorageConfigNode::class)]
 #[CoversClass(EventsConfigNode::class)]
 #[CoversClass(LockConfigNode::class)]
@@ -868,12 +864,6 @@ final class ConfigurationTest extends TestCase
      */
     private static function processConfig(array $input): array
     {
-        $treeBuilder = new TreeBuilder('soviann_deploy_tasks');
-        $loader = new DefinitionFileLoader($treeBuilder, new FileLocator([\sys_get_temp_dir()]));
-        $configurator = new DefinitionConfigurator($treeBuilder, $loader, __FILE__, __FILE__);
-
-        (new SoviannDeployTasksBundle())->configure($configurator);
-
-        return (new Processor())->process($treeBuilder->buildTree(), [$input]);
+        return (new Processor())->processConfiguration(new Configuration(), [$input]);
     }
 }

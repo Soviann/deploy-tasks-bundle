@@ -4,11 +4,11 @@ Condensed context for AI sub-agents working on this repository. See `CLAUDE.md` 
 
 ## Project
 
-DeployTasksBundle — Symfony bundle for one-time deploy tasks (data migrations, cache warmups, seed scripts) via CLI. PHP 8.2+ (8.4+ for Symfony 8), Symfony 6.4/7.x/8.x.
+DeployTasksBundle — Symfony bundle for one-time deploy tasks (data migrations, cache warmups, seed scripts) via CLI. PHP 8.2+ (8.4+ for Symfony 8), Symfony 5.4/6.4/7.x/8.x, doctrine/dbal ^3.6 || ^4.3 (optional).
 
 ## Architecture
 
-Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: role-based folders (`Attribute/`, `Command/`, `DependencyInjection/Compiler/`, `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/` with `Dbal/`, `Filesystem/`, `InMemory/` sub-namespaces). Root-level public API: `DeployTaskInterface`, `SoviannDeployTasksBundle`, `TaskResult`.
+Single namespace `Soviann\DeployTasksBundle\` mapped to `src/`. Flat layout: role-based folders (`Attribute/`, `Command/`, `DependencyInjection/` (`Configuration`, `SoviannDeployTasksExtension`, `Compiler/`), `Event/`, `Exception/`) and domain-based folders (`Identifier/`, `Runner/`, `Sorting/`, `Storage/` with `Dbal/`, `Filesystem/`, `InMemory/` sub-namespaces). Root-level public API: `DeployTaskInterface`, `SoviannDeployTasksBundle`, `TaskResult`.
 
 ## Namespaces
 
