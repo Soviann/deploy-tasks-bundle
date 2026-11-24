@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-24
+
 ### Fixed
 
 - Database storage on MySQL/MariaDB with a `utf8` (utf8mb3) connection or column: a task failure whose error message contains 4-byte characters (emoji, U+1D11E…) is now recorded instead of being lost to error 1366 ("Incorrect string value"), which also masked the task's own error under `all_or_nothing`. The write is retried once with those characters replaced by U+FFFD, and a warning is logged on the bundle's logger. Other platforms, utf8mb4 connections and every other database error are unaffected — see `docs/storage.md` § Connection charset.
@@ -100,7 +102,8 @@ so it executes exactly once per environment.
 - **Credential-safe logging** — DBAL failure context is scrubbed of full exception objects before it reaches any log handler, so database credentials cannot leak into shared log sinks.
 - **Lock hardening** — the run lock's lease is refreshed between tasks, a mid-run lock failure aborts the run cleanly instead of crashing it, and the TTL semantics are documented so operators size it against the longest single task.
 
-[Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.4.0...v0.5.0
