@@ -6,7 +6,9 @@ namespace Soviann\DeployTasksBundle\Storage\Dbal;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\TableExistsException;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Doctrine\DBAL\Platforms\MariaDBPlatform;
 use Doctrine\DBAL\Platforms\MySQLPlatform;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
@@ -16,6 +18,8 @@ use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Soviann\DeployTasksBundle\Exception\StorageException;
 use Soviann\DeployTasksBundle\Storage\SchemaManageableInterface;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
@@ -50,6 +54,21 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
     /** Appended (within ERROR_MAX_BYTES) so a cut error message is recognizably cut. */
     private const ERROR_TRUNCATION_MARKER = ' [truncated]';
 
+    /**
+     * MySQL/MariaDB ER_TRUNCATED_WRONG_VALUE_FOR_FIELD ("Incorrect string value"):
+     * raised in strict mode when a string cannot be represented in the connection or
+     * column character set — typically a 4-byte UTF-8 character (emoji, U+1D11E…)
+     * sent over a `utf8` (utf8mb3) connection.
+     */
+    private const MYSQL_INCORRECT_STRING_VALUE = 1366;
+
+    /**
+     * Replaces each 4-byte character when the server rejects them: U+FFFD (the
+     * Unicode replacement character) is 3 bytes, so it fits utf8mb3 and still marks
+     * the spot of the lost character.
+     */
+    private const FOUR_BYTE_REPLACEMENT = "\u{FFFD}";
+
     private readonly string $quotedTable;
     private readonly string $quotedIdColumn;
     private readonly string $quotedGroupColumn;
@@ -66,13 +85,17 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
 
     private bool $initialized = false;
 
+    private readonly LoggerInterface $logger;
+
     /**
      * @throws DbalException When the platform cannot be determined from the connection
      */
     public function __construct(
         private readonly Connection $connection,
         private readonly DbalStorageConfiguration $configuration = new DbalStorageConfiguration(),
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
         $platform = $this->connection->getDatabasePlatform();
 
         $this->quotedTable = $platform->quoteSingleIdentifier($configuration->tableName);
@@ -178,6 +201,12 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
      * with a marker) before the statement runs — an over-long diagnostic must never
      * cost the execution record itself.
      *
+     * When a MySQL/MariaDB server rejects the error text with error 1366 (4-byte
+     * characters over a utf8mb3 connection or column), the write is retried once with
+     * every 4-byte character replaced by U+FFFD, and a warning is logged: the
+     * failure record survives with a slightly degraded message. Any other failure,
+     * or a failing retry, propagates.
+     *
      * @throws \InvalidArgumentException When the execution's group is the empty string
      * @throws StorageException
      */
@@ -211,7 +240,23 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
         try {
             $this->upsertSql ??= $this->buildUpsertSql();
 
-            $this->connection->executeStatement($this->upsertSql, $parameters, $types);
+            try {
+                $this->connection->executeStatement($this->upsertSql, $parameters, $types);
+            } catch (DriverException $e) {
+                $sanitizedError = $this->replaceRejectedFourByteCharacters($e, $parameters[4]);
+
+                if (null === $sanitizedError) {
+                    throw $e;
+                }
+
+                $parameters[4] = $sanitizedError;
+                $this->connection->executeStatement($this->upsertSql, $parameters, $types);
+
+                $this->logger->warning(
+                    'The database rejected 4-byte UTF-8 characters in the error message of a deploy task (MySQL/MariaDB error 1366): they were stored as U+FFFD. Use a utf8mb4 connection charset to keep them.',
+                    ['task_id' => $execution->id, 'group' => $execution->group],
+                );
+            }
         } catch (DbalException $e) {
             throw new StorageException(\sprintf('Failed to save task "%s": %s', $execution->id, $e->getMessage()), 0, $e);
         }
@@ -536,6 +581,30 @@ final class DbalStorage implements SchemaManageableInterface, TransactionalStora
 
         return \mb_strcut($error, 0, self::ERROR_MAX_BYTES - \strlen(self::ERROR_TRUNCATION_MARKER), 'UTF-8')
             .self::ERROR_TRUNCATION_MARKER;
+    }
+
+    /**
+     * Returns the error text with its 4-byte characters replaced when $e is a
+     * MySQL/MariaDB "Incorrect string value" (1366) rejection that replacing them can
+     * cure; null when the failure must propagate unchanged: another error code,
+     * another platform, no error text, or no 4-byte character in it (the rejection
+     * then concerns something else, e.g. a latin1 column, and a retry would fail
+     * the same way).
+     *
+     * @throws DbalException When the platform cannot be determined from the connection
+     */
+    private function replaceRejectedFourByteCharacters(DriverException $e, mixed $error): ?string
+    {
+        if (!\is_string($error)
+            || self::MYSQL_INCORRECT_STRING_VALUE !== $e->getCode()
+            || !$this->connection->getDatabasePlatform() instanceof AbstractMySQLPlatform
+        ) {
+            return null;
+        }
+
+        $sanitized = \preg_replace('/[\x{10000}-\x{10FFFF}]/u', self::FOUR_BYTE_REPLACEMENT, $error);
+
+        return null === $sanitized || $sanitized === $error ? null : $sanitized;
     }
 
     /**
