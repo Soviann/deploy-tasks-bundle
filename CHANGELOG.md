@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-24
+
 ### Added
 
 - Symfony 5.4 LTS support, alongside 6.4 LTS, 7.x and 8.x (5.4 needs `symfony/dependency-injection` 5.4.19 or later).
@@ -94,7 +96,8 @@ so it executes exactly once per environment.
 - **Credential-safe logging** — DBAL failure context is scrubbed of full exception objects before it reaches any log handler, so database credentials cannot leak into shared log sinks.
 - **Lock hardening** — the run lock's lease is refreshed between tasks, a mid-run lock failure aborts the run cleanly instead of crashing it, and the TTL semantics are documented so operators size it against the longest single task.
 
-[Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Soviann/deploy-tasks-bundle/compare/v0.3.0...v0.4.0
