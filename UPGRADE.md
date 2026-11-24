@@ -5,6 +5,28 @@ Migration notes for breaking changes, one section per release that ships any
 
 Everything user-visible, breaking or not, is tracked in `CHANGELOG.md`.
 
+## Upgrade to 0.7.0
+
+### What broke
+
+`SoviannDeployTasksBundle` extends `Symfony\Component\HttpKernel\Bundle\Bundle` instead of `AbstractBundle` (absent from Symfony 5.4, now supported). Its public `configure()` and `loadExtension()` methods were removed: the configuration tree moved to `Soviann\DeployTasksBundle\DependencyInjection\Configuration` and the service wiring to `Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension`, both internal.
+
+Applications that only register the bundle in `config/bundles.php` and configure `soviann_deploy_tasks` are not affected: the configuration keys, defaults, validation, service IDs and autowiring aliases are identical.
+
+### Before / after
+
+```diff
+-(new SoviannDeployTasksBundle())->configure($definitionConfigurator);
++$extension = (new SoviannDeployTasksBundle())->getContainerExtension();
++\assert($extension instanceof \Symfony\Component\DependencyInjection\Extension\ConfigurationExtensionInterface);
++$configuration = $extension->getConfiguration([], $containerBuilder);
++$processed = (new \Symfony\Component\Config\Definition\Processor())->processConfiguration($configuration, $configs);
+```
+
+### Migration
+
+Code that called `SoviannDeployTasksBundle::configure()` / `loadExtension()` directly, or checked `instanceof AbstractBundle`, goes through the bundle's container extension instead (`getContainerExtension()`, then `getConfiguration()` or `load()`), as with any classic bundle.
+
 ## Upgrade to 0.5.0
 
 ### What broke

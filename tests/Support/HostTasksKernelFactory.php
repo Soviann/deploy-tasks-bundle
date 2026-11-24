@@ -73,13 +73,7 @@ final class HostTasksKernelFactory
 
             protected function configureContainer(ContainerConfigurator $container): void
             {
-                $container->extension('framework', [
-                    'test' => true,
-                    'secret' => 'test',
-                    'http_method_override' => false,
-                    'handle_all_throwables' => true,
-                    'php_errors' => ['log' => true],
-                ]);
+                $container->extension('framework', FrameworkTestConfig::base());
 
                 $bundleConfig = [
                     'storage' => [

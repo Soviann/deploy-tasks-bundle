@@ -7,6 +7,7 @@ namespace Soviann\DeployTasksBundle\Tests\Unit\Bundle\DependencyInjection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Soviann\DeployTasksBundle\DependencyInjection\Compiler\RegisterTasksCompilerPass;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Tests\Support\FilesystemTestHelper;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -27,6 +28,7 @@ use Symfony\Component\DependencyInjection\Reference;
  * must not silently override the user's explicit choice.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 #[CoversClass(RegisterTasksCompilerPass::class)]
 final class LoggerWiringTest extends TestCase
 {

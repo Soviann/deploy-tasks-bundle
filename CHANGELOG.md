@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Symfony 5.4 LTS support, alongside 6.4 LTS, 7.x and 8.x (5.4 needs `symfony/dependency-injection` 5.4.19 or later).
+- Database storage support for `doctrine/dbal` 3.6+ in addition to 4.3+: the same table, created by `deploytasks:create-schema` or on first use, with the same behaviour on both major lines.
+- `psr/log` 2.x is accepted in addition to 3.x.
+
+### Changed
+
+- `SoviannDeployTasksBundle` now extends `Bundle` instead of `AbstractBundle`, with its configuration and services moved to an internal `DependencyInjection\SoviannDeployTasksExtension` / `Configuration` pair; the `configure()` and `loadExtension()` methods are gone from the bundle class. The `soviann_deploy_tasks` configuration, its defaults and every service ID and alias are unchanged — see `UPGRADE.md`.
+
 ## [0.6.0] - 2026-09-11
 
 ### Added

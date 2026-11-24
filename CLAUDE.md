@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DeployTasksBundle is a Symfony bundle for running one-time deploy tasks (data migrations, cache warmups, seed scripts) via CLI. Tasks are tracked so they execute only once per environment. Filesystem storage by default; Doctrine DBAL or fully custom backends supported. Requires PHP 8.2+ (8.4+ for Symfony 8) and Symfony 6.4/7.x/8.x.
+DeployTasksBundle is a Symfony bundle for running one-time deploy tasks (data migrations, cache warmups, seed scripts) via CLI. Tasks are tracked so they execute only once per environment. Filesystem storage by default; Doctrine DBAL or fully custom backends supported. Requires PHP 8.2+ (8.4+ for Symfony 8) and Symfony 5.4/6.4/7.x/8.x; database storage needs doctrine/dbal ^3.6 || ^4.3.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 
 - `DeployTaskInterface` — task contract: `getDescription(): string`, `run(OutputInterface): TaskResult`
 - `TaskResult` — enum returned by `run()`: `SUCCESS`, `FAILURE`, `SKIPPED`
-- `SoviannDeployTasksBundle` — `AbstractBundle`. `configure()` builds the config tree; `loadExtension()` registers services; `build()` autoconfigures `DeployTaskInterface` with tag `soviann_deploy_tasks.task`.
+- `SoviannDeployTasksBundle` — classic `Bundle` (not `AbstractBundle`, absent from Symfony 5.4); `build()` registers the compiler passes. Extension found by naming convention.
 
 ### Role-based folders
 
@@ -23,6 +23,10 @@ Primary public surface — matches DoctrineFixturesBundle pattern.
 - `AsDeployTask` — task metadata (id, priority, env, timeout, slowTaskThreshold, transactional, description, groups). Static `AsDeployTask::of()` is the **single attribute reader**; `AsDeployTask::groupsOf()` returns the declared groups as `list<string>|null`.
 
 **`Command/`** — 14 console commands (`Deploy*Command.php`) plus `CommandMessages.php` (shared user-facing strings).
+
+**`DependencyInjection/`**
+- `Configuration` — `@internal` `ConfigurationInterface`; builds the config tree (subtrees in `Configuration/*ConfigNode`).
+- `SoviannDeployTasksExtension` — `@internal` `Extension`; `load()` registers services via the plain `ContainerBuilder` API (`register()`/`setAlias()`/`Reference`, no `ContainerConfigurator`) and autoconfigures `DeployTaskInterface` with tag `soviann_deploy_tasks.task`.
 
 **`DependencyInjection/Compiler/`**
 - `RegisterTasksCompilerPass` — collects tagged tasks, performs compile-time duplicate-ID detection on attribute `id`s and class-name-derived IDs (`TaskIdProviderInterface` tasks are skipped — checked at boot instead), and wires optional `event_dispatcher` and `lock.factory` into the runner.
@@ -175,13 +179,13 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 
 | Need | Touch |
 |---|---|
-| New storage backend | Implement `TaskStorageInterface` (or `TransactionalStorageInterface`) in `src/Storage/`. Add a service + config branch in `SoviannDeployTasksBundle::configure()` and `loadExtension()`. |
+| New storage backend | Implement `TaskStorageInterface` (or `TransactionalStorageInterface`) in `src/Storage/`. Add a config branch in `DependencyInjection/Configuration` (or `Configuration/StorageConfigNode`) and a service in `SoviannDeployTasksExtension::load()`. |
 | Explicit task ID | Set `#[AsDeployTask(id: '...')]` on the task — auto-derivation from the class name is not customizable. |
 | Dynamic per-task ID | Task implements `TaskIdProviderInterface::getTaskId()`. |
 | Custom ordering | Implement `TaskSorterInterface`. Set `soviann_deploy_tasks.sorter`. |
 | React to lifecycle | Subscribe to `BeforeTaskEvent` / `AfterTaskEvent` / `TaskFailedEvent` (all carry `$taskId`). |
 | Custom logger | Set `soviann_deploy_tasks.logger` to a PSR-3 service ID. Default auto-detects the app logger with a `soviann_deploy_tasks` Monolog channel; `NullLogger` if no logger is available. |
-| New command | Add to `src/Command/`, register in `SoviannDeployTasksBundle::loadExtension()`. |
+| New command | Add to `src/Command/`, register in `SoviannDeployTasksExtension`. |
 
 ## Key Design Decisions
 
@@ -190,6 +194,7 @@ Additional stylistic rules (backslash-prefix native functions, Yoda conditions, 
 - **Optional event dispatcher and lock factory** — graceful degradation when `symfony/event-dispatcher` or `symfony/lock` is absent
 - **PSR-3 logging, channel-aware** — requires `psr/log` (universal); the runner uses `@logger` when available with a `soviann_deploy_tasks` Monolog channel tag, otherwise falls back to `NullLogger`. Mirrors the event-dispatcher / lock graceful-degradation pattern.
 - **Single attribute reader** — `AsDeployTask::of()` is the sole entry point for attribute parsing
+- **Symfony 5.4 LTS + DBAL 3 compat** — classic Bundle/Extension/Configuration instead of `AbstractBundle`; `DbalStorage` builds its table with DBAL 4.3+ schema editors when present, else `buildLegacySchemaSql()` (mutable `Table` API); `DbalSchemaParityTest` pins both to identical DDL. Tests use `Tests\Fixtures\MockClock` (no `symfony/clock` on 5.4) and `Tests\Support\FrameworkTestConfig` (version-gated framework options). CI legs: `Tests (PHP …, Symfony …, DBAL 3[, prefer-lowest])`.
 - **All classes `final`** — composition over inheritance
 
 ## Git

@@ -157,7 +157,7 @@ jobs:
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
 
   tests:
-    name: Tests (PHP ${{ matrix.php }}, Symfony ${{ matrix.symfony }}${{ matrix.prefer-lowest && ', prefer-lowest' || '' }})
+    name: Tests (PHP ${{ matrix.php }}, Symfony ${{ matrix.symfony }}${{ matrix.dbal != 'default' && format(', DBAL {0}', matrix.dbal) || '' }}${{ matrix.prefer-lowest && ', prefer-lowest' || '' }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -174,8 +174,11 @@ jobs:
         # Symfony 7.0–7.3 are end-of-life and receive no security patches, so the
         # advisory-aware resolver can never install them — only the maintained
         # lines (6.4 LTS, 7.4, 8.1) are exercised. 7.4 covers the 7.x API surface
-        # and 8.1 the 8.x one.
+        # and 8.1 the 8.x one. 5.4 LTS runs through the DBAL 3 legs below.
         symfony: ['6.4.*', '7.4.*', '8.1.*']
+        # 'default' = whatever doctrine/dbal resolves to (latest 4.x). The DBAL 3
+        # legs below are separate jobs because their value differs from this one.
+        dbal: ['default']
         # Symfony 8 requires PHP >= 8.4, so the 8.1 line cannot resolve on the
         # older PHP versions of the matrix.
         exclude:
@@ -188,6 +191,27 @@ jobs:
             symfony: '6.4.*'
             prefer-lowest: true
             composer-flags: '--prefer-lowest --prefer-stable'
+            # Keeps this leg on the DBAL 4 floor (4.3.0); the DBAL 3 floor has its own leg.
+            dbal-constraint: '^4.3'
+          # Symfony 5.4 LTS and doctrine/dbal 3.x, for applications locked on them.
+          - php: '8.2'
+            symfony: '5.4.*'
+            dbal: '3'
+            dbal-constraint: '^3.6'
+            prefer-lowest: true
+            composer-flags: '--prefer-lowest --prefer-stable'
+          - php: '8.3'
+            symfony: '5.4.*'
+            dbal: '3'
+            dbal-constraint: '^3.6'
+          - php: '8.3'
+            symfony: '6.4.*'
+            dbal: '3'
+            dbal-constraint: '^3.6'
+          - php: '8.3'
+            symfony: '7.4.*'
+            dbal: '3'
+            dbal-constraint: '^3.6'
 
     steps:
       - name: Checkout
@@ -204,7 +228,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.composer/cache
-          key: composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-${{ hashFiles('composer.json') }}
+          key: composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-dbal${{ matrix.dbal }}-${{ hashFiles('composer.json') }}
           restore-keys: |
             composer-php${{ matrix.php }}-sf${{ matrix.symfony }}-
             composer-php${{ matrix.php }}-
@@ -217,6 +241,15 @@ jobs:
         run: |
           composer global config --no-plugins allow-plugins.symfony/flex true
           composer global require --no-progress --no-scripts --no-plugins symfony/flex
+
+      # Infection and PHP CS Fixer require Symfony 6.4+; neither runs in this job.
+      - name: Drop dev tools without Symfony 5.4 support
+        if: matrix.symfony == '5.4.*'
+        run: composer remove --dev --no-update --no-interaction infection/infection friendsofphp/php-cs-fixer
+
+      - name: Pin doctrine/dbal
+        if: matrix.dbal-constraint
+        run: composer require --dev --no-update --no-interaction "doctrine/dbal:${{ matrix.dbal-constraint }}"
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress --no-scripts ${{ matrix.composer-flags }}

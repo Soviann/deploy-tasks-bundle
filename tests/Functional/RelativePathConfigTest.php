@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Soviann\DeployTasksBundle\Tests\Functional;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Soviann\DeployTasksBundle\DependencyInjection\SoviannDeployTasksExtension;
 use Soviann\DeployTasksBundle\SoviannDeployTasksBundle;
 use Soviann\DeployTasksBundle\Storage\TaskExecution;
 use Soviann\DeployTasksBundle\Storage\TaskStatus;
@@ -17,6 +18,7 @@ use Symfony\Component\Filesystem\Filesystem;
  * project root.
  */
 #[CoversClass(SoviannDeployTasksBundle::class)]
+#[CoversClass(SoviannDeployTasksExtension::class)]
 final class RelativePathConfigTest extends FunctionalTestCase
 {
     private string $originalCwd;

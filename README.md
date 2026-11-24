@@ -18,7 +18,8 @@ A Symfony bundle for running **one-time (`run-once`) deploy tasks** — service-
 ## Requirements
 
 - PHP >= 8.2 (>= 8.4 for Symfony 8)
-- Symfony 6.4 LTS, 7.x or 8.x
+- Symfony 5.4 LTS, 6.4 LTS, 7.x or 8.x
+- Database storage (optional): `doctrine/dbal` 3.6+ or 4.3+
 
 ## Installation
 

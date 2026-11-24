@@ -30,11 +30,13 @@ Writes are made atomic and safe for concurrent writers through two separate mech
 
 ## Database
 
-Stores execution records in a database table. Requires `doctrine/dbal`:
+Stores execution records in a database table. Requires `doctrine/dbal` 3.6+ or 4.3+:
 
 ```bash
 composer require doctrine/dbal
 ```
+
+Both major lines create the same table (columns, types, defaults, composite primary key) and behave identically, so upgrading DBAL from 3.x to 4.x needs no schema change. The bundle refuses DBAL 4.0–4.2 at install time.
 
 ```yaml
 soviann_deploy_tasks:
